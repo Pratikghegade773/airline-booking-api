@@ -1,0 +1,164 @@
+package com.airlines.GO7API.responseGo7;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+import java.util.Map;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class AirshopRspGo7Dto {
+
+    @JsonProperty("aerocrs")
+    private Aerocrs aerocrs;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Aerocrs {
+        private boolean success;
+        private Flights flights;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Flights {
+        private int count;
+        private List<Flight> flight;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Flight {
+        private String airlineDesignator;
+        private String airlineICAOcode;
+        private String airlineName;
+        private String aircraftType;
+        private String aircraftTypeIataCode;
+        private String fltnum;
+        private String fromcode;
+        private String tocode;
+        private String via;
+        @JsonProperty("STD")
+        private String std;
+        @JsonProperty("STA")
+        private String sta;
+        @JsonProperty("STDinUTC")
+        private String stdInUtc;
+        @JsonProperty("STAinUTC")
+        private String staInUtc;
+        private String airlineLogo;
+        @JsonProperty("CompanyChildAgeStart")
+        private int companyChildAgeStart;
+        @JsonProperty("CompanyChildAgeEnd")
+        private int companyChildAgeEnd;
+        @JsonProperty("companyINFchargeTAX")
+        private boolean companyInfChargeTax;
+        private String deeplink;
+        private String direction;
+        private int websiteDiscount;
+        private String flighttype;
+        private int minimumPassengersForBooking;
+        private long flightcode;
+
+        // Classes have dynamic keys (e.g., "Y/Flex Plus", "B")
+        private Map<String, FlightClass> classes;
+
+        private List<String> rules;
+        private String departureTerminal;
+        private String arrivalTerminal;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class FlightClass {
+        private String fltflimitcurrency;
+        private long flightid;
+        private int freeseats;
+        private String className;
+        private String classCode;
+        private String cabinClass;
+        private String cabinCode;
+        private String currency;
+        private String chargeType;
+        private String chargeTypeCode;
+        private int baggageAllowance;
+        private int infbaggageallowance;
+        private String baggageUnit;
+        private Fare fare;
+        private Fare rackFare;
+        private Map<String, Service> services;
+        private long fareid;
+        private String type;
+        private String notification;
+        private Object breakdown; // Can be empty or object
+        private RawFareObject rawFareObject;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Fare {
+        private String tax;
+        private String adultFare;
+        private String childFare;
+        private String infantFare;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Service {
+        private boolean active;
+        private String text;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class RawFareObject {
+        private RackFareDetails rackFare;
+        private FareDetails fare;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class RackFareDetails {
+        private String tax;
+        private Map<String, String> taxBreakdown;
+        private String adultFare;
+        private String childFare;
+        private String infantFare;
+        private String vat;
+        private String tax4forChildRE;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class FareDetails {
+        private String tax;
+        private String adultFare;
+        private String childFare;
+        private String infantFare;
+    }
+}
