@@ -74,12 +74,27 @@ public class AirshopResponse {
             airshopRspDto.setRoundTripType("RT");
         }
 
+        // Generate Passenger Refs
+        List<String> passengerRefs = new ArrayList<>();
+        int paxCount = 1;
+        if (request != null) {
+            for (int i = 0; i < request.getAdults(); i++)
+                passengerRefs.add("T" + (paxCount++));
+            for (int i = 0; i < request.getChildren(); i++)
+                passengerRefs.add("T" + (paxCount++));
+            for (int i = 0; i < request.getInfants(); i++)
+                passengerRefs.add("T" + (paxCount++));
+        } else {
+            passengerRefs.add("T1");
+        }
+
         int flightIndex = 0;
         for (AirshopRspGo7Dto.Flight flight : response.getAerocrs().getFlights().getFlight()) {
             flightIndex++;
             if (flight.getClasses() != null) {
                 for (Map.Entry<String, AirshopRspGo7Dto.FlightClass> entry : flight.getClasses().entrySet()) {
                     AirshopRspGo7Dto.FlightClass flightClass = entry.getValue();
+                    String classKey = entry.getKey(); // e.g. "Y/Flex Plus" or "B"
 
                     Offer offer = new Offer();
                     // Generate ID with all required params (hyphen separated)
@@ -97,10 +112,18 @@ public class AirshopResponse {
 
                     offer.setOfferId(idBuilder.toString());
 
+                    // Time Limits
+                    DateTimeFormatter ndcTimeFormat = DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss",
+                            java.util.Locale.ENGLISH);
+                    LocalDateTime now = LocalDateTime.now();
+                    offer.setOfferExpiration(now.plusMinutes(20).format(ndcTimeFormat));
+                    offer.setPaymentTimeLimit(now.plusDays(2).format(ndcTimeFormat));
+                    offer.setTicketedByTimeLimit(now.plusDays(2).format(ndcTimeFormat));
+
                     offer.setValidatingCarrier(flight.getAirlineDesignator());
                     offer.setCurrency(flightClass.getCurrency());
                     offer.setClassType(flightClass.getClassName());
-                    offer.setCabinTypeCode(flightClass.getCabinCode());
+                    offer.setCabinTypeCode(flightClass.getCabinClass());
 
                     // Price
                     BigDecimal adultFare = new BigDecimal(flightClass.getFare().getAdultFare());
@@ -108,6 +131,8 @@ public class AirshopResponse {
 
                     // OD Mapping
                     Offer.OD od = new Offer.OD();
+                    String segmentId = "SEG" + flightIndex;
+
                     // Set odKey based on direction (Outbound=OD1, Inbound=OD2)
                     String odKey = "OD1";
                     if (flight.getDirection() != null && flight.getDirection().equalsIgnoreCase("inbound")) {
@@ -125,7 +150,12 @@ public class AirshopResponse {
                     od.setMarketingCarrierName(flight.getAirlineName());
                     // Set cabinType as cached from flightClass (requested by user)
                     od.setCabinType(flightClass.getCabinClass());
-                    od.setSegmentId("SEG" + flightIndex);
+                    od.setSegmentId(segmentId);
+                    od.setPriceClassId("PC" + flightIndex);
+
+                    // RBD and FareBasiscode
+                    od.setRbdCode(null);
+                    od.setFareBasisCode(null);
 
                     // Map Terminals (keep empty if empty)
                     od.setDepartureTerminal(flight.getDepartureTerminal());
@@ -166,6 +196,7 @@ public class AirshopResponse {
                     Offer.OfferItemDto offerItem = new Offer.OfferItemDto();
                     offerItem.setOfferItemId(offer.getOfferId() + "-1");
                     offerItem.setPtc("ADT");
+                    offerItem.setPassengerRefs(passengerRefs);
                     offerItem.setTotalPrice(adultFare);
 
                     // Baggage
@@ -174,14 +205,17 @@ public class AirshopResponse {
                     // 1. Checked-In Baggage (from flat fields)
                     Offer.OfferItemDto.BaggageAllowance checkedBag = new Offer.OfferItemDto.BaggageAllowance();
                     checkedBag.setCategory("Checked-In");
+                    checkedBag.setSegmentrefId(java.util.Collections.singletonList(segmentId));
+                    checkedBag.setPassengerId(passengerRefs);
+
                     if (flightClass.getBaggageAllowance() > 0) {
+                        checkedBag.setQuantity("1");
                         Offer.OfferItemDto.BaggageAllowance.Weight weight = new Offer.OfferItemDto.BaggageAllowance.Weight();
                         weight.setValue(new BigDecimal(flightClass.getBaggageAllowance()));
                         weight.setUom(flightClass.getBaggageUnit());
                         List<Offer.OfferItemDto.BaggageAllowance.Weight> weightList = new ArrayList<>();
                         weightList.add(weight);
                         checkedBag.setWeight(weightList);
-                        // Add piece count if needed, default to flat value
                     }
                     bagList.add(checkedBag);
 
@@ -191,6 +225,9 @@ public class AirshopResponse {
                         if (hbService.isActive()) {
                             Offer.OfferItemDto.BaggageAllowance handBag = new Offer.OfferItemDto.BaggageAllowance();
                             handBag.setCategory("Carry On");
+                            handBag.setSegmentrefId(java.util.Collections.singletonList(segmentId));
+                            handBag.setPassengerId(passengerRefs);
+                            handBag.setQuantity("1");
 
                             // Try to parse weight from text e.g. "1 Item per PAX, max 10 KG"
                             String text = hbService.getText();
@@ -207,8 +244,6 @@ public class AirshopResponse {
                                     handBag.setWeight(hbWeightList);
                                 }
 
-                                // Also add description if useful? User just asked for weight mapping like
-                                // checked.
                                 List<Offer.OfferItemDto.BaggageAllowance.DescriptionDTO> descList = new ArrayList<>();
                                 Offer.OfferItemDto.BaggageAllowance.DescriptionDTO descDto = new Offer.OfferItemDto.BaggageAllowance.DescriptionDTO();
                                 descDto.setDescription(text);
@@ -226,7 +261,7 @@ public class AirshopResponse {
                     priceClassRef.setClassName(
                             flightClass.getType() != null && !flightClass.getType().isEmpty() ? flightClass.getType()
                                     : flightClass.getClassName());
-                    priceClassRef.setCabinTypeCode(flightClass.getCabinCode());
+                    priceClassRef.setCabinTypeCode(flightClass.getCabinClass());
                     priceClassRef.setPriceClassId("PC" + flightIndex);
 
                     List<Offer.OfferItemDto.PriceClassReference.Description> descriptions = new ArrayList<>();
@@ -284,11 +319,18 @@ public class AirshopResponse {
                         for (Map.Entry<String, String> taxEntry : flightClass.getRawFareObject().getRackFare()
                                 .getTaxBreakdown().entrySet()) {
                             Offer.OfferItemDto.FareDetail.Price.Taxes taxesItem = new Offer.OfferItemDto.FareDetail.Price.Taxes();
-                            taxesItem.setTotal(tax); // User requested total amount as 'tax'
-                            taxesItem.setDescription(taxEntry.getKey()); // Key as description (e.g. "Ground handling")
+                            taxesItem.setTotal(tax);
                             taxesItem.setCurrency(flightClass.getCurrency());
-                            // Code? User example had "IN", but generic breakdown usually lacks code.
-                            // Leaving null or could set from key.
+
+                            // Try to map code - if key is short e.g. "YQ" use as code, else description
+                            String key = taxEntry.getKey();
+                            if (key.length() <= 3) {
+                                taxesItem.setCode(key);
+                                taxesItem.setDescription("Tax " + key); // Or Generic
+                            } else {
+                                taxesItem.setCode("TAX"); // Generic code
+                                taxesItem.setDescription(key);
+                            }
 
                             try {
                                 taxesItem.setAmount(new BigDecimal(taxEntry.getValue()));

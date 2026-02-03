@@ -176,6 +176,7 @@ public class OfferPriceRspDto {
         @NoArgsConstructor
         @AllArgsConstructor
         public static class Description {
+            private String odKey;
             private String text;
         }
     }

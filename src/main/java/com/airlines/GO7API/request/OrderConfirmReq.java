@@ -1,7 +1,7 @@
 package com.airlines.GO7API.request;
 
-import com.airlines.GO7API.requestDto.OrderConfirmReqDto;
 import com.airlines.GO7API.error.ErrorRsp;
+import com.airlines.GO7API.requestDto.OrderCreateReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,58 +23,21 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class OrderConfirmReq {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
 
     @JsonIgnore
-    private String apiKey;
-    @JsonIgnore
-    private String orderConfirmUrl;
-
-    public Aerocrs getAerocrs() {
-        return aerocrs;
-    }
-
-    public void setAerocrs(Aerocrs aerocrs) {
-        this.aerocrs = aerocrs;
-    }
-
-    public String getApiKey() {
-        return apiKey;
-    }
-
-    public void setApiKey(String apiKey) {
-        this.apiKey = apiKey;
-    }
-
-    public String getOrderConfirmUrl() {
-        return orderConfirmUrl;
-    }
-
-    public void setOrderConfirmUrl(String orderConfirmUrl) {
-        this.orderConfirmUrl = orderConfirmUrl;
-    }
-
-    // ---------- Nested Classes ----------
+    private String orderConfirmUrl = "https://api.aerocrs.com/v5/confirmBooking";
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Aerocrs {
-
         @JsonProperty("parms")
         private Parms parms;
-
-        public Parms getParms() {
-            return parms;
-        }
-
-        public void setParms(Parms parms) {
-            this.parms = parms;
-        }
     }
 
     @Data
@@ -82,83 +45,10 @@ public class OrderConfirmReq {
     @AllArgsConstructor
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Parms {
-
-        @JsonProperty("bookingid")
         private Long bookingid;
-
-        @JsonProperty("agentconfirmation")
         private String agentconfirmation;
-
-        @JsonProperty("remarks")
-        private String remarks;
-
-        @JsonProperty("confirmationemail")
         private String confirmationemail;
-
-        @JsonProperty("holdBooking")
-        private Boolean holdBooking;
-
-        @JsonProperty("sendemail")
-        private Boolean sendemail;
-
-        @JsonProperty("passenger")
         private List<Passenger> passenger;
-
-        public Long getBookingid() {
-            return bookingid;
-        }
-
-        public void setBookingid(Long bookingid) {
-            this.bookingid = bookingid;
-        }
-
-        public String getAgentconfirmation() {
-            return agentconfirmation;
-        }
-
-        public void setAgentconfirmation(String agentconfirmation) {
-            this.agentconfirmation = agentconfirmation;
-        }
-
-        public String getRemarks() {
-            return remarks;
-        }
-
-        public void setRemarks(String remarks) {
-            this.remarks = remarks;
-        }
-
-        public String getConfirmationemail() {
-            return confirmationemail;
-        }
-
-        public void setConfirmationemail(String confirmationemail) {
-            this.confirmationemail = confirmationemail;
-        }
-
-        public Boolean getHoldBooking() {
-            return holdBooking;
-        }
-
-        public void setHoldBooking(Boolean holdBooking) {
-            this.holdBooking = holdBooking;
-        }
-
-        public Boolean getSendemail() {
-            return sendemail;
-        }
-
-        public void setSendemail(Boolean sendemail) {
-            this.sendemail = sendemail;
-        }
-
-        public List<Passenger> getPassenger() {
-            return passenger;
-        }
-
-        public void setPassenger(List<Passenger> passenger) {
-            this.passenger = passenger;
-        }
     }
 
     @Data
@@ -166,237 +56,95 @@ public class OrderConfirmReq {
     @AllArgsConstructor
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Passenger {
-
-        @JsonProperty("paxtitle")
         private String paxtitle;
-
-        @JsonProperty("firstname")
         private String firstname;
-
-        @JsonProperty("lastname")
         private String lastname;
-
-        @JsonProperty("paxage")
-        private String paxage;
-
-        @JsonProperty("paxnationailty")
+        private Integer paxage;
         private String paxnationailty;
-
-        @JsonProperty("paxdoctype")
         private String paxdoctype;
-
-        @JsonProperty("paxdocnumber")
         private String paxdocnumber;
-
-        @JsonProperty("paxdocissuer")
         private String paxdocissuer;
-
-        @JsonProperty("paxdocexpiry")
         private String paxdocexpiry;
-
-        @JsonProperty("paxbirthdate")
         private String paxbirthdate;
-
-        @JsonProperty("paxvisanumber")
-        private String paxvisanumber;
-
-        @JsonProperty("paxvisaexpiry")
-        private String paxvisaexpiry;
-
-        @JsonProperty("paxphone")
         private String paxphone;
-
-        @JsonProperty("paxemail")
         private String paxemail;
-
-        @JsonProperty("paxweight")
-        private Integer paxweight;
-
-        @JsonProperty("paxcarringinfant")
-        private Boolean paxcarringinfant;
-
-        public String getPaxtitle() {
-            return paxtitle;
-        }
-
-        public void setPaxtitle(String paxtitle) {
-            this.paxtitle = paxtitle;
-        }
-
-        public String getFirstname() {
-            return firstname;
-        }
-
-        public void setFirstname(String firstname) {
-            this.firstname = firstname;
-        }
-
-        public String getLastname() {
-            return lastname;
-        }
-
-        public void setLastname(String lastname) {
-            this.lastname = lastname;
-        }
-
-        public String getPaxage() {
-            return paxage;
-        }
-
-        public void setPaxage(String paxage) {
-            this.paxage = paxage;
-        }
-
-        public String getPaxnationailty() {
-            return paxnationailty;
-        }
-
-        public void setPaxnationailty(String paxnationailty) {
-            this.paxnationailty = paxnationailty;
-        }
-
-        public String getPaxdoctype() {
-            return paxdoctype;
-        }
-
-        public void setPaxdoctype(String paxdoctype) {
-            this.paxdoctype = paxdoctype;
-        }
-
-        public String getPaxdocnumber() {
-            return paxdocnumber;
-        }
-
-        public void setPaxdocnumber(String paxdocnumber) {
-            this.paxdocnumber = paxdocnumber;
-        }
-
-        public String getPaxdocissuer() {
-            return paxdocissuer;
-        }
-
-        public void setPaxdocissuer(String paxdocissuer) {
-            this.paxdocissuer = paxdocissuer;
-        }
-
-        public String getPaxdocexpiry() {
-            return paxdocexpiry;
-        }
-
-        public void setPaxdocexpiry(String paxdocexpiry) {
-            this.paxdocexpiry = paxdocexpiry;
-        }
-
-        public String getPaxbirthdate() {
-            return paxbirthdate;
-        }
-
-        public void setPaxbirthdate(String paxbirthdate) {
-            this.paxbirthdate = paxbirthdate;
-        }
-
-        public String getPaxvisanumber() {
-            return paxvisanumber;
-        }
-
-        public void setPaxvisanumber(String paxvisanumber) {
-            this.paxvisanumber = paxvisanumber;
-        }
-
-        public String getPaxvisaexpiry() {
-            return paxvisaexpiry;
-        }
-
-        public void setPaxvisaexpiry(String paxvisaexpiry) {
-            this.paxvisaexpiry = paxvisaexpiry;
-        }
-
-        public String getPaxphone() {
-            return paxphone;
-        }
-
-        public void setPaxphone(String paxphone) {
-            this.paxphone = paxphone;
-        }
-
-        public String getPaxemail() {
-            return paxemail;
-        }
-
-        public void setPaxemail(String paxemail) {
-            this.paxemail = paxemail;
-        }
-
-        public Integer getPaxweight() {
-            return paxweight;
-        }
-
-        public void setPaxweight(Integer paxweight) {
-            this.paxweight = paxweight;
-        }
-
-        public Boolean getPaxcarringinfant() {
-            return paxcarringinfant;
-        }
-
-        public void setPaxcarringinfant(Boolean paxcarringinfant) {
-            this.paxcarringinfant = paxcarringinfant;
-        }
     }
 
-    public static OrderConfirmReq mapToOrderConfirmRequestDTO(OrderConfirmReqDto dto) {
-        OrderConfirmReq req = new OrderConfirmReq();
+    public static OrderConfirmReq mapToOrderConfirmReq(OrderCreateReqDto requestDto, Long bookingId) {
+        OrderConfirmReq request = new OrderConfirmReq();
+        Aerocrs aerocrs = new Aerocrs();
+        Parms parms = new Parms();
 
-        // Manual mapping from DTO to Request
-        if (dto.getAerocrs() != null) {
-            Aerocrs aerocrsReq = new Aerocrs();
-
-            if (dto.getAerocrs().getParms() != null) {
-                OrderConfirmReqDto.Parms dtoParms = dto.getAerocrs().getParms();
-                Parms parmsReq = new Parms();
-
-                parmsReq.setBookingid(dtoParms.getBookingid());
-                parmsReq.setAgentconfirmation(dtoParms.getAgentconfirmation());
-                parmsReq.setRemarks(dtoParms.getRemarks());
-                parmsReq.setConfirmationemail(dtoParms.getConfirmationemail());
-                parmsReq.setHoldBooking(dtoParms.getHoldBooking());
-                parmsReq.setSendemail(dtoParms.getSendemail());
-
-                if (dtoParms.getPassenger() != null) {
-                    List<Passenger> paxList = new ArrayList<>();
-                    for (OrderConfirmReqDto.Passenger dtoPax : dtoParms.getPassenger()) {
-                        Passenger pax = new Passenger();
-                        pax.setPaxtitle(dtoPax.getPaxtitle());
-                        pax.setFirstname(dtoPax.getFirstname());
-                        pax.setLastname(dtoPax.getLastname());
-                        pax.setPaxage(dtoPax.getPaxage());
-                        pax.setPaxnationailty(dtoPax.getPaxnationailty());
-                        pax.setPaxdoctype(dtoPax.getPaxdoctype());
-                        pax.setPaxdocnumber(dtoPax.getPaxdocnumber());
-                        pax.setPaxdocissuer(dtoPax.getPaxdocissuer());
-                        pax.setPaxdocexpiry(dtoPax.getPaxdocexpiry());
-                        pax.setPaxbirthdate(dtoPax.getPaxbirthdate());
-                        pax.setPaxvisanumber(dtoPax.getPaxvisanumber());
-                        pax.setPaxvisaexpiry(dtoPax.getPaxvisaexpiry());
-                        pax.setPaxphone(dtoPax.getPaxphone());
-                        pax.setPaxemail(dtoPax.getPaxemail());
-                        pax.setPaxweight(dtoPax.getPaxweight());
-                        pax.setPaxcarringinfant(dtoPax.getPaxcarringinfant());
-
-                        paxList.add(pax);
-                    }
-                    parmsReq.setPassenger(paxList);
+        // 1. Booking ID
+        if (bookingId != null) {
+            parms.setBookingid(bookingId);
+        } else {
+            // Fallback: try parsing responseId if it happens to be numeric
+            if (requestDto.getResponseId() != null) {
+                try {
+                    parms.setBookingid(Long.parseLong(requestDto.getResponseId()));
+                } catch (NumberFormatException e) {
+                    // Ignore
                 }
-                aerocrsReq.setParms(parmsReq);
             }
-            req.setAerocrs(aerocrsReq);
         }
 
-        // Note: apiKey and url are present in OrderConfirmReqDto
-        req.setApiKey(dto.getApiKey());
-        req.setOrderConfirmUrl(dto.getOrderConfirmUrl());
+        // 2. Constants / Agent Info
+        parms.setAgentconfirmation("apiconnector");
 
-        return req;
+        // 3. Confirmation Email (Use first passenger's email or agent default)
+        if (requestDto.getPassengers() != null && !requestDto.getPassengers().isEmpty()) {
+            parms.setConfirmationemail(requestDto.getPassengers().get(0).getEmail());
+        } else {
+            parms.setConfirmationemail("noreply@airlines.com"); // Fallback
+        }
+
+        // 4. Map Passengers
+        List<Passenger> paxList = new ArrayList<>();
+        if (requestDto.getPassengers() != null) {
+            for (OrderCreateReqDto.Pax dtoPax : requestDto.getPassengers()) {
+                Passenger p = new Passenger();
+                p.setPaxtitle(dtoPax.getTitle()+".");
+                p.setFirstname(dtoPax.getFirstName());
+                p.setLastname(dtoPax.getLastName());
+
+                // Age - if not in DTO, leave null or calculate? User sample had null.
+                // p.setPaxage(null);
+
+                // Address / Contact
+                if (dtoPax.getPhoneNumber() != null) {
+                    String phone = dtoPax.getPhoneNumber().toString();
+                    if (dtoPax.getCountryDialingCode() != null) {
+                        p.setPaxphone(dtoPax.getCountryDialingCode() + phone);
+                    } else {
+                        p.setPaxphone(phone);
+                    }
+                }
+                p.setPaxemail(dtoPax.getEmail());
+                p.setPaxbirthdate(dtoPax.getDob()); // format check?
+
+                // Documents
+                if (dtoPax.getIdentityDocument() != null) {
+                    OrderCreateReqDto.Pax.IdentityDocument doc = dtoPax.getIdentityDocument();
+                    p.setPaxnationailty(doc.getCitizenshipCountryCode());
+                    p.setPaxdoctype(doc.getIdentityDocumentType() != null ? doc.getIdentityDocumentType() : "PP");
+                    p.setPaxdocnumber(doc.getIdentityDocumentNumber());
+                    p.setPaxdocissuer(doc.getIssuingCountryCode());
+                    p.setPaxdocexpiry(doc.getExpiryDate());
+                } else {
+                    // Defaults if missing or required?
+                    p.setPaxdoctype("PP");
+                    p.setPaxnationailty("US"); // Fallback from sample
+                }
+
+                paxList.add(p);
+            }
+        }
+        parms.setPassenger(paxList);
+
+        aerocrs.setParms(parms);
+        request.setAerocrs(aerocrs);
+        return request;
     }
 
     public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
@@ -406,16 +154,41 @@ public class OrderConfirmReq {
         try {
             JsonNode root = objectMapper.readTree(response);
 
-            if (root.has("errors") || !root.path("success").asBoolean(true)) { // Basic error check, adjust as needed
-                // If specific error structure exists, parse it here
-                if (root.has("errors")) {
-                    ErrorRsp errorRsp = new ErrorRsp();
-                    // Populate error logic... assuming generic for now or raw return
-                    return root;
+            if (root.has("errors")) {
+                ErrorRsp errorRsp = new ErrorRsp();
+                JsonNode errorsArray = root.path("errors");
+                if (errorsArray.isArray()) {
+                    for (JsonNode errorNode : errorsArray) {
+                        String errorMessage = errorNode.path("message").asText();
+                        String code = errorNode.path("code").asText();
+                        ErrorRsp.Error tempError = new ErrorRsp.Error();
+                        tempError.setError(errorMessage);
+                        tempError.setCode(code);
+                        errorRsp.getErrorList().add(tempError);
+                    }
                 }
+                return errorRsp;
+            } else if (root.has("success") && !root.path("success").asBoolean() && root.has("details")) {
+                ErrorRsp errorRsp = new ErrorRsp();
+                JsonNode detailsNode = root.path("details");
+                if (detailsNode.has("detail")) {
+                    JsonNode detailArray = detailsNode.path("detail");
+                    if (detailArray.isArray()) {
+                        for (JsonNode msgNode : detailArray) {
+                            ErrorRsp.Error tempError = new ErrorRsp.Error();
+                            tempError.setError(msgNode.asText());
+                            errorRsp.getErrorList().add(tempError);
+                        }
+                    } else {
+                        ErrorRsp.Error tempError = new ErrorRsp.Error();
+                        tempError.setError(detailArray.asText());
+                        errorRsp.getErrorList().add(tempError);
+                    }
+                }
+                return errorRsp;
+            } else {
+                return objectMapper.readValue(response, Object.class);
             }
-            return objectMapper.readValue(response, Object.class);
-
         } catch (Exception e) {
             System.out.println("Error parsing response: " + e.getMessage());
             return response;
@@ -423,41 +196,25 @@ public class OrderConfirmReq {
     }
 
     public String makeApiCall() throws IOException {
-        String baseUrl = orderConfirmUrl; // URL from internal field
         String jsonBody = new ObjectMapper()
                 .enable(SerializationFeature.INDENT_OUTPUT)
                 .writeValueAsString(this);
 
         HttpHeaders headers = new HttpHeaders();
-        // headers.add("x-api-key", apiKey); // Use if needed
-        // Assuming AeroCRS content type or auth headers
-        if (apiKey != null) {
-            headers.add("x-api-key", apiKey);
-        }
+        // Hardcoded Auth
+        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
+        headers.add("auth_password", "vJ3yGilZ9u7N");
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated Request is:\n" + jsonBody);
+        System.out.println("Generated OrderConfirm Request is:\n" + jsonBody);
 
         RestTemplate restTemplate = new RestTemplate();
-        ObjectMapper mapper = new ObjectMapper();
-
         try {
-            // Using POST as standard for order creation/confirmation
-            ResponseEntity<String> response = restTemplate.exchange(baseUrl, HttpMethod.POST, entity, String.class);
-            System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-            String rawJson = response.getBody();
-
-            try {
-                Object json = mapper.readValue(rawJson, Object.class);
-                String prettyJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
-                System.out.println("Pretty Response:\n" + prettyJson);
-            } catch (Exception ex) {
-                System.out.println("Failed to pretty print JSON: " + ex.getMessage());
-            }
-
-            return rawJson;
-
+            ResponseEntity<String> response = restTemplate.exchange(orderConfirmUrl, HttpMethod.POST, entity,
+                    String.class);
+            System.out.println("OrderConfirm Response: " + response.getBody());
+            return response.getBody();
         } catch (HttpClientErrorException e) {
             System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
             return e.getResponseBodyAsString();

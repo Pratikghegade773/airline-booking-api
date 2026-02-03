@@ -110,6 +110,12 @@ public class OfferPriceReq {
 
         aerocrs.setParms(parms);
         request.setAerocrs(aerocrs);
+
+        // Map dynamic URL if provided
+        if (offerPriceRQ.getOfferpriceurl() != null && !offerPriceRQ.getOfferpriceurl().isEmpty()) {
+            request.setOfferPriceUrl(offerPriceRQ.getOfferpriceurl());
+        }
+
         return request;
     }
 
@@ -156,6 +162,7 @@ public class OfferPriceReq {
         try {
             ResponseEntity<String> response = restTemplate.exchange(offerPriceUrl, HttpMethod.POST, entity,
                     String.class);
+            System.out.println("OfferPrice Response: " + response.getBody());
             return response.getBody();
         } catch (HttpClientErrorException e) {
             System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());

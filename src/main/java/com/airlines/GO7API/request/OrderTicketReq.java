@@ -85,6 +85,8 @@ public class OrderTicketReq {
         private Long bookingid; // mandatory for all
         @JsonProperty("currency")
         private String currency; // optional
+        @JsonProperty("agentconfirmation")
+        private String agentconfirmation;
 
         // -------- Create Payment (PSP/Manual) --------
         @JsonProperty("bookingconfirmation")
@@ -413,6 +415,21 @@ public class OrderTicketReq {
         req.setApiKey(dto.getApiKey());
         req.setOrderTicketUrl(dto.getOrderTicketUrl());
 
+        return req;
+    }
+
+    public static OrderTicketReq mapFromBookingId(Long bookingId) {
+        OrderTicketReq req = new OrderTicketReq();
+        Aerocrs aerocrs = new Aerocrs();
+        Parms parms = new Parms();
+        parms.setBookingid(bookingId);
+        // Default agent/user confirmation if needed
+        parms.setAgentconfirmation("ApiConnector");
+        aerocrs.setParms(parms);
+        req.setAerocrs(aerocrs);
+        // Default URL/Auth should be handled by unmarshal or constructor, but for now
+        // set basic defaults if not present
+        // req.setOrderTicketUrl("https://api.aerocrs.com/v5/issueTicket");
         return req;
     }
 
