@@ -133,14 +133,37 @@ public class OrderCreateResponse {
                 od.setArrivalTerminal(flight.getArrivalTerminal());
                 od.setDepartureTerminal(flight.getDepartureTerminal());
 
-                String cabinCode = "Economy";
+                String rawClass = flight.getFlightClass() != null ? flight.getFlightClass() : "";
                 String rbd = "";
-                String className = "Economy Flex";
+                String className = rawClass;
+                String cabinCode = "Economy";
 
-                if (flight.getFlightClass() != null) {
-                    if (flight.getFlightClass().contains("Flex")) {
-                        cabinCode = "Economy";
-                        className = flight.getFlightClass();
+                if (rawClass.contains("/")) {
+                    String[] parts = rawClass.split("/");
+                    if (parts.length > 0) {
+                        String code = parts[0].trim().toUpperCase();
+                        // Map code to Cabin
+                        if (code.equals("F") || code.equals("A") || code.equals("P")) {
+                            cabinCode = "First";
+                        } else if (code.equals("C") || code.equals("J") || code.equals("D") || code.equals("Z")
+                                || code.equals("I")) {
+                            cabinCode = "Business";
+                        } else {
+                            cabinCode = "Economy";
+                        }
+
+                        // Use the first letter as RBD if user wants "fetch that Y"
+                        rbd = code;
+                    }
+                    if (parts.length > 1) {
+                        className = parts[1].trim();
+                    }
+                } else {
+                    // Fallback to searching string content
+                    if (rawClass.toUpperCase().contains("BUSINESS")) {
+                        cabinCode = "Business";
+                    } else if (rawClass.toUpperCase().contains("FIRST")) {
+                        cabinCode = "First";
                     }
                 }
 
