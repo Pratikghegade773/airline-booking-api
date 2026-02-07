@@ -65,7 +65,8 @@ public class OfferPriceReq {
                     fromcode = parts[2];
                     tocode = parts[3];
                     String type = parts[4];
-                    if ("Return".equalsIgnoreCase(type) || "RT".equalsIgnoreCase(type)) {
+                    if ("Return".equalsIgnoreCase(type) || "RT".equalsIgnoreCase(type)
+                            || "RoundTrip".equalsIgnoreCase(type)) {
                         triptype = "RT";
                     }
                     try {

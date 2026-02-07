@@ -1,85 +1,63 @@
 package com.airlines.GO7API.requestDto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class OrderReshopReqDto {
-
+    private String airlineCode;
+    private String orderId;
+    private String agencyId;
+    private String agentId;
     private String apiKey;
-    private String orderReshopUrl;
-    private Aerocrs aerocrs;
+    private String reshopUrl;
+    private String agencyName;
+    private List<OD> ods;
+    private List<String> offerItems;
+    private List<DeleteOrderItem> deleteOrderItems;
+    private List<Passengers> paxList;
 
-    public OrderReshopReqDto() {
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DeleteOrderItem {
+        private String orderItemId;
+        private List<String> serviceRetainIds;
     }
 
-    public String getApiKey() {
-        return apiKey;
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class OD {
+
+        private String origin;
+        private String destination;
+        private String cabinPreference;
+        private String preferenceLevel;
+        private String date;
     }
 
-    public void setApiKey(String apiKey) {
-        this.apiKey = apiKey;
-    }
+    @Data
+    public static class Passengers {
+        private String paxId;
+        private String ptc;
+        private String birthDate;
+        private Individual individual;
 
-    public String getOrderReshopUrl() {
-        return orderReshopUrl;
-    }
-
-    public void setOrderReshopUrl(String orderReshopUrl) {
-        this.orderReshopUrl = orderReshopUrl;
-    }
-
-    public Aerocrs getAerocrs() {
-        return aerocrs;
-    }
-
-    public void setAerocrs(Aerocrs aerocrs) {
-        this.aerocrs = aerocrs;
-    }
-
-    // ---------- Nested Classes ----------
-
-    public static class Aerocrs {
-        private Parms parms;
-
-        public Aerocrs() {
+        @Data
+        public static class Individual {
+            private String givenName;
+            private String surname;
+            private String nameTitle;
+            private String gender;
         }
 
-        public Parms getParms() {
-            return parms;
-        }
-
-        public void setParms(Parms parms) {
-            this.parms = parms;
-        }
-    }
-
-    public static class Parms {
-        private String bookingconfirmation;
-        private String action; // "all"
-        private Integer flightcode;
-
-        public Parms() {
-        }
-
-        public String getBookingconfirmation() {
-            return bookingconfirmation;
-        }
-
-        public void setBookingconfirmation(String bookingconfirmation) {
-            this.bookingconfirmation = bookingconfirmation;
-        }
-
-        public String getAction() {
-            return action;
-        }
-
-        public void setAction(String action) {
-            this.action = action;
-        }
-
-        public Integer getFlightcode() {
-            return flightcode;
-        }
-
-        public void setFlightcode(Integer flightcode) {
-            this.flightcode = flightcode;
-        }
     }
 }
+

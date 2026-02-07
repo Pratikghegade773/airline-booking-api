@@ -1,5 +1,6 @@
 package com.airlines.GO7API.request;
 
+import com.airlines.GO7API.error.ErrorRsp;
 import com.airlines.GO7API.requestDto.ServiceListReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -7,22 +8,28 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import lombok.Data;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
-@Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ServiceListReq {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
+
+    @JsonIgnore
+    private String apiKey;
+
+    @JsonIgnore
+    private String serviceListUrl;
 
     public Aerocrs getAerocrs() {
         return aerocrs;
@@ -32,40 +39,25 @@ public class ServiceListReq {
         this.aerocrs = aerocrs;
     }
 
-    @JsonIgnore
-    public String orderId;
-    @JsonIgnore
-    public String apiKey;
-    @JsonIgnore
-    public String serviceListUrl;
-
-    public void setOrderId(String orderId) {
-        this.orderId = orderId;
-    }
-
-    public String getOrderId() {
-        return orderId;
+    public String getApiKey() {
+        return apiKey;
     }
 
     public void setApiKey(String apiKey) {
         this.apiKey = apiKey;
     }
 
-    public String getApiKey() {
-        return apiKey;
+    public String getServiceListUrl() {
+        return serviceListUrl;
     }
 
     public void setServiceListUrl(String serviceListUrl) {
         this.serviceListUrl = serviceListUrl;
     }
 
-    public String getServiceListUrl() {
-        return serviceListUrl;
-    }
-
-    // Internal classes to match JSON structure for serialization
-    @Data
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Aerocrs {
+        @JsonProperty("parms")
         private Parms parms;
 
         public Parms getParms() {
@@ -77,18 +69,32 @@ public class ServiceListReq {
         }
     }
 
-    @Data
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Parms {
+        @JsonProperty("bookingid")
+        private Long bookingId;
+
+        @JsonProperty("flightid")
+        private Long flightId;
+
+        @JsonProperty("currency")
         private String currency;
-        private Long bookingid;
-        private Long flightid;
-        private String companycode;
-        private List<Flight> flights;
-        // SSRs might use 'flights' key but with different structure.
-        // If strict JSON is required, we might need a custom serializer or just use
-        // Object for 'flights'
-        // For now, mapping straightforward properties.
+
+        public Long getBookingId() {
+            return bookingId;
+        }
+
+        public void setBookingId(Long bookingId) {
+            this.bookingId = bookingId;
+        }
+
+        public Long getFlightId() {
+            return flightId;
+        }
+
+        public void setFlightId(Long flightId) {
+            this.flightId = flightId;
+        }
 
         public String getCurrency() {
             return currency;
@@ -97,190 +103,109 @@ public class ServiceListReq {
         public void setCurrency(String currency) {
             this.currency = currency;
         }
-
-        public Long getBookingid() {
-            return bookingid;
-        }
-
-        public void setBookingid(Long bookingid) {
-            this.bookingid = bookingid;
-        }
-
-        public Long getFlightid() {
-            return flightid;
-        }
-
-        public void setFlightid(Long flightid) {
-            this.flightid = flightid;
-        }
-
-        public String getCompanycode() {
-            return companycode;
-        }
-
-        public void setCompanycode(String companycode) {
-            this.companycode = companycode;
-        }
-
-        public List<Flight> getFlights() {
-            return flights;
-        }
-
-        public void setFlights(List<Flight> flights) {
-            this.flights = flights;
-        }
-    }
-
-    @Data
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class Flight {
-        private String flightnumber;
-        private String flightdate;
-        private String fromcode;
-        private String tocode;
-        @JsonProperty("class")
-        private String clazz;
-
-        // For SSRs which might have flightid array
-        private List<Long> flightid;
-
-        public String getFlightnumber() {
-            return flightnumber;
-        }
-
-        public void setFlightnumber(String flightnumber) {
-            this.flightnumber = flightnumber;
-        }
-
-        public String getFlightdate() {
-            return flightdate;
-        }
-
-        public void setFlightdate(String flightdate) {
-            this.flightdate = flightdate;
-        }
-
-        public String getFromcode() {
-            return fromcode;
-        }
-
-        public void setFromcode(String fromcode) {
-            this.fromcode = fromcode;
-        }
-
-        public String getTocode() {
-            return tocode;
-        }
-
-        public void setTocode(String tocode) {
-            this.tocode = tocode;
-        }
-
-        public String getClazz() {
-            return clazz;
-        }
-
-        public void setClazz(String clazz) {
-            this.clazz = clazz;
-        }
-
-        public List<Long> getFlightid() {
-            return flightid;
-        }
-
-        public void setFlightid(List<Long> flightid) {
-            this.flightid = flightid;
-        }
     }
 
     public static ServiceListReq mapToServiceListRequestDTO(ServiceListReqDto dto) {
         ServiceListReq req = new ServiceListReq();
-        req.setOrderId(dto.getOrderId());
         req.setApiKey(dto.getApiKey());
-        req.setServiceListUrl(dto.getServiceListUrl());
 
-        if (dto.getAerocrs() != null && dto.getAerocrs().getParms() != null) {
-            ServiceListReqDto.Parms dtoParms = dto.getAerocrs().getParms();
-            Aerocrs aerocrs = new Aerocrs();
-            Parms parms = new Parms();
-
-            parms.setCurrency(dtoParms.getCurrency());
-            parms.setBookingid(dtoParms.getBookingid());
-            parms.setFlightid(dtoParms.getFlightid());
-            parms.setCompanycode(dtoParms.getCompanycode());
-
-            // Map Airline Ancillaries Flights (Object List)
-            if (dtoParms.getFlights() != null) {
-                List<Flight> flightList = new ArrayList<>();
-                for (ServiceListReqDto.Flight f : dtoParms.getFlights()) {
-                    Flight internalFlight = new Flight();
-                    internalFlight.setFlightnumber(f.getFlightnumber());
-                    internalFlight.setFlightdate(f.getFlightdate());
-                    internalFlight.setFromcode(f.getFromcode());
-                    internalFlight.setTocode(f.getTocode());
-                    internalFlight.setClazz(f.getClazz());
-                    flightList.add(internalFlight);
-                }
-                parms.setFlights(flightList);
-            }
-
-            // Map SSR Flights (ID List) - Mapping to same 'flights' list or separate logic?
-            // Map SSR Flights (ID List) - Mapping to same 'flights' list or separate logic?
-            // User requirement had 'flights' key for both.
-            // If we have SSR flights, we map them too.
-            if (dtoParms.getFlightsSSR() != null) {
-                List<Flight> flightList = new ArrayList<>();
-                // If existing list exists, append? Typically these are exclusive calls.
-                if (parms.getFlights() != null)
-                    flightList.addAll(parms.getFlights());
-
-                for (ServiceListReqDto.Flight f : dtoParms.getFlightsSSR()) {
-                    Flight internalFlight = new Flight();
-                    internalFlight.setFlightid(f.getFlightid());
-                    flightList.add(internalFlight);
-                }
-                parms.setFlights(flightList);
-            }
-
-            aerocrs.setParms(parms);
-
-            req.setAerocrs(aerocrs);
+        if (dto.getServiceListUrl() != null && !dto.getServiceListUrl().isEmpty()) {
+            req.setServiceListUrl(dto.getServiceListUrl());
+        } else {
+            req.setServiceListUrl("https://api.aerocrs.com/v5/getAncillaries");
         }
 
+        Aerocrs aerocrs = new Aerocrs();
+        Parms parms = new Parms();
+
+        if (dto.getOrderId() != null) {
+            try {
+                parms.setBookingId(Long.parseLong(dto.getOrderId()));
+            } catch (NumberFormatException e) {
+                // Ignore invalid ID
+            }
+        }
+
+        // 2. Map flightid (using flattened field flightid)
+        if (dto.getFlightid() != null) {
+            try {
+                parms.setFlightId(Long.parseLong(dto.getFlightid()));
+            } catch (NumberFormatException e) {
+                // Ignore invalid ID
+            }
+        }
+
+        // 3. Map currency
+        if (dto.getCurrency() != null) {
+            parms.setCurrency(dto.getCurrency());
+        } else {
+            parms.setCurrency("USD");
+        }
+
+        aerocrs.setParms(parms);
+        req.setAerocrs(aerocrs);
         return req;
     }
 
     public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
         String response = makeApiCall();
         ObjectMapper objectMapper = new ObjectMapper();
-        // Return raw JSON or specific RS object if defined. Returning generic node for
-        // now.
-        return objectMapper.readTree(response);
+
+        objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+        try {
+            JsonNode root = objectMapper.readTree(response);
+
+            if (root.has("errors")) {
+                ErrorRsp errorRsp = new ErrorRsp();
+                JsonNode errorsArray = root.path("errors");
+
+                if (errorsArray.isArray()) {
+                    for (JsonNode errorNode : errorsArray) {
+                        String errorMessage = errorNode.path("message").asText();
+                        String code = errorNode.path("code").asText();
+
+                        ErrorRsp.Error tempError = new ErrorRsp.Error();
+                        tempError.setError(errorMessage);
+                        tempError.setCode(code);
+                        errorRsp.getErrorList().add(tempError);
+                    }
+                }
+                return errorRsp;
+            } else {
+                return objectMapper.readValue(response, Object.class);
+            }
+        } catch (Exception e) {
+            System.out.println("Error parsing ServiceList response: " + e.getMessage());
+            return response;
+        }
     }
 
     public String makeApiCall() throws IOException {
         String baseUrl = serviceListUrl;
-        // If orderId is part of URL in some cases, append it.
-        // But user examples show generic getAncillaries with bookingid in body.
-        // We will stick to the provided URL.
-
         String jsonBody = new ObjectMapper()
                 .enable(SerializationFeature.INDENT_OUTPUT)
                 .writeValueAsString(this);
 
         HttpHeaders headers = new HttpHeaders();
-        if (apiKey != null)
-            headers.add("x-api-key", apiKey);
+        // Standard headers matching OrderCancel/OrderRetrieve
+        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
+        headers.add("auth_password", "vJ3yGilZ9u7N");
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated Request is:\n" + jsonBody);
+        System.out.println("Generated ServiceList Request is:\n" + jsonBody);
 
         RestTemplate restTemplate = new RestTemplate();
+
         try {
             ResponseEntity<String> response = restTemplate.exchange(baseUrl, HttpMethod.POST, entity, String.class);
+            System.out.println("HTTP Response Status Code: " + response.getStatusCode());
+            System.out.println("ServiceList Response: " + response.getBody());
             return response.getBody();
+
         } catch (HttpClientErrorException e) {
+            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
             return e.getResponseBodyAsString();
         }
     }

@@ -71,7 +71,7 @@ public class AirshopResponse {
         if (type.equalsIgnoreCase("OneWay")) {
             airshopRspDto.setRoundTripType("OneWay");
         } else {
-            airshopRspDto.setRoundTripType("RT");
+            airshopRspDto.setRoundTripType("RoundTrip");
         }
 
         // Generate Passenger Refs
@@ -104,7 +104,10 @@ public class AirshopResponse {
                     idBuilder.append("-").append(flight.getFromcode());
                     idBuilder.append("-").append(flight.getTocode());
                     idBuilder.append("-").append(
-                            request != null && request.getTripType() != null ? request.getTripType() : "OneWay");
+                            (request != null && request.getTripType() != null
+                                    && (request.getTripType().equalsIgnoreCase("RT")
+                                            || request.getTripType().equalsIgnoreCase("RoundTrip")
+                                            || request.getTripType().equalsIgnoreCase("Return"))) ? "RT" : "OneWay");
                     idBuilder.append("-").append(request != null ? request.getAdults() : 1);
                     idBuilder.append("-").append(request != null ? request.getChildren() : 0);
                     idBuilder.append("-").append(request != null ? request.getInfants() : 0);

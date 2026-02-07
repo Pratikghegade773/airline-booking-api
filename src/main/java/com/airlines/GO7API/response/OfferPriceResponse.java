@@ -25,18 +25,27 @@ public class OfferPriceResponse {
         OfferPriceRspGo7Dto go7Response = null;
 
         // Check for error response or success response
-        if (responseObj instanceof ErrorRsp) {
-            return responseObj;
-        } else if (responseObj instanceof OfferPriceRspGo7Dto) {
-            go7Response = (OfferPriceRspGo7Dto) responseObj;
-        } else if (responseObj instanceof LinkedHashMap) {
-            // Fallback if Jackson returns Map instead of DTO
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            go7Response = mapper.convertValue(responseObj, OfferPriceRspGo7Dto.class);
+        try {
+            if (responseObj instanceof ErrorRsp) {
+                return responseObj;
+            } else if (responseObj instanceof OfferPriceRspGo7Dto) {
+                go7Response = (OfferPriceRspGo7Dto) responseObj;
+            } else if (responseObj instanceof LinkedHashMap) {
+                // Fallback if Jackson returns Map instead of DTO
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                        false);
+                go7Response = mapper.convertValue(responseObj, OfferPriceRspGo7Dto.class);
+            }
+        } catch (Exception e) {
+            System.out.println("Failed to parse OfferPriceResp from the response: " + responseObj);
+            e.printStackTrace();
+            throw new RuntimeException("Failed to parse OfferPriceResp from the response", e);
         }
 
         if (go7Response == null || go7Response.getAerocrs() == null
                 || go7Response.getAerocrs().getGetFlight() == null) {
+            System.out.println("OfferPriceResp is null or missing required fields. Raw Response: " + responseObj);
             return new ErrorRsp(); // Or return a specific error
         }
 

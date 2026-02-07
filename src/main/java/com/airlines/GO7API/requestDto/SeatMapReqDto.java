@@ -7,14 +7,17 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ServiceListReqDto {
+public class SeatMapReqDto {
 
     private String orderId;
     private String agencyId;
     private String agentId;
     private String apiKey;
-    private String serviceListUrl;
+    private String seatAvailabilityUrl;
 
-    private String currency;
-    private String flightid;
+    private String companyCode;
+    private String flightNumber;
+    private String flightDate;
+    private String fromCode;
+    private String toCode;
 }

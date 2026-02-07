@@ -22,7 +22,7 @@ import java.io.IOException;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class OrderRetrieveReq {
 
-    @JsonProperty("Aerocrs")
+    @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
 
     @JsonIgnore
@@ -57,7 +57,7 @@ public class OrderRetrieveReq {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Aerocrs {
-        @JsonProperty("Parms")
+        @JsonProperty("parms")
         private Parms parms;
 
         public Parms getParms() {
@@ -105,25 +105,41 @@ public class OrderRetrieveReq {
         }
     }
 
-    public static OrderRetrieveReq mapToOrderRetrieveReq(OrderRetrieveReqDto orderRetrieveReqDto) {
+    public static OrderRetrieveReq mapToOrderRetrieveReq(OrderRetrieveReqDto orderRetrieveReqDto,
+            String storedBookingConfirmation) {
         OrderRetrieveReq request = new OrderRetrieveReq();
         request.setApiKey(orderRetrieveReqDto.getApiKey());
-        request.setOrderRetrieveUrl(orderRetrieveReqDto.getOrderRetrieveUrl());
 
-        if (orderRetrieveReqDto.getAerocrs() != null) {
-            Aerocrs aerocrs = new Aerocrs();
-            if (orderRetrieveReqDto.getAerocrs().getParms() != null) {
-                Parms parms = new Parms();
-                OrderRetrieveReqDto.Parms dtoParms = orderRetrieveReqDto.getAerocrs().getParms();
-
-                parms.setBookingConfirmation(dtoParms.getBookingconfirmation());
-                parms.setPassengerLastName(dtoParms.getPassengerlastname());
-                parms.setGenerateBookingId(dtoParms.getGenerateBookingId());
-
-                aerocrs.setParms(parms);
-            }
-            request.setAerocrs(aerocrs);
+        // Set URL with fallback
+        if (orderRetrieveReqDto.getRetrieveUrl() != null && !orderRetrieveReqDto.getRetrieveUrl().isEmpty()) {
+            request.setOrderRetrieveUrl(orderRetrieveReqDto.getRetrieveUrl());
+        } else if (orderRetrieveReqDto.getApiUrl() != null && !orderRetrieveReqDto.getApiUrl().isEmpty()) {
+            request.setOrderRetrieveUrl(orderRetrieveReqDto.getApiUrl());
+        } else {
+            request.setOrderRetrieveUrl("https://api.aerocrs.com/v5/getBooking");
         }
+
+        Aerocrs aerocrs = new Aerocrs();
+        Parms parms = new Parms();
+
+
+        // Map to bookingconfirmation (Priority: Stored BookingConfirmation > PNR >
+        // OrderID)
+        if (storedBookingConfirmation != null && !storedBookingConfirmation.isEmpty()) {
+            parms.setBookingConfirmation(storedBookingConfirmation);
+        } else if (orderRetrieveReqDto.getPnr() != null && !orderRetrieveReqDto.getPnr().isEmpty()) {
+            parms.setBookingConfirmation(orderRetrieveReqDto.getPnr());
+        } else if (orderRetrieveReqDto.getOrderId() != null && !orderRetrieveReqDto.getOrderId().isEmpty()) {
+            parms.setBookingConfirmation(orderRetrieveReqDto.getOrderId());
+        }
+
+        // Map surname if available
+        if (orderRetrieveReqDto.getSurname() != null) {
+            parms.setPassengerLastName(orderRetrieveReqDto.getSurname());
+        }
+
+        aerocrs.setParms(parms);
+        request.setAerocrs(aerocrs);
 
         return request;
     }
@@ -168,8 +184,9 @@ public class OrderRetrieveReq {
                 .writeValueAsString(this);
 
         HttpHeaders headers = new HttpHeaders();
-        // Assuming x-api-key is standard, check reference
-        headers.add("x-api-key", apiKey);
+        // Standard headers
+        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
+        headers.add("auth_password", "vJ3yGilZ9u7N");
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
@@ -182,6 +199,7 @@ public class OrderRetrieveReq {
         try {
             ResponseEntity<String> response = restTemplate.exchange(baseUrl, HttpMethod.POST, entity, String.class);
             System.out.println("HTTP Response Status Code: " + response.getStatusCode());
+            System.out.println("OrderRetrieve Response: " + response.getBody());
             return response.getBody();
 
         } catch (HttpClientErrorException e) {
