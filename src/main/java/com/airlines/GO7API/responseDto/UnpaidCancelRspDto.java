@@ -13,7 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class OrderRetrieveRspDto {
+public class UnpaidCancelRspDto {
     private List<String> warnings;
     private String responseId;
     private String pnr;

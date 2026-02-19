@@ -83,9 +83,13 @@ public class OfferPriceResponse {
                         : "0"; // fallback
 
                 // tripType
-                String tripType = (reqParms != null && reqParms.get("triptype") != null)
+                String tripTypeRaw = (reqParms != null && reqParms.get("triptype") != null)
                         ? reqParms.get("triptype").toString()
                         : "OneWay";
+                String tripType = "OW";
+                if (tripTypeRaw.equalsIgnoreCase("Return") || tripTypeRaw.equalsIgnoreCase("RT")) {
+                    tripType = "RT";
+                }
 
                 // counts
                 Object adults = (reqParms != null) ? reqParms.get("adults") : 1;
@@ -160,7 +164,7 @@ public class OfferPriceResponse {
                     od.setDepartureDate(flight.getFlightdate()); // Fallback
                 }
 
-                od.setFlightNumber(flight.getNumber().replaceAll("[^0-9]", "")); // Extract number
+                od.setFlightNumber(flight.getNumber()); // Extract number
                 od.setMarketingCarrierName(flight.getAirline());
                 od.setMarketingCarrierCode("G7"); // Placeholder or extract
                 // od.setEquipment("Boeing"); // Placeholder
@@ -194,78 +198,164 @@ public class OfferPriceResponse {
 
             // Offer Items
             List<OfferPriceRspDto.OfferItemDto> offerItems = new ArrayList<>();
-            OfferPriceRspDto.OfferItemDto item = new OfferPriceRspDto.OfferItemDto();
-            item.setOfferItemId(pricedOfferId + "-1");
-            item.setPtc("ADT");
-            item.setPassengerIds(Collections.singletonList("T1"));
-            item.setTotalPrice(totalPrice);
+            int itemIdx = 1;
 
-            // Breakdown
-            OfferPriceRspDto.OfferItemDto.TotalFare tf = new OfferPriceRspDto.OfferItemDto.TotalFare();
-            tf.setAmount(totalPrice);
-            tf.setCurrency(firstFlight.getCurrency());
-            item.setTotalFare(tf);
-
-            OfferPriceRspDto.OfferItemDto.BaseFare bf = new OfferPriceRspDto.OfferItemDto.BaseFare();
-            bf.setAmount(totalPrice.subtract(totalTax));
-            bf.setCurrency(firstFlight.getCurrency());
-            item.setBaseFare(bf);
-
-            OfferPriceRspDto.OfferItemDto.TotalTax tt = new OfferPriceRspDto.OfferItemDto.TotalTax();
-            tt.setAmount(totalTax);
-            tt.setCurrency(firstFlight.getCurrency());
-            item.setTotalTax(tt);
-
-            // Taxes List
-            List<OfferPriceRspDto.OfferItemDto.Tax> taxList = new ArrayList<>();
-            OfferPriceRspDto.OfferItemDto.Tax t1 = new OfferPriceRspDto.OfferItemDto.Tax();
-            t1.setCode("TAX");
-            t1.setAmount(totalTax);
-            t1.setCurrency(firstFlight.getCurrency());
-            t1.setDescription("Total Taxes");
-            taxList.add(t1);
-            item.setTaxes(taxList);
-
-            // Baggage (Dynamic based on services)
-            List<OfferPriceRspDto.OfferItemDto.BaggageAllowance> bags = new ArrayList<>();
-
-            if (firstFlight.getServices() != null) {
-                // Checked-In Baggage
-                if (Boolean.TRUE.equals(firstFlight.getServices().get("CheckedInBaggage"))) {
-                    OfferPriceRspDto.OfferItemDto.BaggageAllowance bag = new OfferPriceRspDto.OfferItemDto.BaggageAllowance();
-                    bag.setBaggageAllowanceId(UUID.randomUUID().toString()); // Generate ID
-                    bag.setPtc("ADT");
-                    bag.setPassengerId(Collections.singletonList("T1"));
-                    bag.setCategory("Checked-In");
-                    bag.setQuantity("1");
-
-                    OfferPriceRspDto.OfferItemDto.BaggageAllowance.DescriptionDTO descDto = new OfferPriceRspDto.OfferItemDto.BaggageAllowance.DescriptionDTO();
-                    descDto.setDescription("CHECKED IN ALLOWANCE");
-                    bag.setDescriptions(Collections.singletonList(descDto));
-
-                    bags.add(bag);
-                }
-
-                // Carry-On Baggage
-                if (Boolean.TRUE.equals(firstFlight.getServices().get("HandBaggage"))) {
-                    OfferPriceRspDto.OfferItemDto.BaggageAllowance bag = new OfferPriceRspDto.OfferItemDto.BaggageAllowance();
-                    bag.setBaggageAllowanceId(UUID.randomUUID().toString());
-                    bag.setPtc("ADT");
-                    bag.setPassengerId(Collections.singletonList("T1"));
-                    bag.setCategory("Carry On");
-                    bag.setQuantity("1");
-
-                    OfferPriceRspDto.OfferItemDto.BaggageAllowance.DescriptionDTO descDto = new OfferPriceRspDto.OfferItemDto.BaggageAllowance.DescriptionDTO();
-                    descDto.setDescription("CARRY ON ALLOWANCE");
-                    bag.setDescriptions(Collections.singletonList(descDto));
-
-                    bags.add(bag);
+            // ADULTS
+            int adultsCount = 1;
+            if (reqParms != null && reqParms.get("adults") != null) {
+                try {
+                    adultsCount = Integer.parseInt(reqParms.get("adults").toString());
+                } catch (Exception e) {
                 }
             }
-            item.setBaggageAllowances(bags);
 
-            offerItems.add(item);
+            if (adultsCount > 0) {
+                List<String> adtRefs = new ArrayList<>();
+                for (int k = 1; k <= adultsCount; k++) {
+                    adtRefs.add("T" + k);
+                }
+
+                // Calculate ADT Unit Price (Sum of all flights)
+                BigDecimal adtUnitTotal = BigDecimal.ZERO;
+                BigDecimal adtUnitTax = BigDecimal.ZERO;
+
+                for (OfferPriceRspGo7Dto.Flight f : flights) {
+                    // Prefer agtfare_adult if available, else rackfare_adult, else net_fare?
+                    // Airshop logic uses: new BigDecimal(flightClass.getFare().getAdultFare())
+                    // Here we have getRackfareAdult, getAgtfareAdult..
+                    // Let's use getNetFare() logic as per previous code, BUT per pax type?
+                    // Previous code used flight.getNetFare() for TOTAL price.
+                    // We need unit price.
+                    // Let's try to find specific fare fields first.
+                    String fareStr = f.getAgtfareAdult();
+                    if (fareStr == null)
+                        fareStr = f.getRackfareAdult();
+                    if (fareStr == null)
+                        fareStr = f.getNetFare(); // Fallback
+
+                    if (fareStr != null)
+                        adtUnitTotal = adtUnitTotal.add(new BigDecimal(fareStr));
+
+                    // Tax: Use specific 'tax' field as requested
+                    if (f.getTax() != null) {
+                        try {
+                            adtUnitTax = adtUnitTax.add(new BigDecimal(f.getTax()));
+                        } catch (Exception e) {
+                            // ignore parsing error
+                        }
+                    } else if (f.getTotaltax() != null) {
+                        // Fallback to totaltax if tax is missing? Or prefer tax strictly?
+                        // User request implies strict 'tax' usage (25.00), but fallback is safer
+                        adtUnitTax = adtUnitTax.add(new BigDecimal(f.getTotaltax()));
+                    }
+                }
+
+                OfferPriceRspDto.OfferItemDto adtItem = createOfferItem(pricedOfferId, itemIdx++, "ADT", adtRefs,
+                        adtUnitTotal, adtUnitTax, firstFlight);
+                offerItems.add(adtItem);
+                // No need to add to overall total here, we'll sum up items at the end
+            }
+
+            // CHILDREN
+            int childCount = 0;
+            if (reqParms != null && reqParms.get("child") != null) {
+                try {
+                    childCount = Integer.parseInt(reqParms.get("child").toString());
+                } catch (Exception e) {
+                }
+            }
+
+            if (childCount > 0) {
+                List<String> cnnRefs = new ArrayList<>();
+                for (int k = 1; k <= childCount; k++) {
+                    int paxRefIdx = adultsCount + k;
+                    cnnRefs.add("T" + paxRefIdx);
+                }
+
+                BigDecimal cnnUnitTotal = BigDecimal.ZERO;
+                BigDecimal cnnUnitTax = BigDecimal.ZERO;
+
+                for (OfferPriceRspGo7Dto.Flight f : flights) {
+                    String fareStr = f.getAgtfareChild();
+                    if (fareStr == null)
+                        fareStr = f.getRackfareChild();
+                    // If null, fallback to Adult? Airshop logic mimics that.
+                    if (fareStr == null) {
+                        fareStr = f.getAgtfareAdult();
+                        if (fareStr == null)
+                            fareStr = f.getRackfareAdult();
+                        if (fareStr == null)
+                            fareStr = f.getNetFare();
+                    }
+
+                    if (fareStr != null)
+                        cnnUnitTotal = cnnUnitTotal.add(new BigDecimal(fareStr));
+
+                    // Tax: Use specific 'tax' field as requested
+                    if (f.getTax() != null) {
+                        try {
+                            cnnUnitTax = cnnUnitTax.add(new BigDecimal(f.getTax()));
+                        } catch (Exception e) {
+                            // ignore parsing error
+                        }
+                    } else if (f.getTotaltax() != null) {
+                        cnnUnitTax = cnnUnitTax.add(new BigDecimal(f.getTotaltax()));
+                    }
+                }
+
+                OfferPriceRspDto.OfferItemDto cnnItem = createOfferItem(pricedOfferId, itemIdx++, "CNN", cnnRefs,
+                        cnnUnitTotal, cnnUnitTax, firstFlight);
+                offerItems.add(cnnItem);
+            }
+
+            // INFANTS
+            int infantCount = 0;
+            if (reqParms != null && reqParms.get("infant") != null) {
+                try {
+                    infantCount = Integer.parseInt(reqParms.get("infant").toString());
+                } catch (Exception e) {
+                }
+            }
+
+            if (infantCount > 0) {
+                List<String> infRefs = new ArrayList<>();
+                for (int k = 1; k <= infantCount; k++) {
+                    int parentRefIdx = (k <= adultsCount) ? k : ((k - 1) % adultsCount) + 1;
+                    infRefs.add("T" + parentRefIdx + ".1");
+                }
+
+                BigDecimal infUnitTotal = BigDecimal.ZERO;
+                BigDecimal infUnitTax = BigDecimal.ZERO;
+
+                for (OfferPriceRspGo7Dto.Flight f : flights) {
+                    String fareStr = f.getAgtfareInfant();
+                    if (fareStr == null)
+                        fareStr = f.getRackfareInfant();
+
+                    if (fareStr != null)
+                        infUnitTotal = infUnitTotal.add(new BigDecimal(fareStr));
+                    // Infant Tax usually 0, but if available add it
+                }
+
+                OfferPriceRspDto.OfferItemDto infItem = createOfferItem(pricedOfferId, itemIdx++, "INF", infRefs,
+                        infUnitTotal, infUnitTax, firstFlight);
+                offerItems.add(infItem);
+            }
+
             response.setOfferItems(offerItems);
+
+            // Recalculate Grand Total from Items
+            BigDecimal grandTotal = BigDecimal.ZERO;
+            BigDecimal grandTax = BigDecimal.ZERO;
+            for (OfferPriceRspDto.OfferItemDto item : offerItems) {
+                grandTotal = grandTotal.add(item.getTotalPrice());
+                // Accessing tax from TotalTax object
+                if (item.getTotalTax() != null && item.getTotalTax().getAmount() != null) {
+                    grandTax = grandTax.add(item.getTotalTax().getAmount());
+                }
+            }
+            response.setTotalPrice(grandTotal);
+            response.setTotalTaxes(grandTax);
 
             // Price Class List
             List<OfferPriceRspDto.PriceClassList> pclList = new ArrayList<>();
@@ -301,5 +391,146 @@ public class OfferPriceResponse {
         }
 
         return response;
+    }
+
+    private static OfferPriceRspDto.OfferItemDto createOfferItem(String pricedOfferId, int itemIndex, String ptc,
+            List<String> paxRefs, BigDecimal unitTotal, BigDecimal unitTax, OfferPriceRspGo7Dto.Flight flight) {
+
+        OfferPriceRspDto.OfferItemDto item = new OfferPriceRspDto.OfferItemDto();
+        item.setOfferItemId(pricedOfferId + "-" + itemIndex);
+        item.setPtc(ptc);
+        item.setPassengerIds(paxRefs);
+
+        int count = paxRefs.size();
+        BigDecimal total = unitTotal.multiply(new BigDecimal(count));
+        BigDecimal tax = unitTax.multiply(new BigDecimal(count));
+
+        item.setTotalPrice(total);
+
+        // Breakdown
+        OfferPriceRspDto.OfferItemDto.TotalFare tf = new OfferPriceRspDto.OfferItemDto.TotalFare();
+        tf.setAmount(total);
+        tf.setCurrency(flight.getCurrency());
+        item.setTotalFare(tf);
+
+        OfferPriceRspDto.OfferItemDto.BaseFare bf = new OfferPriceRspDto.OfferItemDto.BaseFare();
+        bf.setAmount(total.subtract(tax));
+        bf.setCurrency(flight.getCurrency());
+        item.setBaseFare(bf);
+
+        OfferPriceRspDto.OfferItemDto.TotalTax tt = new OfferPriceRspDto.OfferItemDto.TotalTax();
+        tt.setAmount(tax);
+        tt.setCurrency(flight.getCurrency());
+        item.setTotalTax(tt);
+
+        // Taxes List
+        List<OfferPriceRspDto.OfferItemDto.Tax> taxList = new ArrayList<>();
+        if (flight.getRawFareObject() != null &&
+                flight.getRawFareObject().getRackFare() != null &&
+                flight.getRawFareObject().getRackFare().getTaxBreakdown() != null) {
+
+            Map<String, String> breakdown = flight.getRawFareObject().getRackFare().getTaxBreakdown();
+
+            // 1. Calculate sum of breakdown taxes to determine scaling factor
+            BigDecimal breakdownSum = BigDecimal.ZERO;
+            for (String val : breakdown.values()) {
+                try {
+                    breakdownSum = breakdownSum.add(new BigDecimal(val));
+                } catch (Exception e) {
+                }
+            }
+
+            BigDecimal scaleFactor = BigDecimal.ONE;
+            if (breakdownSum.compareTo(BigDecimal.ZERO) > 0) {
+                // unitTax is passed in
+                scaleFactor = unitTax.divide(breakdownSum, 10, java.math.RoundingMode.HALF_UP);
+            }
+
+            for (Map.Entry<String, String> taxEntry : breakdown.entrySet()) {
+                if (tax.compareTo(BigDecimal.ZERO) <= 0)
+                    continue;
+
+                OfferPriceRspDto.OfferItemDto.Tax taxesItem = new OfferPriceRspDto.OfferItemDto.Tax();
+
+                BigDecimal rawUnitTax;
+                try {
+                    rawUnitTax = new BigDecimal(taxEntry.getValue());
+                } catch (Exception e) {
+                    rawUnitTax = BigDecimal.ZERO;
+                }
+
+                // Apply Scaling to get accurate Unit Tax
+                BigDecimal scaledUnitTax = rawUnitTax.multiply(scaleFactor).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal totalTaxAmount = scaledUnitTax.multiply(new BigDecimal(count));
+
+                taxesItem.setCurrency(flight.getCurrency());
+                String key = taxEntry.getKey();
+                if (key.length() <= 3) {
+                    taxesItem.setCode(key);
+                    taxesItem.setDescription("Tax " + key);
+                } else {
+                    taxesItem.setCode("TAX");
+                    taxesItem.setDescription(key);
+                }
+
+                taxesItem.setAmount(totalTaxAmount);
+                // Total field in Taxes DTO should be the same as amount (total for this
+                // category)
+                taxesItem.setTotal(totalTaxAmount);
+
+                taxList.add(taxesItem);
+            }
+        } else if (tax.compareTo(BigDecimal.ZERO) > 0) {
+            OfferPriceRspDto.OfferItemDto.Tax t1 = new OfferPriceRspDto.OfferItemDto.Tax();
+            t1.setCode("TAX");
+            t1.setAmount(tax);
+            t1.setTotal(tax);
+            t1.setCurrency(flight.getCurrency());
+            t1.setDescription("Total Taxes");
+            taxList.add(t1);
+        }
+        item.setTaxes(taxList);
+
+        // Baggage (Dynamic based on services or default if service map exists)
+        List<OfferPriceRspDto.OfferItemDto.BaggageAllowance> bags = new ArrayList<>();
+
+        if (flight.getServices() != null) {
+            // Checked-In Baggage - Default to true if not explicitly false and service map
+            // is present
+            if (!Boolean.FALSE.equals(flight.getServices().get("CheckedInBaggage"))) {
+                OfferPriceRspDto.OfferItemDto.BaggageAllowance bag = new OfferPriceRspDto.OfferItemDto.BaggageAllowance();
+                bag.setBaggageAllowanceId(UUID.randomUUID().toString());
+                bag.setPtc(ptc);
+                bag.setPassengerId(paxRefs);
+                bag.setCategory("Checked-In");
+                bag.setQuantity("1");
+
+                OfferPriceRspDto.OfferItemDto.BaggageAllowance.DescriptionDTO descDto = new OfferPriceRspDto.OfferItemDto.BaggageAllowance.DescriptionDTO();
+                descDto.setDescription("CHECKED IN ALLOWANCE");
+                bag.setDescriptions(Collections.singletonList(descDto));
+
+                bags.add(bag);
+            }
+
+            // Carry-On Baggage - Default to true if not explicitly false and service map is
+            // present
+            if (!Boolean.FALSE.equals(flight.getServices().get("HandBaggage"))) {
+                OfferPriceRspDto.OfferItemDto.BaggageAllowance bag = new OfferPriceRspDto.OfferItemDto.BaggageAllowance();
+                bag.setBaggageAllowanceId(UUID.randomUUID().toString());
+                bag.setPtc(ptc);
+                bag.setPassengerId(paxRefs);
+                bag.setCategory("Carry On");
+                bag.setQuantity("1");
+
+                OfferPriceRspDto.OfferItemDto.BaggageAllowance.DescriptionDTO descDto = new OfferPriceRspDto.OfferItemDto.BaggageAllowance.DescriptionDTO();
+                descDto.setDescription("CARRY ON ALLOWANCE");
+                bag.setDescriptions(Collections.singletonList(descDto));
+
+                bags.add(bag);
+            }
+        }
+        item.setBaggageAllowances(bags);
+
+        return item;
     }
 }

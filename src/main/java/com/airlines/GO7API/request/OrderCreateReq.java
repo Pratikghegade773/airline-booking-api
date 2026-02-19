@@ -19,6 +19,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.format.DateTimeFormatter;
 
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -121,7 +124,20 @@ public class OrderCreateReq {
                 Map<String, Object> p = new LinkedHashMap<>();
                 p.put("firstname", dtoPax.getFirstName());
                 p.put("lastname", dtoPax.getLastName());
+                // p.put("title", mapTitleToId(dtoPax.getTitle()));
                 p.put("title", mapTitleToId(dtoPax.getTitle()));
+                // Map gender to M/F
+                String gender = dtoPax.getGender();
+                if (gender != null && !gender.isEmpty()) {
+                    p.put("gender", gender.toUpperCase().startsWith("M") ? "M" : "F");
+                }
+                // Calculate Age for child (just in case needed here too)
+                if ("CHD".equalsIgnoreCase(dtoPax.getPtc()) || "CNN".equalsIgnoreCase(dtoPax.getPtc())) {
+                    String age = calculateAge(dtoPax.getDob());
+                    if (age != null) {
+                        p.put("paxage", age);
+                    }
+                }
                 passengerList.add(p);
             }
         }
@@ -156,6 +172,20 @@ public class OrderCreateReq {
         }
     }
 
+    private static String calculateAge(String dob) {
+        if (dob == null || dob.isEmpty()) {
+            return null;
+        }
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            LocalDate birthDate = LocalDate.parse(dob, formatter);
+            LocalDate currentDate = LocalDate.now();
+            return String.valueOf(Period.between(birthDate, currentDate).getYears());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     // --------------------------------------------------------------------------------------------
     // 2. OrderConfirm Mapping
     // --------------------------------------------------------------------------------------------
@@ -176,12 +206,68 @@ public class OrderCreateReq {
 
         // Passengers Full Details
         List<Map<String, Object>> paxList = new ArrayList<>();
+        long unassignedInfants = 0;
+        if (requestDto.getPassengers() != null) {
+            unassignedInfants = requestDto.getPassengers().stream()
+                    .filter(pax -> "INF".equalsIgnoreCase(pax.getPtc()) || "INFANT".equalsIgnoreCase(pax.getPtc()))
+                    .count();
+        }
+
         if (requestDto.getPassengers() != null) {
             for (OrderCreateReqDto.Pax dtoPax : requestDto.getPassengers()) {
+                // Skip INF passenger for ConfirmBooking as they are Lap Infants (not counted in
+                // seats)
+                String ptc = dtoPax.getPtc(); // Assuming PTC is available or default to ADT
+
+                // Included Infants as they are required for "Passengers must match" check
+
+                String titleStr = dtoPax.getTitle();
+
+                // User requested logic: Use "Child" for child and "INFANT" for infant as
+                // paxtitle
+                // User requested logic: Use "Child" for child and "INFANT" for infant as
+                // paxtitle
+                // Removed forced title overrides (Child/INFANT) to match OrderCreate
+                // Consolidated: ConfirmBooking requires skipping INF as seat passenger if
+                // paxcarringinfant is used
+                if ("INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc)) {
+                    continue;
+                }
+
+                if ("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)) {
+                    titleStr = "Child";
+                }
+
                 Map<String, Object> p = new LinkedHashMap<>();
-                p.put("paxtitle", dtoPax.getTitle() + ".");
+                // Ensure dot is appended if needed (simple logic), but NOT for 'Child'
+                if ("Child".equals(titleStr)) {
+                    p.put("paxtitle", titleStr);
+                } else if (titleStr != null && !titleStr.endsWith(".")) {
+                    p.put("paxtitle", titleStr + ".");
+                } else {
+                    p.put("paxtitle", titleStr);
+                }
+
+                // paxcarringinfant logic
+                // If this passenger is an Adult (not Child/Infant) and we have infants to carry
+                boolean isAdult = !("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)
+                        || "INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc));
+
+                if (isAdult && unassignedInfants > 0) {
+                    p.put("paxcarringinfant", true);
+                    unassignedInfants--;
+                }
+
                 p.put("firstname", dtoPax.getFirstName());
                 p.put("lastname", dtoPax.getLastName());
+
+                if ("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)) {
+                    // Calculate Age if possible
+                    String age = calculateAge(dtoPax.getDob());
+                    if (age != null) {
+                        p.put("paxage", age);
+                    }
+                }
 
                 if (dtoPax.getPhoneNumber() != null) {
                     String phone = dtoPax.getPhoneNumber().toString();
@@ -198,9 +284,11 @@ public class OrderCreateReq {
                     p.put("paxdocnumber", doc.getIdentityDocumentNumber());
                     p.put("paxdocissuer", doc.getIssuingCountryCode());
                     p.put("paxdocexpiry", doc.getExpiryDate());
-                } else {
-                    p.put("paxdoctype", "PP");
-                    p.put("paxnationailty", "US");
+                }
+                // Map gender to M/F
+                String gender = dtoPax.getGender();
+                if (gender != null && !gender.isEmpty()) {
+                    p.put("gender", gender.toUpperCase().startsWith("M") ? "M" : "F");
                 }
                 paxList.add(p);
             }

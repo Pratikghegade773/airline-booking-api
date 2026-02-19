@@ -81,5 +81,38 @@ public class OfferPriceRspGo7Dto {
         private int converttousd;
         private Object terms;
         private Map<String, Boolean> services;
+        private RawFareObject rawFareObject;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class RawFareObject {
+        private RackFareDetails rackFare;
+        private FareDetails fare;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class RackFareDetails {
+        private String tax;
+        private Map<String, String> taxBreakdown;
+        private String adultFare;
+        private String childFare;
+        private String infantFare;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class FareDetails {
+        private String tax;
+        private String adultFare;
+        private String childFare;
+        private String infantFare;
     }
 }

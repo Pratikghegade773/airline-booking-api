@@ -186,15 +186,35 @@ public class OrderCreateRspGo7Dto {
         private String paxdoctype;
         private String paxpassportnum;
         private String paxpassportcountry;
+        @com.fasterxml.jackson.annotation.JsonAlias({ "Gender", "sex", "gender" })
         private String gender;
         private String dob;
         private String email;
         private String contact;
         private Object checkin;
         @JsonProperty("e-tickets")
-        private Object eTickets;
+        private ETickets eTickets;
         // older fields if needed compatibility
         private int paxnum;
+
+        @Data
+        @NoArgsConstructor
+        @AllArgsConstructor
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+        public static class ETickets {
+            private List<ETicketFlight> flight;
+        }
+
+        @Data
+        @NoArgsConstructor
+        @AllArgsConstructor
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+        @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+        public static class ETicketFlight {
+            private String number;
+            private String eticketnumber;
+        }
     }
 
     @Data

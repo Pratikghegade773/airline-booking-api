@@ -34,19 +34,35 @@ public class OrderRetrieveResponse {
                 : String.valueOf(booking.getBookingid()));
         response.setPnr(booking.getPnrref());
 
-        response.setApiOwner("G7");
+        List<OrderRetrieveRspGo7Dto.Flight> flightList = null;
+        if (booking.getFlights() != null && booking.getFlights().getFlight() != null) {
+            flightList = booking.getFlights().getFlight();
+        } else if (booking.getItems() != null && booking.getItems().getFlight() != null) {
+            flightList = booking.getItems().getFlight();
+        }
+
+        String carrierCode = "G7";
+        if (flightList != null && !flightList.isEmpty()) {
+            String desig = flightList.get(0).getAirlinedesignator();
+            if (desig != null)
+                carrierCode = desig;
+        }
+
+        response.setApiOwner(carrierCode);
         // response.setAgentId("1416-AGT40148"); // Default per example or mapping
         // response.setAgencyName("Fareintelligence"); // Default
         // response.setAgencyId("1416"); // Default
 
         // Pricing
         if (booking.getBalanceInformation() != null) {
-            response.setTotalOrderPrice(booking.getBalanceInformation().getPnrTotal());
+            response.setTotalOrderPrice(
+                    booking.getBalanceInformation().getPnrTotal().setScale(2, java.math.RoundingMode.HALF_UP));
         } else if (booking.getTotalprice() != null) {
             try {
-                response.setTotalOrderPrice(new BigDecimal(booking.getTotalprice()));
+                response.setTotalOrderPrice(
+                        new BigDecimal(booking.getTotalprice()).setScale(2, java.math.RoundingMode.HALF_UP));
             } catch (NumberFormatException e) {
-                response.setTotalOrderPrice(BigDecimal.ZERO);
+                response.setTotalOrderPrice(BigDecimal.ZERO.setScale(2));
             }
         }
 
@@ -57,13 +73,10 @@ public class OrderRetrieveResponse {
         // derived? Leaving as example
         // default/placeholder
 
-        response.setPaymentTimeLimit(booking.getPnrttl());
-        // response.setTicketingTimeLimit(booking.getPnrttl()); // Not in
-        // OrderRetrieveRspDto
+        response.setPaymentTimeLimit(formatDateTime(booking.getPnrttl()));
 
         response.setStatusCode(go7Response.getAerocrs().isSuccess() ? "702" : "REJECTED");
-        String validatingCarrier = "G7";
-        response.setValidatingCarrier(validatingCarrier);
+        response.setValidatingCarrier(carrierCode);
 
         // 2. Booking References
         List<OrderRetrieveRspDto.BookingReference> refs = new ArrayList<>();
@@ -93,13 +106,6 @@ public class OrderRetrieveResponse {
         // 3. ODs (Flights)
         List<OrderRetrieveRspDto.OD> ods = new ArrayList<>();
         List<OrderRetrieveRspDto.PriceClass> priceClasses = new ArrayList<>();
-
-        List<OrderRetrieveRspGo7Dto.Flight> flightList = null;
-        if (booking.getFlights() != null && booking.getFlights().getFlight() != null) {
-            flightList = booking.getFlights().getFlight();
-        } else if (booking.getItems() != null && booking.getItems().getFlight() != null) {
-            flightList = booking.getItems().getFlight();
-        }
 
         if (flightList != null) {
             int segmentCounter = 1;
@@ -149,7 +155,7 @@ public class OrderRetrieveResponse {
                                 flight.getArrive()));
 
                 if (flight.getNumber() != null) {
-                    od.setFlightNumber(flight.getNumber().replaceAll("[^0-9]", ""));
+                    od.setFlightNumber(flight.getNumber());
                 }
                 od.setEquipment(flight.getAircraftType());
                 od.setMarketingCarrierCode(
@@ -237,7 +243,39 @@ public class OrderRetrieveResponse {
                 pax.setGivenName(go7Pax.getFirstname() != null ? go7Pax.getFirstname().toUpperCase() : "");
                 pax.setSurname(go7Pax.getLastname() != null ? go7Pax.getLastname().toUpperCase() : "");
                 pax.setTitle(go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR");
-                pax.setGender(go7Pax.getGender() != null && go7Pax.getGender().startsWith("M") ? "MALE" : "FEMALE");
+
+                String gender = null;
+                if (go7Pax.getGender() != null && !go7Pax.getGender().isEmpty()) {
+                    if (go7Pax.getGender().toUpperCase().startsWith("M")) {
+                        gender = "Male";
+                    } else if (go7Pax.getGender().toUpperCase().startsWith("F")) {
+                        gender = "Female";
+                    }
+                }
+
+                // Title-based fallback
+                if (gender == null && go7Pax.getPaxtitle() != null) {
+                    String title = go7Pax.getPaxtitle().toUpperCase();
+                    if (title.contains("MR") || title.contains("MSTR") || title.contains("MISTR")) {
+                        gender = "Male";
+                    } else if (title.contains("MS") || title.contains("MRS") || title.contains("MISS")) {
+                        gender = "Female";
+                    }
+                }
+
+                if (gender != null) {
+                    pax.setGender(gender);
+                } else {
+                    pax.setGender("Male"); // Default
+                }
+
+                // Override for Child/Infant
+                if ("CHD".equals(pax.getPtc()) || "CNN".equals(pax.getPtc())) {
+                    pax.setTitle("CHILD");
+                } else if ("INF".equals(pax.getPtc())) {
+                    pax.setTitle("INFANT");
+                }
+
                 pax.setBirthDate(formatDate(go7Pax.getDob()));
                 pax.setLanguage("English");
 
@@ -266,8 +304,8 @@ public class OrderRetrieveResponse {
 
                     for (OrderRetrieveRspGo7Dto.Passenger.ETicketFlight etf : go7Pax.getETickets().getFlight()) {
                         OrderRetrieveRspDto.TicketDocInfoDTO tdi = new OrderRetrieveRspDto.TicketDocInfoDTO();
-                        tdi.setIssuingAirlineName("G7"); // Default or derive
-                        tdi.setValidatingCarrier("G7");
+                        tdi.setIssuingAirlineName(carrierCode);
+                        tdi.setValidatingCarrier(carrierCode);
 
                         List<OrderRetrieveRspDto.TicketDocInfoDTO.TicketDocumentDTO> docs = new ArrayList<>();
                         OrderRetrieveRspDto.TicketDocInfoDTO.TicketDocumentDTO doc = new OrderRetrieveRspDto.TicketDocInfoDTO.TicketDocumentDTO();
@@ -277,6 +315,17 @@ public class OrderRetrieveResponse {
 
                         // Try to find coupon/flight info? For now just ticket number is key
                         docs.add(doc);
+
+                        // Link to Ticket (Seat Data) - EMD-like entry
+                        if (booking.getLinktoticket() != null && !booking.getLinktoticket().isEmpty()) {
+                            OrderRetrieveRspDto.TicketDocInfoDTO.TicketDocumentDTO linkDoc = new OrderRetrieveRspDto.TicketDocInfoDTO.TicketDocumentDTO();
+                            linkDoc.setTicketDocNbr(booking.getLinktoticket());
+                            linkDoc.setType("J"); // Using J to distinguish or match ChangeSeat logic
+                            linkDoc.setNumberOfBooklets(1);
+                            linkDoc.setDateOfIssue(formatDate(LocalDate.now().toString()));
+                            linkDoc.setReportingType("BSP");
+                            docs.add(linkDoc);
+                        }
 
                         tdi.setTicketDocument(docs);
                         ticketDocInfoList.add(tdi);
@@ -290,86 +339,52 @@ public class OrderRetrieveResponse {
         response.setPaxDetailList(paxList);
 
         // 5. Order Items
+        // 5. Order Items
         List<OrderRetrieveRspDto.OrderItemDTO> orderItems = new ArrayList<>();
-        OrderRetrieveRspDto.OrderItemDTO item = new OrderRetrieveRspDto.OrderItemDTO();
-        item.setOrderItemId(response.getResponseId() + "-1");
-        item.setPtc("ADT");
+        int itemIdx = 1;
 
-        String mainClassName = "Economy";
-        if (flightList != null && !flightList.isEmpty()) {
-            OrderRetrieveRspGo7Dto.Flight f = flightList.get(0);
-            if (f.getFlightClass() != null) {
-                String[] parts = f.getFlightClass().split("/");
-                if (parts.length > 1) {
-                    mainClassName = parts[1].trim();
-                } else {
-                    mainClassName = f.getFlightClass();
-                }
-            }
-        }
-        item.setClassName(mainClassName);
-        item.setTimeStamp(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+        // Group Pax
+        List<String> adtRefs = new ArrayList<>();
+        List<String> cnnRefs = new ArrayList<>();
+        List<String> infRefs = new ArrayList<>();
 
-        List<String> paxIds = paxList.stream().map(OrderRetrieveRspDto.PaxDetailDTO::getPaxId)
-                .collect(Collectors.toList());
-        item.setPassengerIds(paxIds);
-
-        if (booking.getBalanceInformation() != null) {
-            item.setTotalPrice(booking.getBalanceInformation().getPnrTotal());
-        } else if (booking.getTotalprice() != null) {
-            item.setTotalPrice(safeDecimal(booking.getTotalprice()));
-        }
-
-        // Fares & Taxes
-        BigDecimal totalBase = BigDecimal.ZERO;
-        BigDecimal totalTaxAmount = BigDecimal.ZERO;
-        java.util.Map<String, BigDecimal> taxAggregation = new java.util.HashMap<>();
-
-        if (flightList != null) {
-            for (OrderRetrieveRspGo7Dto.Flight flight : flightList) {
-                totalBase = totalBase.add(safeDecimal(flight.getInvpricingwithouttax()));
-                totalTaxAmount = totalTaxAmount.add(BigDecimal.valueOf(flight.getTotaltaxes()));
-
-                if (flight.getTaxes() != null) {
-                    accumulateTax(taxAggregation, "Fuel", flight.getTaxes().getFuel());
-                    accumulateTax(taxAggregation, "Ground_handling", flight.getTaxes().getGroundHandling());
-                    accumulateTax(taxAggregation, "Security", flight.getTaxes().getSecurity());
-                    accumulateTax(taxAggregation, "tax_4", flight.getTaxes().getTax_4());
-                }
+        for (OrderRetrieveRspDto.PaxDetailDTO p : paxList) {
+            String pid = p.getPaxId();
+            if ("ADT".equals(p.getPtc())) {
+                adtRefs.add(pid);
+            } else if ("CHD".equals(p.getPtc())) {
+                cnnRefs.add(pid);
+            } else if ("INF".equals(p.getPtc())) {
+                infRefs.add(pid);
             }
         }
 
-        List<OrderRetrieveRspDto.OrderItemDTO.Taxes> taxBreakdown = new ArrayList<>();
-        for (java.util.Map.Entry<String, BigDecimal> entry : taxAggregation.entrySet()) {
-            if (entry.getValue().compareTo(BigDecimal.ZERO) > 0) {
-                OrderRetrieveRspDto.OrderItemDTO.Taxes t = new OrderRetrieveRspDto.OrderItemDTO.Taxes();
-                t.setCode("TAX"); // or derive from key? Example had specific codes like YQ, IN
-                // Mapping keys to some codes/descriptions if possible, or generic
-                t.setAmount(entry.getValue());
-                t.setCurrency(booking.getCurrency());
-                t.setDescription(entry.getKey());
-                taxBreakdown.add(t);
-            }
+        List<OrderRetrieveRspGo7Dto.Flight> flightListRef = flightList;
+        String currency = booking.getCurrency();
+        if (currency == null)
+            currency = "USD";
+
+        // ADT Item
+        if (!adtRefs.isEmpty()) {
+            OrderRetrieveRspDto.OrderItemDTO item = createOrderItem(response.getResponseId(), itemIdx++, "ADT", adtRefs,
+                    flightListRef, currency);
+            orderItems.add(item);
         }
 
-        OrderRetrieveRspDto.OrderItemDTO.BaseFare baseFareObj = new OrderRetrieveRspDto.OrderItemDTO.BaseFare();
-        baseFareObj.setAmount(totalBase);
-        baseFareObj.setCurrency(booking.getCurrency());
-        item.setBaseFare(baseFareObj);
+        // CHD Item
+        if (!cnnRefs.isEmpty()) {
+            OrderRetrieveRspDto.OrderItemDTO item = createOrderItem(response.getResponseId(), itemIdx++, "CHD", cnnRefs,
+                    flightListRef, currency);
+            orderItems.add(item);
+        }
 
-        OrderRetrieveRspDto.OrderItemDTO.TotalTax totalTaxObj = new OrderRetrieveRspDto.OrderItemDTO.TotalTax();
-        totalTaxObj.setAmount(totalTaxAmount);
-        totalTaxObj.setCurrency(booking.getCurrency());
-        item.setTotalTax(totalTaxObj);
+        // INF Item
+        if (!infRefs.isEmpty()) {
+            OrderRetrieveRspDto.OrderItemDTO item = createOrderItem(response.getResponseId(), itemIdx++, "INF", infRefs,
+                    flightListRef, currency);
+            orderItems.add(item);
+        }
 
-        item.setTaxes(taxBreakdown);
-
-        OrderRetrieveRspDto.OrderItemDTO.TotalFare totalFareObj = new OrderRetrieveRspDto.OrderItemDTO.TotalFare();
-        totalFareObj.setAmount(item.getTotalPrice());
-        totalFareObj.setCurrency(booking.getCurrency());
-        item.setTotalFare(totalFareObj);
-
-        orderItems.add(item);
         response.setOrderItems(orderItems);
 
         return response;
@@ -383,23 +398,6 @@ public class OrderRetrieveResponse {
         if ("INFANT".equalsIgnoreCase(go7Type))
             return "INF";
         return "ADT";
-    }
-
-    private static BigDecimal safeDecimal(String val) {
-        if (val == null)
-            return BigDecimal.ZERO;
-        try {
-            return new BigDecimal(val);
-        } catch (NumberFormatException e) {
-            return BigDecimal.ZERO;
-        }
-    }
-
-    private static void accumulateTax(java.util.Map<String, BigDecimal> map, String code, double amount) {
-        if (amount <= 0)
-            return;
-        BigDecimal current = map.getOrDefault(code, BigDecimal.ZERO);
-        map.put(code, current.add(BigDecimal.valueOf(amount)));
     }
 
     private static String calculateJourneyTime(String depDate, String depTime, String arrDate, String arrTime) {
@@ -464,6 +462,172 @@ public class OrderRetrieveResponse {
             return date.plusDays(days).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         } catch (Exception e) {
             return dateStr;
+        }
+    }
+
+    private static OrderRetrieveRspDto.OrderItemDTO createOrderItem(String responseId, int itemIndex, String ptc,
+            List<String> paxIds, List<OrderRetrieveRspGo7Dto.Flight> flights, String currency) {
+        OrderRetrieveRspDto.OrderItemDTO item = new OrderRetrieveRspDto.OrderItemDTO();
+        item.setOrderItemId(responseId + "_AIR-" + itemIndex);
+        item.setPtc(ptc);
+
+        String mainClassName = "Economy";
+        if (flights != null && !flights.isEmpty()) {
+            OrderRetrieveRspGo7Dto.Flight f = flights.get(0);
+            if (f.getFlightClass() != null) {
+                String[] parts = f.getFlightClass().split("/");
+                if (parts.length > 1) {
+                    mainClassName = parts[1].trim();
+                } else {
+                    mainClassName = f.getFlightClass();
+                }
+            }
+        }
+        item.setClassName(mainClassName); // Actually item className might differ per segment but usually one PNR class
+                                          // dominating
+        item.setTimeStamp(
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", Locale.ENGLISH)));
+        item.setPassengerIds(paxIds);
+
+        // Calculate Unit Totals
+        BigDecimal unitBase = BigDecimal.ZERO;
+        BigDecimal unitTax = BigDecimal.ZERO;
+
+        List<OrderRetrieveRspDto.OrderItemDTO.Taxes> taxList = new ArrayList<>();
+
+        if (flights != null) {
+            for (OrderRetrieveRspGo7Dto.Flight f : flights) {
+                // Base Fare
+                String fareStr = null;
+                boolean isAdt = "ADT".equals(ptc);
+                boolean isCnn = "CNN".equals(ptc);
+                boolean isInf = "INF".equals(ptc);
+
+                if (isAdt)
+                    fareStr = f.getAdultfare();
+                else if (isCnn)
+                    fareStr = f.getChildfare();
+                else if (isInf)
+                    fareStr = f.getInfantfare();
+
+                // Fallback logic
+                if (fareStr == null) {
+                    if (isAdt)
+                        fareStr = f.getNetFare();
+                }
+
+                // If fareStr has value, parse it.
+                BigDecimal fareVal = BigDecimal.ZERO;
+                if (fareStr != null) {
+                    try {
+                        fareVal = new BigDecimal(fareStr);
+                    } catch (Exception e) {
+                    }
+                }
+                unitBase = unitBase.add(fareVal);
+                unitTax = unitTax.add(BigDecimal.valueOf(f.getTotaltaxes()));
+            }
+        }
+
+        int count = paxIds.size();
+        BigDecimal totalBase = unitBase.multiply(new BigDecimal(count));
+        BigDecimal totalTaxAmount = unitTax.multiply(new BigDecimal(count));
+        BigDecimal totalPrice = totalBase.add(totalTaxAmount);
+
+        item.setTotalPrice(totalPrice.setScale(2, java.math.RoundingMode.HALF_UP));
+
+        // Taxes Breakdown (Apply Count Multiplier and Proportional Scaling)
+        if (flights != null) {
+            BigDecimal totalGranularTaxForAllPax = BigDecimal.ZERO;
+            for (OrderRetrieveRspGo7Dto.Flight f : flights) {
+                if (f.getTaxes() != null) {
+                    OrderRetrieveRspGo7Dto.Taxes t = f.getTaxes();
+                    totalGranularTaxForAllPax = totalGranularTaxForAllPax
+                            .add(BigDecimal.valueOf(t.getGroundHandling()));
+                    totalGranularTaxForAllPax = totalGranularTaxForAllPax.add(BigDecimal.valueOf(t.getSecurity()));
+                    totalGranularTaxForAllPax = totalGranularTaxForAllPax.add(BigDecimal.valueOf(t.getFuel()));
+                    totalGranularTaxForAllPax = totalGranularTaxForAllPax.add(BigDecimal.valueOf(t.getTax_1()));
+                    totalGranularTaxForAllPax = totalGranularTaxForAllPax.add(BigDecimal.valueOf(t.getTax_4()));
+                }
+            }
+            totalGranularTaxForAllPax = totalGranularTaxForAllPax.multiply(new BigDecimal(count));
+
+            BigDecimal scaleFactor = BigDecimal.ONE;
+            if (totalGranularTaxForAllPax.compareTo(BigDecimal.ZERO) > 0) {
+                scaleFactor = totalTaxAmount.divide(totalGranularTaxForAllPax, 10, java.math.RoundingMode.HALF_UP);
+            }
+
+            for (OrderRetrieveRspGo7Dto.Flight f : flights) {
+                if (f.getTaxes() != null) {
+                    OrderRetrieveRspGo7Dto.Taxes t = f.getTaxes();
+                    addScaledTaxItem(taxList, "GH", t.getGroundHandling(), scaleFactor, count, currency,
+                            "Ground Handling");
+                    addScaledTaxItem(taxList, "I2", t.getSecurity(), scaleFactor, count, currency, "Security Tax");
+                    addScaledTaxItem(taxList, "YQ", t.getFuel(), scaleFactor, count, currency, "Fuel Surcharge");
+                    addScaledTaxItem(taxList, "IN", t.getTax_1(), scaleFactor, count, currency, "Infrastructure Tax");
+                    addScaledTaxItem(taxList, "OT", t.getTax_4(), scaleFactor, count, currency, "Other Tax");
+                }
+            }
+        }
+        item.setTaxes(taxList);
+
+        OrderRetrieveRspDto.OrderItemDTO.TotalTax totalTaxObj = new OrderRetrieveRspDto.OrderItemDTO.TotalTax();
+        totalTaxObj.setAmount(totalTaxAmount.setScale(2, java.math.RoundingMode.HALF_UP));
+        totalTaxObj.setCurrency(currency);
+        item.setTotalTax(totalTaxObj);
+
+        OrderRetrieveRspDto.OrderItemDTO.BaseFare baseFareObj = new OrderRetrieveRspDto.OrderItemDTO.BaseFare();
+        baseFareObj.setAmount(totalBase.setScale(2, java.math.RoundingMode.HALF_UP));
+        baseFareObj.setCurrency(currency);
+        item.setBaseFare(baseFareObj);
+
+        OrderRetrieveRspDto.OrderItemDTO.TotalFare totalFareObj = new OrderRetrieveRspDto.OrderItemDTO.TotalFare();
+        totalFareObj.setAmount(totalPrice.setScale(2, java.math.RoundingMode.HALF_UP));
+        totalFareObj.setCurrency(currency);
+        item.setTotalFare(totalFareObj);
+
+        return item;
+    }
+
+    private static void addScaledTaxItem(List<OrderRetrieveRspDto.OrderItemDTO.Taxes> list, String code, double amount,
+            BigDecimal scaleFactor, int count, String currency, String description) {
+        if (amount > 0) {
+            OrderRetrieveRspDto.OrderItemDTO.Taxes t = new OrderRetrieveRspDto.OrderItemDTO.Taxes();
+            t.setCode(code);
+            BigDecimal scaledAmount = BigDecimal.valueOf(amount).multiply(BigDecimal.valueOf(count))
+                    .multiply(scaleFactor)
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+            t.setAmount(scaledAmount);
+            t.setCurrency(currency);
+            t.setDescription(description);
+            list.add(t);
+        }
+    }
+
+    private static String formatDateTime(String dateTimeStr) {
+        if (dateTimeStr == null) {
+            return null;
+        }
+        try {
+            // Flexible parsing (Go7 might return various formats)
+            // Example: "2026-02-13 11:55:06" or "2026/02/13 11:55:06"
+            DateTimeFormatter inputFormatter;
+            if (dateTimeStr.contains("/")) {
+                inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+            } else {
+                inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            }
+            LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, inputFormatter);
+
+            // Desired format: "13Feb2026 11:55:06" -> ddMMMyyyy HH:mm:ss
+            return dateTime.format(DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", Locale.ENGLISH));
+        } catch (Exception e) {
+            // Fallback: try just date parsing if no time
+            try {
+                return formatDate(dateTimeStr);
+            } catch (Exception ex) {
+                return dateTimeStr; // Return raw if all fails
+            }
         }
     }
 }

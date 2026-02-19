@@ -6,10 +6,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderReshopReqDto {
+public class FSorderreshopReqDto {
     private String airlineCode;
     private String orderId;
     private String agencyId;
@@ -60,4 +61,3 @@ public class OrderReshopReqDto {
 
     }
 }
-

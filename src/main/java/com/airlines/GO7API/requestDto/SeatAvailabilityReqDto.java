@@ -5,14 +5,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
-public class OrderCancelReqDto {
+@NoArgsConstructor
+public class SeatAvailabilityReqDto {
 
-    private String offerId;
     private String orderId;
     private String agencyId;
     private String agentId;
     private String apiKey;
-    private String cancelUrl;
+    private String seatAvailabilityUrl;
+
 }

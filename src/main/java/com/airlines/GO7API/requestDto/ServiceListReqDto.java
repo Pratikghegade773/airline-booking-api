@@ -14,7 +14,4 @@ public class ServiceListReqDto {
     private String agentId;
     private String apiKey;
     private String serviceListUrl;
-
-    private String currency;
-    private String flightid;
 }

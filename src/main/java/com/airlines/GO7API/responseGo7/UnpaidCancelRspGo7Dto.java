@@ -15,7 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class OrderRetrieveRspGo7Dto {
+public class UnpaidCancelRspGo7Dto {
 
     private Aerocrs aerocrs;
 
@@ -197,7 +197,6 @@ public class OrderRetrieveRspGo7Dto {
         private String paxdoctype;
         private String paxpassportnum;
         private String paxpassportcountry;
-        @com.fasterxml.jackson.annotation.JsonAlias({ "Gender", "sex", "gender" })
         private String gender;
         private String dob;
         private String email;

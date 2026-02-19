@@ -149,6 +149,7 @@ public class ChangePaymentRspGo7Dto {
         private Taxes taxes;
         private String invpricingwithouttax;
         private java.util.Map<String, Boolean> services;
+        private List<Seat> seat;
     }
 
     @Data
@@ -187,6 +188,7 @@ public class ChangePaymentRspGo7Dto {
         private String paxdoctype;
         private String paxpassportnum;
         private String paxpassportcountry;
+        @com.fasterxml.jackson.annotation.JsonAlias({ "Gender", "sex", "gender" })
         private String gender;
         private String dob;
         private String email;
@@ -237,5 +239,17 @@ public class ChangePaymentRspGo7Dto {
         private double pnrOutstandingPayment;
         @JsonProperty("PNRtotal")
         private BigDecimal pnrTotal;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Seat {
+        private boolean status;
+        private String seat;
+        private Object msg;
+        private BigDecimal fare;
+        private String currency;
     }
 }

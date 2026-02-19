@@ -74,6 +74,9 @@ public class OrderRetrieveReq {
         @JsonProperty("bookingconfirmation")
         private String bookingConfirmation;
 
+        @JsonProperty("bookingid")
+        private Long bookingId;
+
         @JsonProperty("passengerlastname")
         private String passengerLastName;
 
@@ -103,38 +106,68 @@ public class OrderRetrieveReq {
         public void setGenerateBookingId(Boolean generateBookingId) {
             this.generateBookingId = generateBookingId;
         }
+
+        public Long getBookingId() {
+            return bookingId;
+        }
+
+        public void setBookingId(Long bookingId) {
+            this.bookingId = bookingId;
+        }
     }
 
     public static OrderRetrieveReq mapToOrderRetrieveReq(OrderRetrieveReqDto orderRetrieveReqDto,
             String storedBookingConfirmation) {
         OrderRetrieveReq request = new OrderRetrieveReq();
-        request.setApiKey(orderRetrieveReqDto.getApiKey());
 
-        // Set URL with fallback
-        if (orderRetrieveReqDto.getRetrieveUrl() != null && !orderRetrieveReqDto.getRetrieveUrl().isEmpty()) {
-            request.setOrderRetrieveUrl(orderRetrieveReqDto.getRetrieveUrl());
-        } else if (orderRetrieveReqDto.getApiUrl() != null && !orderRetrieveReqDto.getApiUrl().isEmpty()) {
-            request.setOrderRetrieveUrl(orderRetrieveReqDto.getApiUrl());
+        if (orderRetrieveReqDto != null) {
+            request.setApiKey(orderRetrieveReqDto.getApiKey());
+
+            // Set URL with fallback
+            if (orderRetrieveReqDto.getRetrieveUrl() != null && !orderRetrieveReqDto.getRetrieveUrl().isEmpty()) {
+                request.setOrderRetrieveUrl(orderRetrieveReqDto.getRetrieveUrl());
+            } else if (orderRetrieveReqDto.getApiUrl() != null && !orderRetrieveReqDto.getApiUrl().isEmpty()) {
+                request.setOrderRetrieveUrl(orderRetrieveReqDto.getApiUrl());
+            } else {
+                request.setOrderRetrieveUrl("https://api.aerocrs.com/v5/getBooking");
+            }
         } else {
+            // Default URL if DTO is null
             request.setOrderRetrieveUrl("https://api.aerocrs.com/v5/getBooking");
         }
 
         Aerocrs aerocrs = new Aerocrs();
         Parms parms = new Parms();
 
-
-        // Map to bookingconfirmation (Priority: Stored BookingConfirmation > PNR >
+        // Map to bookingid OR bookingconfirmation (Priority: Stored BookingConfirmation
+        // > PNR >
         // OrderID)
+        String idToUse = null;
         if (storedBookingConfirmation != null && !storedBookingConfirmation.isEmpty()) {
-            parms.setBookingConfirmation(storedBookingConfirmation);
-        } else if (orderRetrieveReqDto.getPnr() != null && !orderRetrieveReqDto.getPnr().isEmpty()) {
-            parms.setBookingConfirmation(orderRetrieveReqDto.getPnr());
-        } else if (orderRetrieveReqDto.getOrderId() != null && !orderRetrieveReqDto.getOrderId().isEmpty()) {
-            parms.setBookingConfirmation(orderRetrieveReqDto.getOrderId());
+            idToUse = storedBookingConfirmation;
+        } else if (orderRetrieveReqDto != null) {
+            if (orderRetrieveReqDto.getPnr() != null && !orderRetrieveReqDto.getPnr().isEmpty()) {
+                idToUse = orderRetrieveReqDto.getPnr();
+            } else if (orderRetrieveReqDto.getOrderId() != null && !orderRetrieveReqDto.getOrderId().isEmpty()) {
+                idToUse = orderRetrieveReqDto.getOrderId();
+            }
+        }
+
+        if (idToUse != null) {
+            // Smart Mapping: If numeric -> BookingID, Else -> BookingConfirmation/PNR
+            if (idToUse.matches("\\d+")) {
+                try {
+                    parms.setBookingId(Long.parseLong(idToUse));
+                } catch (NumberFormatException e) {
+                    parms.setBookingConfirmation(idToUse);
+                }
+            } else {
+                parms.setBookingConfirmation(idToUse);
+            }
         }
 
         // Map surname if available
-        if (orderRetrieveReqDto.getSurname() != null) {
+        if (orderRetrieveReqDto != null && orderRetrieveReqDto.getSurname() != null) {
             parms.setPassengerLastName(orderRetrieveReqDto.getSurname());
         }
 

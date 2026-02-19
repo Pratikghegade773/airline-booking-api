@@ -105,7 +105,8 @@ public class ServiceListReq {
         }
     }
 
-    public static ServiceListReq mapToServiceListRequestDTO(ServiceListReqDto dto) {
+    public static ServiceListReq mapToServiceListRequestDTO(ServiceListReqDto dto,
+            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto bookingRsp) {
         ServiceListReq req = new ServiceListReq();
         req.setApiKey(dto.getApiKey());
 
@@ -118,29 +119,52 @@ public class ServiceListReq {
         Aerocrs aerocrs = new Aerocrs();
         Parms parms = new Parms();
 
-        if (dto.getOrderId() != null) {
-            try {
-                parms.setBookingId(Long.parseLong(dto.getOrderId()));
-            } catch (NumberFormatException e) {
-                // Ignore invalid ID
+        // Map from Booking Response
+        if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
+            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
+                    .getBooking();
+
+            // 1. Booking ID
+            if (booking.getBookingid() != null) {
+                parms.setBookingId(booking.getBookingid());
+            }
+
+            // 2. Currency
+            if (booking.getCurrency() != null) {
+                parms.setCurrency(booking.getCurrency());
+            } else if (booking.getDefaultCurrency() != null) {
+                parms.setCurrency(booking.getDefaultCurrency());
+            } else {
+                parms.setCurrency("USD");
+            }
+
+            // 3. Flight ID (Take first flight)
+            if (booking.getFlights() != null && booking.getFlights().getFlight() != null
+                    && !booking.getFlights().getFlight().isEmpty()) {
+                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight firstFlight = booking.getFlights()
+                        .getFlight().get(0);
+                parms.setFlightId((long) firstFlight.getFlightid());
+            } else if (booking.getItems() != null && booking.getItems().getFlight() != null
+                    && !booking.getItems().getFlight().isEmpty()) {
+                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight firstFlight = booking.getItems()
+                        .getFlight().get(0);
+                parms.setFlightId((long) firstFlight.getFlightid());
             }
         }
 
-        // 2. Map flightid (using flattened field flightid)
-        if (dto.getFlightid() != null) {
-            try {
-                parms.setFlightId(Long.parseLong(dto.getFlightid()));
-            } catch (NumberFormatException e) {
-                // Ignore invalid ID
-            }
-        }
+        aerocrs.setParms(parms);
+        req.setAerocrs(aerocrs);
+        return req;
+    }
 
-        // 3. Map currency
-        if (dto.getCurrency() != null) {
-            parms.setCurrency(dto.getCurrency());
-        } else {
-            parms.setCurrency("USD");
-        }
+    public static com.airlines.GO7API.request.OrderRetrieveReq mapToGetBookingReq(String bookingConfirmation) {
+        com.airlines.GO7API.request.OrderRetrieveReq req = new com.airlines.GO7API.request.OrderRetrieveReq();
+        req.setApiKey("8d123dcd262ad942852233f81e649089"); // Default or constant if not passed
+        req.setOrderRetrieveUrl("https://api.aerocrs.com/v5/getBooking");
+
+        com.airlines.GO7API.request.OrderRetrieveReq.Aerocrs aerocrs = new com.airlines.GO7API.request.OrderRetrieveReq.Aerocrs();
+        com.airlines.GO7API.request.OrderRetrieveReq.Parms parms = new com.airlines.GO7API.request.OrderRetrieveReq.Parms();
+        parms.setBookingConfirmation(bookingConfirmation);
 
         aerocrs.setParms(parms);
         req.setAerocrs(aerocrs);

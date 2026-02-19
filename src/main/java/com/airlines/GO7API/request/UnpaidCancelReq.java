@@ -1,6 +1,6 @@
 package com.airlines.GO7API.request;
 
-import com.airlines.GO7API.requestDto.OrderCancelReqDto;
+import com.airlines.GO7API.requestDto.UnpaidCancelReqDto;
 import com.airlines.GO7API.error.ErrorRsp; // Assuming ErrorRsp exists
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -20,7 +20,7 @@ import javax.xml.datatype.DatatypeConfigurationException;
 import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class OrderCancelReq {
+public class UnpaidCancelReq {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -29,7 +29,7 @@ public class OrderCancelReq {
     private String apiKey;
 
     @JsonIgnore
-    private String orderCancelUrl;
+    private String unpaidCancelUrl;
 
     public Aerocrs getAerocrs() {
         return aerocrs;
@@ -47,12 +47,12 @@ public class OrderCancelReq {
         this.apiKey = apiKey;
     }
 
-    public String getOrderCancelUrl() {
-        return orderCancelUrl;
+    public String getUnpaidCancelUrl() {
+        return unpaidCancelUrl;
     }
 
-    public void setOrderCancelUrl(String orderCancelUrl) {
-        this.orderCancelUrl = orderCancelUrl;
+    public void setUnpaidCancelUrl(String unpaidCancelUrl) {
+        this.unpaidCancelUrl = unpaidCancelUrl;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -83,23 +83,23 @@ public class OrderCancelReq {
         }
     }
 
-    public static OrderCancelReq mapToOrderCancelReq(OrderCancelReqDto orderCancelReqDto) {
-        OrderCancelReq request = new OrderCancelReq();
-        request.setApiKey(orderCancelReqDto.getApiKey());
-        if (orderCancelReqDto.getCancelUrl() != null && !orderCancelReqDto.getCancelUrl().isEmpty()) {
-            request.setOrderCancelUrl(orderCancelReqDto.getCancelUrl());
+    public static UnpaidCancelReq mapToUnpaidCancelReq(UnpaidCancelReqDto unpaidCancelReqDto) {
+        UnpaidCancelReq request = new UnpaidCancelReq();
+        request.setApiKey(unpaidCancelReqDto.getApiKey());
+        if (unpaidCancelReqDto.getCancelUrl() != null && !unpaidCancelReqDto.getCancelUrl().isEmpty()) {
+            request.setUnpaidCancelUrl(unpaidCancelReqDto.getCancelUrl());
         } else {
-            request.setOrderCancelUrl("https://api.aerocrs.com/v5/cancelBooking");
+            request.setUnpaidCancelUrl("https://api.aerocrs.com/v5/cancelBooking");
         }
 
         Aerocrs aerocrs = new Aerocrs();
         Parms parms = new Parms();
 
-        if (orderCancelReqDto.getOrderId() != null) {
+        if (unpaidCancelReqDto.getOrderId() != null) {
             try {
-                parms.setBookingId(Long.parseLong(orderCancelReqDto.getOrderId()));
+                parms.setBookingId(Long.parseLong(unpaidCancelReqDto.getOrderId()));
             } catch (NumberFormatException e) {
-                System.out.println("Invalid Booking ID for Cancel: " + orderCancelReqDto.getOrderId());
+                System.out.println("Invalid Booking ID for Cancel: " + unpaidCancelReqDto.getOrderId());
             }
         }
 
@@ -142,7 +142,7 @@ public class OrderCancelReq {
     }
 
     public String makeApiCall() throws IOException {
-        String baseUrl = orderCancelUrl;
+        String baseUrl = "https://api.aerocrs.com/v5/cancelBooking";
         String jsonBody = new ObjectMapper()
                 .enable(SerializationFeature.INDENT_OUTPUT)
                 .writeValueAsString(this);
@@ -154,14 +154,14 @@ public class OrderCancelReq {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated OrderCancel Request is:\n" + jsonBody);
+        System.out.println("Generated UnpaidCancel Request is:\n" + jsonBody);
 
         RestTemplate restTemplate = new RestTemplate();
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(baseUrl, HttpMethod.POST, entity, String.class);
             System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-            System.out.println("OrderCancel Response: " + response.getBody());
+            System.out.println("UnpaidCancel Response: " + response.getBody());
             return response.getBody();
 
         } catch (HttpClientErrorException e) {

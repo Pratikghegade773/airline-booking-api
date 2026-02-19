@@ -1,0 +1,61 @@
+package com.airlines.GO7API.responseGo7;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class ChangeSeatRspGo7Dto {
+
+    private Aerocrs aerocrs;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Aerocrs {
+        private boolean success;
+        private Long bookingid;
+        private String companycode;
+        private List<Flight> flights;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Flight {
+        private String flightnumber;
+        private String flightdate;
+        private String fromcode;
+        private String tocode;
+        private List<Seat> seat;
+        @JsonProperty("class")
+        private String flightClass;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Seat {
+        @JsonProperty("status")
+        private boolean status;
+        @JsonProperty("seat")
+        private String seat;
+        @JsonProperty("msg")
+        private Object msg;
+        @JsonProperty("fare")
+        private BigDecimal fare;
+        @JsonProperty("currency")
+        private String currency;
+    }
+}
