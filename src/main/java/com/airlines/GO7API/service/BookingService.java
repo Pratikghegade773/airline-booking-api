@@ -26,6 +26,12 @@ public class BookingService {
         System.out.println("Saved booking to MongoDB: PNR=" + pnr + ", OrderID=" + orderId);
     }
 
+    public void saveBooking(BookingEntity entity) {
+        bookingRepository.save(entity);
+        System.out.println(
+                "Saved existing booking to MongoDB: PNR=" + entity.getPnr() + ", OrderID=" + entity.getOrderId());
+    }
+
     public Optional<BookingEntity> getBookingByPnr(String pnr) {
         return bookingRepository.findById(pnr);
     }

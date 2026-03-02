@@ -347,89 +347,56 @@ public class ChangeSeatResponse {
                         doc.setTicketingLocation(tdi.getIssuingPlace());
                         doc.setReportingType("BSP");
 
-                        // Coupons - simplified as source data is limited
+                        // Coupons
                         List<ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO> coupons = new ArrayList<>();
-                        ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO coupon = new ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO();
-                        coupon.setCouponNumber(1);
-                        coupon.setCouponReference("FBA1");
-                        coupon.setFareBasisCode(!ods.isEmpty() ? ods.get(0).getFareBasisCode() : null);
-                        coupon.setRbd(!ods.isEmpty() ? ods.get(0).getRbdCode() : null);
-                        coupon.setStatus("I");
-                        coupon.setValidatingCarrier(carrierCode);
-
-                        // Match Coupon to Flight for CurrentAirlineInfo
-                        OrderRetrieveRspGo7Dto.Flight couponFlight = null;
                         if (flightList != null) {
+                            int couponNum = 1;
                             for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
-                                // Try match flight number (e.g. "202" or "API202")
-                                String fNum = f.getNumber(); // e.g. "202"
-                                String fDesig = f.getAirlinedesignator(); // "API"
-                                String fullNum = (fDesig != null ? fDesig : "") + (fNum != null ? fNum : "");
+                                ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO coupon = new ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+                                coupon.setCouponNumber(couponNum++);
+                                coupon.setCouponReference("FBA" + couponNum);
 
-                                // etf.getNumber() might be "API202" or "202"
-                                if (etf.getNumber() != null && (etf.getNumber().endsWith(fNum)
-                                        || fullNum.equalsIgnoreCase(etf.getNumber()))) {
-                                    couponFlight = f;
-                                    break;
+                                String fClass = f.getFlightClass() != null ? f.getFlightClass() : "";
+                                String fRbd = "";
+                                if (fClass.contains("/")) {
+                                    String[] parts = fClass.split("/");
+                                    if (parts.length > 0)
+                                        fRbd = parts[0].trim().toUpperCase();
+                                } else if (!fClass.isEmpty()) {
+                                    fRbd = fClass.substring(0, 1).toUpperCase();
                                 }
+
+                                coupon.setFareBasisCode(fClass);
+                                coupon.setRbd(fRbd);
+                                coupon.setStatus("I");
+                                coupon.setValidatingCarrier(carrierCode);
+
+                                ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
+                                cai.setDepartureAirportCode(f.getFromcode());
+                                cai.setArrivalAirportCode(f.getTocode());
+                                cai.setDepartureDate(formatDate(f.getFlightdate()));
+                                cai.setDepartureTime(f.getDepart());
+                                cai.setDepartureAirportName(f.getFrom());
+                                cai.setDepartureTerminal(f.getDepartureTerminal());
+                                cai.setArrivalDate(formatDate(f.getFlightdate()));
+                                cai.setArrivalTime(f.getArrive());
+                                cai.setArrivalAirportName(f.getTo());
+                                cai.setArrivalTerminal(f.getArrivalTerminal());
+                                cai.setMarketingCarrierAirlineId(f.getAirlinedesignator());
+                                cai.setMarketingCarrierName(f.getAirline());
+                                cai.setOperatingCarrierAirlineId(f.getAirlinedesignator());
+                                cai.setOperatingCarrierName(f.getAirline());
+                                cai.setFlightNumber(f.getNumber());
+                                cai.setEquipmentAircraftCode(
+                                        f.getAircraftTypeIataCode() != null ? f.getAircraftTypeIataCode()
+                                                : f.getAircraftType());
+
+                                List<ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
+                                caiList.add(cai);
+                                coupon.setCurrentAirlineInfo(caiList);
+                                coupons.add(coupon);
                             }
-                            // Fallback to first if not found or list size 1
-                            if (couponFlight == null && !flightList.isEmpty())
-                                couponFlight = flightList.get(0);
                         }
-
-                        if (couponFlight != null) {
-                            List<ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
-                            ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
-                            cai.setDepartureAirportCode(couponFlight.getFromcode());
-                            cai.setArrivalAirportCode(couponFlight.getTocode());
-                            cai.setDepartureDate(formatDate(couponFlight.getFlightdate()));
-                            cai.setDepartureTime(couponFlight.getDepart());
-                            cai.setDepartureAirportName(couponFlight.getFrom());
-                            cai.setDepartureTerminal(couponFlight.getDepartureTerminal());
-                            cai.setArrivalDate(formatDate(couponFlight.getFlightdate())); // Approx if same day
-                            cai.setArrivalTime(couponFlight.getArrive());
-                            cai.setArrivalAirportName(couponFlight.getTo());
-                            cai.setArrivalTerminal(couponFlight.getArrivalTerminal());
-                            cai.setMarketingCarrierAirlineId(couponFlight.getAirlinedesignator());
-                            cai.setOperatingCarrierAirlineId(couponFlight.getAirlinedesignator());
-                            cai.setMarketingCarrierName(couponFlight.getAirline());
-                            cai.setOperatingCarrierName(
-                                    couponFlight.getAirline() != null ? couponFlight.getAirline().toUpperCase() : "");
-                            cai.setFlightNumber(couponFlight.getNumber());
-                            cai.setEquipmentAircraftCode(couponFlight.getAircraftTypeIataCode());
-                            caiList.add(cai);
-                            coupon.setCurrentAirlineInfo(caiList);
-                        }
-
-                        // Baggage
-                        // Only add if service exists and avoid hardcoded weight if not available
-                        if (couponFlight != null && couponFlight.getServices() != null
-                                && Boolean.TRUE.equals(couponFlight.getServices().get("CheckedInBaggage"))) {
-
-                            List<ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance> bags = new ArrayList<>();
-                            ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance bag = new ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance();
-                            bag.setBaggageAllowanceId("FBA" + coupon.getCouponNumber());
-                            bag.setPtc(pax.getPtc());
-                            bag.setPassengerId(pid);
-                            bag.setCategory("Checked-In");
-                            bag.setName("Bag allowances");
-
-                            // We do not have weight in standard response, so we avoid hardcoding "30 KG"
-                            // If needed, we could look for it in remarks or other fields.
-                            // For now, we leave weight empty/null to avoid fake data.
-
-                            List<ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance.DescriptionDTO> bDescs = new ArrayList<>();
-                            ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance.DescriptionDTO bd = new ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance.DescriptionDTO();
-                            bd.setDescription("Bag allowances");
-                            bDescs.add(bd);
-                            bag.setDescriptions(bDescs);
-
-                            bags.add(bag);
-                            coupon.setBaggageAllowances(bags);
-                        }
-
-                        coupons.add(coupon);
                         doc.setCouponInfo(coupons);
 
                         docs.add(doc);
@@ -686,6 +653,14 @@ public class ChangeSeatResponse {
                             + (f.getTocode() != null ? f.getTocode() : "");
                     String segmentId = flightSegmentMap.getOrDefault(flightKey, "SEG1");
 
+                    // 1. Calculate total number of seats to distribute fallback price
+                    int totalSeats = f.getSeat().size();
+                    BigDecimal distributedSeatPrice = BigDecimal.ZERO;
+                    if (totalSeats > 0 && seatCharges.compareTo(BigDecimal.ZERO) > 0) {
+                        distributedSeatPrice = seatCharges.divide(new BigDecimal(totalSeats), 2,
+                                java.math.RoundingMode.HALF_UP);
+                    }
+
                     int seatCounter = 0;
                     for (ChangeSeatRspGo7Dto.Seat s : f.getSeat()) {
                         ChangeSeatRspDto.OrderItemsDTO seatItem = new ChangeSeatRspDto.OrderItemsDTO();
@@ -707,7 +682,7 @@ public class ChangeSeatResponse {
 
                         BigDecimal seatPrice = s.getFare() != null && s.getFare().compareTo(BigDecimal.ZERO) > 0
                                 ? s.getFare()
-                                : seatCharges; // Use unified charge if individual fare missing
+                                : distributedSeatPrice; // Use divided charge if individual fare missing
                         String currency = s.getCurrency() != null ? s.getCurrency() : response.getCurrency();
 
                         seatItem.setBaseFare(new ChangeSeatRspDto.OrderItemsDTO.BaseFare(seatPrice, currency));

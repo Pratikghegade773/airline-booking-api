@@ -92,7 +92,7 @@ public class OrderCreateReq {
 
                 if ("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc))
                     child++;
-                else if ("INF".equalsIgnoreCase(ptc))
+                else if ("INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc))
                     infant++;
                 else
                     adults++;
@@ -215,32 +215,23 @@ public class OrderCreateReq {
 
         if (requestDto.getPassengers() != null) {
             for (OrderCreateReqDto.Pax dtoPax : requestDto.getPassengers()) {
-                // Skip INF passenger for ConfirmBooking as they are Lap Infants (not counted in
-                // seats)
                 String ptc = dtoPax.getPtc(); // Assuming PTC is available or default to ADT
 
                 // Included Infants as they are required for "Passengers must match" check
 
                 String titleStr = dtoPax.getTitle();
 
-                // User requested logic: Use "Child" for child and "INFANT" for infant as
-                // paxtitle
-                // User requested logic: Use "Child" for child and "INFANT" for infant as
-                // paxtitle
-                // Removed forced title overrides (Child/INFANT) to match OrderCreate
-                // Consolidated: ConfirmBooking requires skipping INF as seat passenger if
-                // paxcarringinfant is used
-                if ("INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc)) {
-                    continue;
-                }
-
+                // AeroCRS confirmBooking specific title mapping
                 if ("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)) {
                     titleStr = "Child";
+                } else if ("INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc)) {
+                    titleStr = "INFANT";
                 }
 
                 Map<String, Object> p = new LinkedHashMap<>();
-                // Ensure dot is appended if needed (simple logic), but NOT for 'Child'
-                if ("Child".equals(titleStr)) {
+
+                // Set title. 'Child' and 'INFANT' should NOT have a trailing dot.
+                if ("Child".equals(titleStr) || "INFANT".equals(titleStr)) {
                     p.put("paxtitle", titleStr);
                 } else if (titleStr != null && !titleStr.endsWith(".")) {
                     p.put("paxtitle", titleStr + ".");

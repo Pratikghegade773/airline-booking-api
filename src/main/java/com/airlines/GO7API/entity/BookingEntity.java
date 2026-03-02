@@ -16,4 +16,16 @@ public class BookingEntity {
 
     private String bookingConfirmation;
     private String orderId;
+
+    // Cache assigned seats temporarily to survive GetBooking wiping them out before
+    // payment
+    private java.util.Map<String, String> passengerSeats;
+
+    // Cache generic ancillary services separately from seats for strictly separate
+    // flows
+    private java.util.Map<String, String> passengerServices;
+
+    // Cache exact total order price to overcome Go7 stripping ancillaries from
+    // totals
+    private java.math.BigDecimal totalOrderPrice;
 }

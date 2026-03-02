@@ -6,14 +6,13 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 
-
 @Slf4j
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChangePaymentReqDto {
 
-    private  String countryCode;
+    private String countryCode;
     private String apiUrl;
     private String changeurl;
     public String sellerOrgId;
@@ -43,7 +42,7 @@ public class ChangePaymentReqDto {
         @Data
         @NoArgsConstructor
         @AllArgsConstructor
-        public static class Address{
+        public static class Address {
             private String street;
             private String city;
             private String state;

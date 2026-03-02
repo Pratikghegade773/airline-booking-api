@@ -193,7 +193,8 @@ public class ChangePaymentRspGo7Dto {
         private String dob;
         private String email;
         private String contact;
-        private Object checkin;
+        @com.fasterxml.jackson.annotation.JsonFormat(with = com.fasterxml.jackson.annotation.JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+        private List<Checkin> checkin;
         @JsonProperty("e-tickets")
         private ETickets eTickets;
         // older fields if needed compatibility
@@ -215,6 +216,20 @@ public class ChangePaymentRspGo7Dto {
             private String number;
             private String eticketnumber;
         }
+
+        @Data
+        @NoArgsConstructor
+        @AllArgsConstructor
+        @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+        public static class Checkin {
+            @JsonProperty("flight")
+            private String flight;
+            @JsonProperty("seat")
+            private String seat;
+            @JsonProperty("status")
+            private String status;
+        }
+
     }
 
     @Data

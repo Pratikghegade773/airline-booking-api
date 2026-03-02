@@ -336,79 +336,56 @@ public class ChangeServiceResponse {
                         doc.setTicketingLocation(tdi.getIssuingPlace());
                         doc.setReportingType("BSP");
 
+                        // Coupons
                         List<ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO> coupons = new ArrayList<>();
-                        ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO coupon = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO();
-                        coupon.setCouponNumber(1);
-                        coupon.setCouponReference("FBA1");
-                        coupon.setFareBasisCode(!ods.isEmpty() ? ods.get(0).getFareBasisCode() : null);
-                        coupon.setRbd(!ods.isEmpty() ? ods.get(0).getRbdCode() : null);
-                        coupon.setStatus("I");
-                        coupon.setValidatingCarrier(carrierCode);
-
-                        // Match Coupon to Flight for CurrentAirlineInfo
-                        OrderRetrieveRspGo7Dto.Flight couponFlight = null;
                         if (flightList != null) {
+                            int couponNum = 1;
                             for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
-                                String fNum = f.getNumber();
-                                String fDesig = f.getAirlinedesignator();
-                                String fullNum = (fDesig != null ? fDesig : "") + (fNum != null ? fNum : "");
+                                ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO coupon = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+                                coupon.setCouponNumber(couponNum++);
+                                coupon.setCouponReference("FBA" + couponNum);
 
-                                if (etf.getNumber() != null && (etf.getNumber().endsWith(fNum)
-                                        || fullNum.equalsIgnoreCase(etf.getNumber()))) {
-                                    couponFlight = f;
-                                    break;
+                                String fClass = f.getFlightClass() != null ? f.getFlightClass() : "";
+                                String fRbd = "";
+                                if (fClass.contains("/")) {
+                                    String[] parts = fClass.split("/");
+                                    if (parts.length > 0)
+                                        fRbd = parts[0].trim().toUpperCase();
+                                } else if (!fClass.isEmpty()) {
+                                    fRbd = fClass.substring(0, 1).toUpperCase();
                                 }
+
+                                coupon.setFareBasisCode(fClass);
+                                coupon.setRbd(fRbd);
+                                coupon.setStatus("I");
+                                coupon.setValidatingCarrier(carrierCode);
+
+                                ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
+                                cai.setDepartureAirportCode(f.getFromcode());
+                                cai.setArrivalAirportCode(f.getTocode());
+                                cai.setDepartureDate(formatDate(f.getFlightdate()));
+                                cai.setDepartureTime(f.getDepart());
+                                cai.setDepartureAirportName(f.getFrom());
+                                cai.setDepartureTerminal(f.getDepartureTerminal());
+                                cai.setArrivalDate(formatDate(f.getFlightdate()));
+                                cai.setArrivalTime(f.getArrive());
+                                cai.setArrivalAirportName(f.getTo());
+                                cai.setArrivalTerminal(f.getArrivalTerminal());
+                                cai.setMarketingCarrierAirlineId(f.getAirlinedesignator());
+                                cai.setMarketingCarrierName(f.getAirline());
+                                cai.setOperatingCarrierAirlineId(f.getAirlinedesignator());
+                                cai.setOperatingCarrierName(f.getAirline());
+                                cai.setFlightNumber(f.getNumber());
+                                cai.setEquipmentAircraftCode(
+                                        f.getAircraftTypeIataCode() != null ? f.getAircraftTypeIataCode()
+                                                : f.getAircraftType());
+
+                                List<ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
+                                caiList.add(cai);
+                                coupon.setCurrentAirlineInfo(caiList);
+                                coupons.add(coupon);
                             }
-                            if (couponFlight == null && !flightList.isEmpty())
-                                couponFlight = flightList.get(0);
                         }
-
-                        if (couponFlight != null) {
-                            List<ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
-                            ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
-                            cai.setDepartureAirportCode(couponFlight.getFromcode());
-                            cai.setArrivalAirportCode(couponFlight.getTocode());
-                            cai.setDepartureDate(formatDate(couponFlight.getFlightdate()));
-                            cai.setDepartureTime(couponFlight.getDepart());
-                            cai.setDepartureAirportName(couponFlight.getFrom());
-                            cai.setDepartureTerminal(couponFlight.getDepartureTerminal());
-                            cai.setArrivalDate(formatDate(couponFlight.getFlightdate()));
-                            cai.setArrivalTime(couponFlight.getArrive());
-                            cai.setArrivalAirportName(couponFlight.getTo());
-                            cai.setArrivalTerminal(couponFlight.getArrivalTerminal());
-                            cai.setMarketingCarrierAirlineId(couponFlight.getAirlinedesignator());
-                            cai.setOperatingCarrierAirlineId(couponFlight.getAirlinedesignator());
-                            cai.setMarketingCarrierName(couponFlight.getAirline());
-                            cai.setOperatingCarrierName(
-                                    couponFlight.getAirline() != null ? couponFlight.getAirline().toUpperCase() : "");
-                            cai.setFlightNumber(couponFlight.getNumber());
-                            cai.setEquipmentAircraftCode(couponFlight.getAircraftTypeIataCode());
-                            caiList.add(cai);
-                            coupon.setCurrentAirlineInfo(caiList);
-                        }
-
-                        if (couponFlight != null && couponFlight.getServices() != null
-                                && Boolean.TRUE.equals(couponFlight.getServices().get("CheckedInBaggage"))) {
-
-                            List<ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance> bags = new ArrayList<>();
-                            ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance bag = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance();
-                            bag.setBaggageAllowanceId("FBA" + coupon.getCouponNumber());
-                            bag.setPtc(pax.getPtc());
-                            bag.setPassengerId(pid);
-                            bag.setCategory("Checked-In");
-                            bag.setName("Bag allowances");
-
-                            List<ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance.DescriptionDTO> bDescs = new ArrayList<>();
-                            ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance.DescriptionDTO bd = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.BaggageAllowance.DescriptionDTO();
-                            bd.setDescription("Bag allowances");
-                            bDescs.add(bd);
-                            bag.setDescriptions(bDescs);
-
-                            bags.add(bag);
-                            coupon.setBaggageAllowances(bags);
-                        }
-
-                        coupons.add(coupon);
                         doc.setCouponInfo(coupons);
                         docs.add(doc);
                     }
@@ -419,105 +396,100 @@ public class ChangeServiceResponse {
                 }
 
                 // EMD Info - ONLY IF PAYMENT PROVIDED
-                if (isPaymentProvided) {
+                if (isPaymentProvided && flightList != null && !flightList.isEmpty()) {
                     List<ChangeServiceRspDto.EMDInfoDTO> paxEmds = new ArrayList<>();
-                    ChangeServiceRspDto.EMDInfoDTO emd = new ChangeServiceRspDto.EMDInfoDTO();
-                    emd.setValidatingCarrier(carrierCode);
-                    emd.setPaxId(Arrays.asList(pid));
-                    emd.setIssuingAirlineName(defaultIssuingAirline);
-                    emd.setIssuingPlace(defaultIssuingPlace);
 
-                    List<ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
-                    ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO emdDoc = new ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO();
-                    String emdNum = "619" + String.valueOf(System.currentTimeMillis()).substring(3);
-                    if (booking.getLinktoticket() != null && !booking.getLinktoticket().isEmpty()) {
-                        emdNum = booking.getLinktoticket();
-                    }
+                    int flightIdx = 0;
+                    for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+                        flightIdx++;
 
-                    // Ticket Doc Number - Set as e-ticket number with -1 suffix per user request
-                    String tktNum = (p.getETickets() != null && p.getETickets().getFlight() != null
-                            && !p.getETickets().getFlight().isEmpty())
-                                    ? p.getETickets().getFlight().get(0).getEticketnumber()
-                                    : emdNum;
-                    emdDoc.setTicketDocNbr(tktNum + "-" + (topEmdInfos.size() + 1));
-                    emdDoc.setConnectedDocNbr(null); // Explicitly don't set connectedDocNbr per user request
-                    emdDoc.setType("J");
-                    emdDoc.setNumberOfBooklets(1);
-                    emdDoc.setDateOfIssue(formatCurrentDate());
-                    emdDoc.setTimeOfIssue("00:00");
-                    emdDoc.setTicketingLocation(emd.getIssuingPlace());
-                    emdDoc.setReportingType("BSP");
+                        ChangeServiceRspDto.EMDInfoDTO emd = new ChangeServiceRspDto.EMDInfoDTO();
+                        emd.setValidatingCarrier(carrierCode);
+                        emd.setPaxId(Arrays.asList(pid));
+                        emd.setIssuingAirlineName(defaultIssuingAirline);
+                        emd.setIssuingPlace(defaultIssuingPlace);
 
-                    // Coupon Info for EMD
-                    List<ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
+                        List<ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
+                        ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO emdDoc = new ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO();
+                        String emdNum = "619" + String.valueOf(System.currentTimeMillis()).substring(3);
+                        if (booking.getLinktoticket() != null && !booking.getLinktoticket().isEmpty()) {
+                            emdNum = booking.getLinktoticket();
+                        }
 
-                    // Identify the service being changed for rfic/rfisc
-                    // For ChangeService, we might have multiple services.
-                    // We'll map a coupon for the services found.
+                        String tktNum = (p.getETickets() != null && p.getETickets().getFlight() != null
+                                && !p.getETickets().getFlight().isEmpty())
+                                        ? p.getETickets().getFlight().get(0).getEticketnumber()
+                                        : emdNum;
 
-                    ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
-                    emdCoupon.setCouponNumber(1);
-                    emdCoupon.setValidatingCarrier(carrierCode);
-                    // emdCoupon.setRbd(!ods.isEmpty() ? ods.get(0).getRbdCode() : null);
-                    // emdCoupon.setRfic("C"); // Example for services, or follow user's "A" if
-                    // strictly "same"
-                    // emdCoupon.setRfisc("0G6"); // Example
-                    emdCoupon.setStatus("I");
+                        emdDoc.setTicketDocNbr(tktNum + "-" + (topEmdInfos.size() + 1));
+                        emdDoc.setConnectedDocNbr(null);
+                        emdDoc.setType("J");
+                        emdDoc.setNumberOfBooklets(1);
+                        emdDoc.setDateOfIssue(formatCurrentDate());
+                        emdDoc.setTimeOfIssue("00:00");
+                        emdDoc.setTicketingLocation(emd.getIssuingPlace());
+                        emdDoc.setReportingType("BSP");
 
-                    // Try to populate serviceRefs from request if available
-                    if (requestDto.getOffers() != null && !requestDto.getOffers().isEmpty()) {
-                        List<String> srvRefs = new ArrayList<>();
-                        for (com.airlines.GO7API.requestDto.ChangeServiceReqDto.Offer offer : requestDto.getOffers()) {
-                            if (offer.getOfferItems() != null) {
-                                for (com.airlines.GO7API.requestDto.ChangeServiceReqDto.Offer.OfferItemDto item : offer
-                                        .getOfferItems()) {
-                                    if (item.getOfferItemId() != null) {
-                                        srvRefs.add(item.getOfferItemId());
+                        List<ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
+                        ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+                        emdCoupon.setCouponNumber(1);
+                        emdCoupon.setValidatingCarrier(carrierCode);
+                        emdCoupon.setStatus("I");
+
+                        if (requestDto.getOffers() != null && !requestDto.getOffers().isEmpty()) {
+                            List<String> srvRefs = new ArrayList<>();
+                            for (com.airlines.GO7API.requestDto.ChangeServiceReqDto.Offer offer : requestDto
+                                    .getOffers()) {
+                                if (offer.getOfferItems() != null) {
+                                    for (com.airlines.GO7API.requestDto.ChangeServiceReqDto.Offer.OfferItemDto item : offer
+                                            .getOfferItems()) {
+                                        if (item.getOfferItemId() != null) {
+                                            srvRefs.add(item.getOfferItemId());
+                                        }
                                     }
                                 }
                             }
+                            emdCoupon.setServiceRefs(srvRefs);
+                        } else {
+                            // Fallback if no specific offer items are mapped
+                            emdCoupon.setServiceRefs(Arrays.asList("SEG" + flightIdx + "_" + pid + "_SRV"));
                         }
-                        emdCoupon.setServiceRefs(srvRefs);
-                    }
 
-                    // Current Airline Info for EMD Coupon
-                    OrderRetrieveRspGo7Dto.Flight couponFlight = null;
-                    if (flightList != null && !flightList.isEmpty()) {
-                        couponFlight = flightList.get(0);
-                    }
-
-                    if (couponFlight != null) {
                         List<ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
                         ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
-                        cai.setDepartureAirportCode(couponFlight.getFromcode());
-                        cai.setArrivalAirportCode(couponFlight.getTocode());
-                        cai.setDepartureDate(formatDate(couponFlight.getFlightdate()));
-                        cai.setDepartureTime(couponFlight.getDepart());
-                        cai.setDepartureAirportName(couponFlight.getFrom());
-                        cai.setDepartureTerminal(couponFlight.getDepartureTerminal());
-                        cai.setArrivalDate(formatDate(couponFlight.getFlightdate()));
-                        cai.setArrivalTime(couponFlight.getArrive());
-                        cai.setArrivalAirportName(couponFlight.getTo());
-                        cai.setArrivalTerminal(couponFlight.getArrivalTerminal());
-                        cai.setMarketingCarrierAirlineId(couponFlight.getAirlinedesignator());
-                        cai.setOperatingCarrierAirlineId(couponFlight.getAirlinedesignator());
-                        cai.setMarketingCarrierName(couponFlight.getAirline());
+                        cai.setDepartureAirportCode(f.getFromcode());
+                        cai.setArrivalAirportCode(f.getTocode());
+                        cai.setDepartureDate(formatDate(f.getFlightdate()));
+                        cai.setDepartureTime(f.getDepart());
+                        cai.setDepartureAirportName(f.getFrom());
+                        cai.setDepartureTerminal(f.getDepartureTerminal());
+                        cai.setArrivalDate(formatDate(f.getFlightdate()));
+                        cai.setArrivalTime(f.getArrive());
+                        cai.setArrivalAirportName(f.getTo());
+                        cai.setArrivalTerminal(f.getArrivalTerminal());
+                        cai.setMarketingCarrierAirlineId(f.getAirlinedesignator());
+                        cai.setOperatingCarrierAirlineId(f.getAirlinedesignator());
+                        cai.setMarketingCarrierName(f.getAirline());
                         cai.setOperatingCarrierName(
-                                couponFlight.getAirline() != null ? couponFlight.getAirline().toUpperCase() : "");
-                        cai.setFlightNumber(couponFlight.getNumber());
-                        cai.setEquipmentAircraftCode(couponFlight.getAircraftTypeIataCode());
+                                f.getAirline() != null ? f.getAirline().toUpperCase() : "");
+                        cai.setFlightNumber(f.getNumber());
+                        cai.setEquipmentAircraftCode(f.getAircraftTypeIataCode() != null ? f.getAircraftTypeIataCode()
+                                : f.getAircraftType());
+
                         caiList.add(cai);
                         emdCoupon.setCurrentAirlineInfo(caiList);
+
+                        emdCoupons.add(emdCoupon);
+                        emdDoc.setCouponInfo(emdCoupons);
+                        emdDocs.add(emdDoc);
+                        emd.setTicketDocument(emdDocs);
+
+                        paxEmds.add(emd);
+                        topEmdInfos.add(emd);
                     }
-
-                    emdCoupons.add(emdCoupon);
-                    emdDoc.setCouponInfo(emdCoupons);
-                    emdDocs.add(emdDoc);
-                    emd.setTicketDocument(emdDocs);
-
-                    paxEmds.add(emd);
-                    pax.setEmdInfo(paxEmds);
-                    topEmdInfos.add(emd);
+                    if (!paxEmds.isEmpty()) {
+                        pax.setEmdInfo(paxEmds);
+                    }
                 }
 
                 paxList.add(pax);

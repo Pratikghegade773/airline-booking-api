@@ -122,7 +122,10 @@ public class Go7Controller {
                     }
 
                     // Extract bookingconfirmation from OrderConfirm response
-                    String bookingConfirmation = null;
+                    String
+
+
+                            bookingConfirmation = null;
                     try {
                         java.util.LinkedHashMap aerocrsMap = (java.util.LinkedHashMap) ((java.util.LinkedHashMap) confirmResponse)
                                 .get("aerocrs");
@@ -216,7 +219,19 @@ public class Go7Controller {
                             String pnr = ndcResponse.getPnr();
                             String orderId = ndcResponse.getOrderId();
                             if (pnr != null && !pnr.isEmpty()) {
-                                bookingService.saveBooking(pnr, bookingConfirmation, orderId);
+                                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> existingOpt = bookingService
+                                        .getBookingByPnr(pnr);
+                                com.airlines.GO7API.entity.BookingEntity entityToSave;
+                                if (existingOpt.isPresent()) {
+                                    entityToSave = existingOpt.get();
+                                } else {
+                                    entityToSave = new com.airlines.GO7API.entity.BookingEntity();
+                                    entityToSave.setPnr(pnr);
+                                    entityToSave.setBookingConfirmation(bookingConfirmation);
+                                    entityToSave.setOrderId(orderId);
+                                }
+                                entityToSave.setTotalOrderPrice(ndcResponse.getTotalOrderPrice());
+                                bookingService.saveBooking(entityToSave);
                             }
                         } catch (Exception e) {
                             System.out.println("Failed to save booking to DB: " + e.getMessage());
@@ -247,6 +262,26 @@ public class Go7Controller {
     @PostMapping("/change/payment")
     public ResponseEntity<Object> changePayment(@RequestBody ChangePaymentReqDto changePaymentReqDto) {
         try {
+            java.util.Map<String, String> passengerSeats = null;
+            java.util.Map<String, String> passengerServices = null;
+            // Retrieve cached seats and services from BookingEntity if available
+            if (changePaymentReqDto.getOrderId() != null && !changePaymentReqDto.getOrderId().isEmpty()) {
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOpt = bookingService
+                        .getBookingByOrderId(changePaymentReqDto.getOrderId());
+                if (entityOpt.isPresent()) {
+                    if (entityOpt.get().getPassengerSeats() != null) {
+                        passengerSeats = entityOpt.get().getPassengerSeats();
+                        System.out.println("ChangePayment: Loaded " + passengerSeats.size()
+                                + " cached passenger seat mappings from DB.");
+                    }
+                    if (entityOpt.get().getPassengerServices() != null) {
+                        passengerServices = entityOpt.get().getPassengerServices();
+                        System.out.println("ChangePayment: Loaded " + passengerServices.size()
+                                + " cached passenger service mappings from DB.");
+                    }
+                }
+            }
+
             // Map the DTO to the internal Request object
             com.airlines.GO7API.request.ChangePaymentReq changePaymentReq = com.airlines.GO7API.request.ChangePaymentReq
                     .mapToChangePaymentReq(changePaymentReqDto);
@@ -389,7 +424,19 @@ public class Go7Controller {
 
             // Generate NDC Response using ChangePaymentResponse mapper
             com.airlines.GO7API.responseDto.ChangePaymentRspDto ndcResponse = com.airlines.GO7API.response.ChangePaymentResponse
-                    .generateResponse(getBookingResponse, changePaymentReqDto);
+                    .generateResponse(getBookingResponse, changePaymentReqDto, passengerSeats, passengerServices);
+
+            if (changePaymentReqDto.getOrderId() != null) {
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOpt = bookingService
+                        .getBookingByOrderId(changePaymentReqDto.getOrderId());
+                if (entityOpt.isPresent()) {
+                    com.airlines.GO7API.entity.BookingEntity entity = entityOpt.get();
+                    if (ndcResponse.getTotalOrderPrice() != null) {
+                        entity.setTotalOrderPrice(ndcResponse.getTotalOrderPrice());
+                        bookingService.saveBooking(entity);
+                    }
+                }
+            }
 
             return new ResponseEntity<>(ndcResponse, HttpStatus.OK);
 
@@ -472,9 +519,21 @@ public class Go7Controller {
                         com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
             }
 
+            java.util.Map<String, String> passengerSeats = null;
+            java.util.Map<String, String> passengerServices = null;
+
+            java.math.BigDecimal dbTotalOrderPrice = null;
+
+            if (bookingEntity != null) {
+                passengerSeats = bookingEntity.getPassengerSeats();
+                passengerServices = bookingEntity.getPassengerServices();
+                dbTotalOrderPrice = bookingEntity.getTotalOrderPrice();
+            }
+
             // Generate NDC Response
             com.airlines.GO7API.responseDto.OrderRetrieveRspDto ndcResponse = com.airlines.GO7API.response.OrderRetrieveResponse
-                    .generateResponse(go7Response, orderRetrieveReqDto);
+                    .generateResponse(go7Response, orderRetrieveReqDto, passengerSeats, passengerServices,
+                            dbTotalOrderPrice);
 
             return new ResponseEntity<>(ndcResponse, HttpStatus.OK);
 
@@ -938,6 +997,40 @@ public class Go7Controller {
 
                 com.airlines.GO7API.responseDto.ChangeSeatRspDto ndcResponse = com.airlines.GO7API.response.ChangeSeatResponse
                         .generateResponse(changeSeatRsp, bookingRsp, changeSeatReqDto);
+
+                // Cache the newly assigned seats into the BookingEntity so ChangePayment can
+                // use them
+                if (orderId != null && ndcResponse.getOrderItems() != null) {
+                    java.util.Map<String, String> passengerSeats = new java.util.HashMap<>();
+                    for (com.airlines.GO7API.responseDto.ChangeSeatRspDto.OrderItemsDTO item : ndcResponse
+                            .getOrderItems()) {
+                        if (item.getServiceList() != null) {
+                            for (com.airlines.GO7API.responseDto.ChangeSeatRspDto.Service srv : item.getServiceList()) {
+                                if (srv.getServiceCode() != null && srv.getServiceCode().startsWith("SEAT")) {
+                                    String seatNum = srv.getServiceCode().substring(4);
+                                    if (item.getPassengerIds() != null && !item.getPassengerIds().isEmpty()) {
+                                        passengerSeats.put(item.getPassengerIds().get(0), seatNum);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (!passengerSeats.isEmpty()) {
+                        java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOpt = bookingService
+                                .getBookingByOrderId(orderId);
+                        if (entityOpt.isPresent()) {
+                            com.airlines.GO7API.entity.BookingEntity entity = entityOpt.get();
+                            entity.setPassengerSeats(passengerSeats);
+                            if (ndcResponse.getTotalOrderPrice() != null) {
+                                entity.setTotalOrderPrice(ndcResponse.getTotalOrderPrice());
+                            }
+                            bookingService.saveBooking(entity);
+                            System.out.println("ChangeSeat: Cached " + passengerSeats.size()
+                                    + " seat assignments to BookingEntity for OrderID: " + orderId);
+                        }
+                    }
+                }
+
                 return new ResponseEntity<>(ndcResponse, HttpStatus.OK);
             }
 
@@ -1133,6 +1226,48 @@ public class Go7Controller {
             // 4. Generate Standard Response
             com.airlines.GO7API.responseDto.ChangeServiceRspDto standardResponse = com.airlines.GO7API.response.ChangeServiceResponse
                     .generateResponse(changeServiceRsp, bookingRsp, changeServiceReqDto);
+
+            // Cache the newly assigned services into the BookingEntity so ChangePayment can
+            // use them
+            if (orderId != null && standardResponse.getOrderItems() != null) {
+                java.util.Map<String, String> passengerServices = new java.util.HashMap<>();
+                for (com.airlines.GO7API.responseDto.ChangeServiceRspDto.OrderItemsDTO item : standardResponse
+                        .getOrderItems()) {
+                    if (item.getServiceList() != null) {
+                        for (com.airlines.GO7API.responseDto.ChangeServiceRspDto.Service srv : item.getServiceList()) {
+                            if (srv.getServiceCode() != null && srv.getServiceCode().equals("SRV")) {
+                                if (item.getPassengerIds() != null && !item.getPassengerIds().isEmpty()) {
+                                    passengerServices.put(item.getPassengerIds().get(0), srv.getServiceId());
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!passengerServices.isEmpty()) {
+                    java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOpt = bookingService
+                            .getBookingByOrderId(orderId);
+                    if (entityOpt.isPresent()) {
+                        com.airlines.GO7API.entity.BookingEntity entity = entityOpt.get();
+
+                        // Merge with existing services if any
+                        java.util.Map<String, String> existingServices = entity.getPassengerServices();
+                        if (existingServices == null) {
+                            existingServices = new java.util.HashMap<>();
+                        }
+                        for (java.util.Map.Entry<String, String> newSrv : passengerServices.entrySet()) {
+                            existingServices.put(newSrv.getKey(), newSrv.getValue());
+                        }
+
+                        entity.setPassengerServices(existingServices);
+                        if (standardResponse.getTotalOrderPrice() != null) {
+                            entity.setTotalOrderPrice(standardResponse.getTotalOrderPrice());
+                        }
+                        bookingService.saveBooking(entity);
+                        System.out.println("ChangeService: Cached " + passengerServices.size()
+                                + " service assignments to BookingEntity for OrderID: " + orderId);
+                    }
+                }
+            }
 
             return new ResponseEntity<>(standardResponse, HttpStatus.OK);
 

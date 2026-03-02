@@ -157,6 +157,24 @@ public class OrderRetrieveRspGo7Dto {
         private Taxes taxes;
         private String invpricingwithouttax;
         private java.util.Map<String, Boolean> services;
+        private List<Seat> seat;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Seat {
+        @JsonProperty("status")
+        private boolean status;
+        @JsonProperty("seat")
+        private String seat;
+        @JsonProperty("msg")
+        private Object msg;
+        @JsonProperty("fare")
+        private BigDecimal fare;
+        @JsonProperty("currency")
+        private String currency;
     }
 
     @Data
@@ -202,7 +220,8 @@ public class OrderRetrieveRspGo7Dto {
         private String dob;
         private String email;
         private String contact;
-        private Object checkin;
+        @com.fasterxml.jackson.annotation.JsonFormat(with = com.fasterxml.jackson.annotation.JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+        private List<Checkin> checkin;
         @JsonProperty("e-tickets")
         private ETickets eTickets;
         // older fields if needed compatibility
@@ -225,6 +244,19 @@ public class OrderRetrieveRspGo7Dto {
         public static class ETicketFlight {
             private String number;
             private String eticketnumber;
+        }
+
+        @Data
+        @NoArgsConstructor
+        @AllArgsConstructor
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public static class Checkin {
+            @JsonProperty("flight")
+            private String flight;
+            @JsonProperty("seat")
+            private String seat;
+            @JsonProperty("status")
+            private String status;
         }
     }
 
