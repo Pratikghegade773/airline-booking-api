@@ -120,7 +120,7 @@ public class AirshopResponse {
                     offer.setPaymentTimeLimit(now.plusDays(2).format(ndcTimeFormat));
                     offer.setTicketedByTimeLimit(now.plusDays(2).format(ndcTimeFormat));
 
-                    offer.setValidatingCarrier(flight.getAirlineDesignator());
+                    offer.setValidatingCarrier("G7");
                     offer.setCurrency(flightClass.getCurrency());
                     if (classKey.contains("Y/Flex Plus")) {
                         offer.setClassType("Economy Flex Plus");

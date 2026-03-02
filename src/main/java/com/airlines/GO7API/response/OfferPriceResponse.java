@@ -113,7 +113,7 @@ public class OfferPriceResponse {
             response.setPricedOfferId(pricedOfferId);
 
             response.setCurrency(firstFlight.getCurrency());
-            response.setValidatingCarrier(firstFlight.getAirline());
+            response.setValidatingCarrier("G7");
 
             // Set time limits (Calculated)
             DateTimeFormatter ndcTimeFormat = DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", Locale.ENGLISH);
