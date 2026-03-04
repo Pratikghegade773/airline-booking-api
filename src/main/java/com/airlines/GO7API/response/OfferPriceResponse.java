@@ -474,17 +474,11 @@ public class OfferPriceResponse {
                 }
 
                 taxesItem.setAmount(totalTaxAmount);
-                // Total field in Taxes DTO should be the same as amount (total for this
-                // category)
-                taxesItem.setTotal(totalTaxAmount);
-
-                taxList.add(taxesItem);
             }
         } else if (tax.compareTo(BigDecimal.ZERO) > 0) {
             OfferPriceRspDto.OfferItemDto.Tax t1 = new OfferPriceRspDto.OfferItemDto.Tax();
             t1.setCode("TAX");
             t1.setAmount(tax);
-            t1.setTotal(tax);
             t1.setCurrency(flight.getCurrency());
             t1.setDescription("Total Taxes");
             taxList.add(t1);

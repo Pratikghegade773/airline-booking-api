@@ -119,7 +119,6 @@ public class OfferPriceRspDto {
         @AllArgsConstructor
         @JsonInclude(JsonInclude.Include.NON_NULL)
         public static class Tax {
-            private BigDecimal total;
             private String description;
             private BigDecimal amount;
             private String currency;
