@@ -116,11 +116,11 @@ public class OfferPriceResponse {
             response.setValidatingCarrier("G7");
 
             // Set time limits (Calculated)
-            DateTimeFormatter ndcTimeFormat = DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", Locale.ENGLISH);
-            LocalDateTime now = LocalDateTime.now();
-            response.setOfferPriceExpiration(now.plusMinutes(20).format(ndcTimeFormat));
-            response.setPaymentTimeLimit(now.plusDays(2).format(ndcTimeFormat));
-            response.setTicketedByTimeLimit(now.plusDays(2).format(ndcTimeFormat));
+            DateTimeFormatter ndcTimeFormat = DateTimeFormatter.ofPattern("ddMMMuuuu HH:mm:ss", Locale.ENGLISH);
+            java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Kolkata"));
+            response.setOfferPriceExpiration(now.plusMinutes(30).format(ndcTimeFormat));
+            response.setPaymentTimeLimit(now.plusHours(24).format(ndcTimeFormat));
+            response.setTicketedByTimeLimit(now.plusHours(24).format(ndcTimeFormat));
 
             // ODs Mapping
             List<OfferPriceRspDto.OD> ods = new ArrayList<>();
