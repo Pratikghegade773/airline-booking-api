@@ -874,53 +874,56 @@ public class OrderCreateResponse {
         }
         item.setTaxes(taxes);
 
-        // Service List (Mapped from Flight.services)
-        // OrderCreateRspDto uses 'serviceList' not 'baggageAllowances'
-        List<OrderCreateRspDto.Service> serviceList = new ArrayList<>();
-        if (flights != null) {
-            int uniqueServiceIdx = 1;
-            for (int i = 0; i < flights.size(); i++) {
-                OrderCreateRspGo7Dto.Flight f = flights.get(i);
-                String segmentId = "SEG" + (i + 1); // Matches generic segment ID logic
-
-                String from = f.getFromcode() != null ? f.getFromcode() : "";
-                String to = f.getTocode() != null ? f.getTocode() : "";
-
-                if (f.getServices() != null) {
-                    for (java.util.Map.Entry<String, Boolean> entry : f.getServices().entrySet()) {
-                        // Only include if true? Or include all?
-                        // OfferPrice includes checked/carry-on if true.
-                        // Airshop includes if active.
-                        // Here map is <String, Boolean>.
-                        if (Boolean.TRUE.equals(entry.getValue())) {
-                            String serviceName = entry.getKey();
-
-                            // Map specific known services to nice names if needed,
-                            // or distinct types.
-                            // For OrderCreate we just dump into serviceList as per DTO structure.
-
-                            OrderCreateRspDto.Service srv = new OrderCreateRspDto.Service();
-                            String serviceCode = "SRV" + uniqueServiceIdx++;
-
-                            srv.setServiceId(serviceCode);
-                            srv.setServiceCode(serviceName); // Use generic name as code or map?
-                            srv.setServiceName(serviceName);
-                            srv.setSegmentId(segmentId);
-                            srv.setDeparture(from);
-                            srv.setArrival(to);
-                            srv.setServiceStatus("CONFIRMED");
-
-                            List<String> descList = new ArrayList<>();
-                            descList.add(serviceName + " - Included");
-                            srv.setDescription(descList);
-
-                            serviceList.add(srv);
-                        }
-                    }
-                }
-            }
-        }
-        item.setServiceList(serviceList);
+        /*
+         * // Service List (Mapped from Flight.services)
+         * // OrderCreateRspDto uses 'serviceList' not 'baggageAllowances'
+         * List<OrderCreateRspDto.Service> serviceList = new ArrayList<>();
+         * if (flights != null) {
+         * int uniqueServiceIdx = 1;
+         * for (int i = 0; i < flights.size(); i++) {
+         * OrderCreateRspGo7Dto.Flight f = flights.get(i);
+         * String segmentId = "SEG" + (i + 1); // Matches generic segment ID logic
+         * 
+         * String from = f.getFromcode() != null ? f.getFromcode() : "";
+         * String to = f.getTocode() != null ? f.getTocode() : "";
+         * 
+         * if (f.getServices() != null) {
+         * for (java.util.Map.Entry<String, Boolean> entry : f.getServices().entrySet())
+         * {
+         * // Only include if true? Or include all?
+         * // OfferPrice includes checked/carry-on if true.
+         * // Airshop includes if active.
+         * // Here map is <String, Boolean>.
+         * if (Boolean.TRUE.equals(entry.getValue())) {
+         * String serviceName = entry.getKey();
+         * 
+         * // Map specific known services to nice names if needed,
+         * // or distinct types.
+         * // For OrderCreate we just dump into serviceList as per DTO structure.
+         * 
+         * OrderCreateRspDto.Service srv = new OrderCreateRspDto.Service();
+         * String serviceCode = "SRV" + uniqueServiceIdx++;
+         * 
+         * srv.setServiceId(serviceCode);
+         * srv.setServiceCode(serviceName); // Use generic name as code or map?
+         * srv.setServiceName(serviceName);
+         * srv.setSegmentId(segmentId);
+         * srv.setDeparture(from);
+         * srv.setArrival(to);
+         * srv.setServiceStatus("CONFIRMED");
+         * 
+         * List<String> descList = new ArrayList<>();
+         * descList.add(serviceName + " - Included");
+         * srv.setDescription(descList);
+         * 
+         * serviceList.add(srv);
+         * }
+         * }
+         * }
+         * }
+         * }
+         * item.setServiceList(serviceList);
+         */
 
         return item;
     }
