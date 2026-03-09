@@ -170,11 +170,11 @@ public class AirshopResponse {
                     od.setArrivalTerminal(flight.getArrivalTerminal());
 
                     // Calculate Journey Time
-                    if (flight.getStdInUtc() != null && flight.getStaInUtc() != null) {
+                    if (flight.getStd() != null && flight.getSta() != null) {
                         try {
                             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss.SSS");
-                            LocalDateTime dep = LocalDateTime.parse(flight.getStdInUtc(), formatter);
-                            LocalDateTime arr = LocalDateTime.parse(flight.getStaInUtc(), formatter);
+                            LocalDateTime dep = LocalDateTime.parse(flight.getStd(), formatter);
+                            LocalDateTime arr = LocalDateTime.parse(flight.getSta(), formatter);
                             Duration duration = Duration.between(dep, arr);
                             od.setJourneyTime(duration.toString());
                         } catch (Exception e) {

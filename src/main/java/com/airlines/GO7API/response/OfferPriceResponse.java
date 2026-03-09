@@ -173,8 +173,15 @@ public class OfferPriceResponse {
                 // Source: "ECO/Y/Flex Plus"
                 String[] classParts = flight.getFlightClass() != null ? flight.getFlightClass().split("/")
                         : new String[] {};
-                if (classParts.length > 0)
-                    od.setCabinType(classParts[0]); // ECO
+                if (classParts.length > 0) {
+                    String cabin = classParts[0];
+                    if ("ECO".equalsIgnoreCase(cabin)) {
+                        cabin = "ECONOMY";
+                    } else if ("BIZ".equalsIgnoreCase(cabin)) {
+                        cabin = "BUSINESS";
+                    }
+                    od.setCabinType(cabin);
+                }
 
                 // RBD and FareBasiscode
                 od.setRbdCode(null);
@@ -367,7 +374,13 @@ public class OfferPriceResponse {
 
                 // Parse Cabin Type from Flight Class if possible, or default
                 String[] classParts = f.getFlightClass() != null ? f.getFlightClass().split("/") : new String[] {};
-                pcl.setCabinTypeCode(classParts.length > 0 ? classParts[0] : "ECO");
+                String cabinCode = classParts.length > 0 ? classParts[0] : "ECO";
+                if ("ECO".equalsIgnoreCase(cabinCode)) {
+                    cabinCode = "ECONOMY";
+                } else if ("BIZ".equalsIgnoreCase(cabinCode)) {
+                    cabinCode = "BUSINESS";
+                }
+                pcl.setCabinTypeCode(cabinCode);
 
                 List<OfferPriceRspDto.PriceClassList.Description> descs = new ArrayList<>();
 
