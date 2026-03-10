@@ -146,7 +146,7 @@ public class ChangePaymentRspDto {
         @Data
         @JsonInclude(JsonInclude.Include.NON_NULL)
         public static class EmailDTO {
-            private String language;
+            // private String language;
             private String label;
             private String emailAddress;
             private String type;

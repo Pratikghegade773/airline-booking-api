@@ -253,7 +253,7 @@ public class ChangePaymentResponse {
                     email.setEmailAddress(go7Pax.getEmail()); // Example NUK1234? Keeping actual email
                     email.setLabel("OTH");
                     email.setType("OSI");
-                    email.setLanguage("English");
+//                    email.setLanguage("English");
                     List<ChangePaymentRspDto.PaxDetailDTO.EmailDTO> emails = new ArrayList<>();
                     emails.add(email);
                     pax.setEmails(emails);
