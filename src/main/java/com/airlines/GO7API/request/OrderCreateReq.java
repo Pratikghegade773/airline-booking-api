@@ -131,12 +131,10 @@ public class OrderCreateReq {
                 if (gender != null && !gender.isEmpty()) {
                     p.put("gender", gender.toUpperCase().startsWith("M") ? "M" : "F");
                 }
-                // Calculate Age for child (just in case needed here too)
-                if ("CHD".equalsIgnoreCase(dtoPax.getPtc()) || "CNN".equalsIgnoreCase(dtoPax.getPtc())) {
-                    String age = calculateAge(dtoPax.getDob());
-                    if (age != null) {
-                        p.put("paxage", age);
-                    }
+                // Calculate Age for all passengers
+                String age = calculateAge(dtoPax.getDob());
+                if (age != null) {
+                    p.put("paxage", age);
                 }
                 passengerList.add(p);
             }
@@ -245,19 +243,17 @@ public class OrderCreateReq {
                         || "INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc));
 
                 if (isAdult && unassignedInfants > 0) {
-                    p.put("paxcarringinfant", true);
+                    p.put("paxcarringinfant", 1);
                     unassignedInfants--;
                 }
 
                 p.put("firstname", dtoPax.getFirstName());
                 p.put("lastname", dtoPax.getLastName());
 
-                if ("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)) {
-                    // Calculate Age if possible
-                    String age = calculateAge(dtoPax.getDob());
-                    if (age != null) {
-                        p.put("paxage", age);
-                    }
+                // Calculate Age if possible
+                String age = calculateAge(dtoPax.getDob());
+                if (age != null) {
+                    p.put("paxage", age);
                 }
 
                 if (dtoPax.getPhoneNumber() != null) {
@@ -266,7 +262,11 @@ public class OrderCreateReq {
                             (dtoPax.getCountryDialingCode() != null ? dtoPax.getCountryDialingCode() : "") + phone);
                 }
                 p.put("paxemail", dtoPax.getEmail());
-                p.put("paxbirthdate", dtoPax.getDob());
+                if (dtoPax.getDob() != null && dtoPax.getDob().contains("-")) {
+                    p.put("paxbirthdate", dtoPax.getDob().replace("-", "/"));
+                } else {
+                    p.put("paxbirthdate", dtoPax.getDob());
+                }
 
                 if (dtoPax.getIdentityDocument() != null) {
                     OrderCreateReqDto.Pax.IdentityDocument doc = dtoPax.getIdentityDocument();

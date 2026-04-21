@@ -101,10 +101,32 @@ public class SeatAvailabilityResponse {
             // Passengers
             if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
                 int paxCount = 1;
+                List<String> adtRefs = new ArrayList<>();
                 for (com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passenger pax : booking.getPassengers()
                         .getPassenger()) {
-                    // Generating IDs as T1, T2 etc.
-                    paxRefs.add("T" + paxCount++);
+                    
+                    String rawTitle = pax.getPaxtitle() != null ? pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+                    boolean isInfantByTitle = rawTitle.contains("INF");
+
+                    String assignedPtc = "ADT";
+                    if ("CHILD".equalsIgnoreCase(pax.getPaxtype())) assignedPtc = "CNN";
+                    if ("INFANT".equalsIgnoreCase(pax.getPaxtype()) || isInfantByTitle) assignedPtc = "INF";
+
+                    String paxId;
+                    if ("INF".equals(assignedPtc)) {
+                        if (!adtRefs.isEmpty()) {
+                            paxId = adtRefs.get(adtRefs.size() - 1) + ".1";
+                        } else {
+                            paxId = "T" + paxCount++ + ".1";
+                        }
+                    } else {
+                        paxId = "T" + paxCount++;
+                        if ("ADT".equals(assignedPtc)) {
+                            adtRefs.add(paxId);
+                        }
+                    }
+
+                    paxRefs.add(paxId);
                     if (pax.getFirstname() != null) {
                         givenNames.add(pax.getFirstname().toUpperCase());
                     }

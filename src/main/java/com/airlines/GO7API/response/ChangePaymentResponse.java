@@ -19,6 +19,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+//import static com.sun.beans.introspect.PropertyInfo.Name.description;
+
 public class ChangePaymentResponse {
 
     public static ChangePaymentRspDto generateResponse(ChangePaymentRspGo7Dto go7Response,
@@ -235,14 +237,39 @@ public class ChangePaymentResponse {
 
         if (go7PaxList != null) {
             int paxCounter = 1;
+            int infantCounter = 1;
+            List<ChangePaymentRspDto.PaxDetailDTO> adtList = new ArrayList<>();
             for (ChangePaymentRspGo7Dto.Passenger go7Pax : go7PaxList) {
                 ChangePaymentRspDto.PaxDetailDTO pax = new ChangePaymentRspDto.PaxDetailDTO();
-                String paxId = "PAX" + paxCounter++; // Example uses PAX1
+                String mappedPtc = mapPaxType(go7Pax.getPaxtype());
+                String title = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+                if ("INFANT".equals(title) || "INF".equals(title)) {
+                    mappedPtc = "INF";
+                }
+
+                String paxId;
+                if ("INF".equals(mappedPtc)) {
+                    // find a parent
+                    if (!adtList.isEmpty()) {
+                        ChangePaymentRspDto.PaxDetailDTO parent = adtList.get((infantCounter - 1) % adtList.size());
+                        paxId = parent.getPaxId() + ".1";
+                        parent.setInfantRef(paxId);
+                    } else {
+                        paxId = "PAX1.1";
+                    }
+                    infantCounter++;
+                } else {
+                    paxId = "PAX" + paxCounter++;
+                    if ("ADT".equals(mappedPtc)) {
+                        adtList.add(pax);
+                    }
+                }
+                
                 pax.setPaxId(paxId);
-                pax.setPtc(mapPaxType(go7Pax.getPaxtype()));
+                pax.setPtc(mappedPtc);
                 pax.setGivenName(go7Pax.getFirstname() != null ? go7Pax.getFirstname().toUpperCase() : "");
                 pax.setSurname(go7Pax.getLastname() != null ? go7Pax.getLastname().toUpperCase() : "");
-                pax.setTitle(go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR");
+                pax.setTitle(title);
                 pax.setGender(go7Pax.getGender() != null && go7Pax.getGender().startsWith("M") ? "Male" : "Female");
                 pax.setBirthDate(formatDate(go7Pax.getDob())); // Should match ddMMMyyyy
                 pax.setLanguage("English");
@@ -263,7 +290,14 @@ public class ChangePaymentResponse {
                 if (go7Pax.getETickets() != null && go7Pax.getETickets().getFlight() != null) {
                     List<ChangePaymentRspDto.TicketDocInfoDTO> ticketDocInfoList = new ArrayList<>();
 
+                    java.util.Set<String> uniqueTickets = new java.util.LinkedHashSet<>();
                     for (ChangePaymentRspGo7Dto.Passenger.ETicketFlight etf : go7Pax.getETickets().getFlight()) {
+                        if (etf.getEticketnumber() != null && !etf.getEticketnumber().isEmpty()) {
+                            uniqueTickets.add(etf.getEticketnumber().trim());
+                        }
+                    }
+
+                    for (String ticketNbr : uniqueTickets) {
                         ChangePaymentRspDto.TicketDocInfoDTO tdi = new ChangePaymentRspDto.TicketDocInfoDTO();
                         tdi.setValidatingCarrier("G7"); // Default
                         tdi.setIssuingAirlineName(issuingAirlineName); // Example
@@ -274,7 +308,7 @@ public class ChangePaymentResponse {
 
                         List<ChangePaymentRspDto.TicketDocInfoDTO.TicketDocumentDTO> docs = new ArrayList<>();
                         ChangePaymentRspDto.TicketDocInfoDTO.TicketDocumentDTO doc = new ChangePaymentRspDto.TicketDocInfoDTO.TicketDocumentDTO();
-                        doc.setTicketDocNbr(etf.getEticketnumber());
+                        doc.setTicketDocNbr(ticketNbr);
                         doc.setType("T");
                         doc.setNumberOfBooklets(1);
                         doc.setDateOfIssue(formatCurrentDate()); // Today
@@ -520,37 +554,37 @@ public class ChangePaymentResponse {
                     if (f.getServices() != null) {
                         for (java.util.Map.Entry<String, Boolean> entry : f.getServices().entrySet()) {
                             if (Boolean.TRUE.equals(entry.getValue())) {
-                                ChangePaymentRspDto.Service svc = new ChangePaymentRspDto.Service();
-                                String serviceSuffix = entry.getKey().length() > 3
-                                        ? entry.getKey().substring(0, 3).toUpperCase()
-                                        : entry.getKey().toUpperCase();
-                                svc.setServiceId("SEG" + segCount + "_" + paxIds.get(0) + "_" + serviceSuffix);
-                                svc.setServiceStatus("CONFIRMED");
-                                svc.setSegmentId("SEG" + segCount);
-                                svc.setOdKey("OD" + segCount);
-                                svc.setDeparture(f.getFromcode());
-                                svc.setArrival(f.getTocode());
-                                // svc.setServiceName(entry.getKey()); // If field exists
-                                serviceList.add(svc);
+                                for (String loopPaxId : paxIds) {
+                                    ChangePaymentRspDto.Service svc = new ChangePaymentRspDto.Service();
+                                    String serviceSuffix = entry.getKey().length() > 3
+                                            ? entry.getKey().substring(0, 3).toUpperCase()
+                                            : entry.getKey().toUpperCase();
+                                    svc.setServiceId("SEG" + segCount + "_" + loopPaxId + "_" + serviceSuffix);
+                                    svc.setServiceStatus("CONFIRMED");
+                                    svc.setSegmentId("SEG" + segCount);
+                                    svc.setOdKey("OD" + segCount);
+                                    svc.setDeparture(f.getFromcode());
+                                    svc.setArrival(f.getTocode());
+                                    serviceList.add(svc);
 
-                                // Checked bag?
-                                if ("CheckedInBaggage".equalsIgnoreCase(entry.getKey())) {
-                                    ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance ba = new ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance();
-                                    ba.setBaggageAllowanceId("FBA" + segCount);
+                                    // Checked bag?
+                                    if ("CheckedInBaggage".equalsIgnoreCase(entry.getKey())) {
+                                        ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance ba = new ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance();
+                                        ba.setBaggageAllowanceId("FBA" + segCount);
 
-                                    // Derive PTC from paxList
-                                    String paxPtc = "ADT";
-                                    for (ChangePaymentRspDto.PaxDetailDTO pax : paxList) {
-                                        if (pax.getPaxId().equals(paxIds.get(0))) {
-                                            paxPtc = pax.getPtc();
-                                            break;
+                                        // Derive PTC from paxList
+                                        String paxPtc = "ADT";
+                                        for (ChangePaymentRspDto.PaxDetailDTO pax : paxList) {
+                                            if (pax.getPaxId().equals(loopPaxId)) {
+                                                paxPtc = pax.getPtc();
+                                                break;
+                                            }
                                         }
-                                    }
 
-                                    ba.setPtc(paxPtc);
-                                    ba.setPassengerId(paxIds.get(0));
-                                    ba.setCategory("Checked-In");
-                                    ba.setName("Bag allowances");
+                                        ba.setPtc(paxPtc);
+                                        ba.setPassengerId(loopPaxId);
+                                        ba.setCategory("Checked-In");
+                                        ba.setName("Bag allowances");
 
                                     // Only add 30KG if ADT or equivalent, otherwise maybe 10KG for infant, etc.
                                     // Keeping it generic or omitting weight payload if unknown?
@@ -570,10 +604,11 @@ public class ChangePaymentResponse {
                                     ba.setDescriptions(dl);
 
                                     orderItemBags.add(ba);
-                                }
-                            }
-                        }
-                    }
+                                    } // end if CheckedInBaggage
+                                } // end for loopPaxId
+                            } // end if TRUE
+                        } // end for entry
+                    } // end if services != null
                 } else {
                     // Match ChangeSeat mapping exactly for AIR item mapping
                     for (String pId : paxIds) {

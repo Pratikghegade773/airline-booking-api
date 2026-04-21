@@ -98,16 +98,44 @@ public class UnpaidCancelResponse {
 
         if (go7PaxList != null) {
             int paxCounter = 1;
+            List<UnpaidCancelRspDto.PaxDetailDTO> adtList = new ArrayList<>();
             for (UnpaidCancelRspGo7Dto.Passenger go7Pax : go7PaxList) {
                 // Only requested fields: ptc, paxId, gender, title, givenName, surname,
                 // birthDate, phones, emails
                 UnpaidCancelRspDto.PaxDetailDTO pax = new UnpaidCancelRspDto.PaxDetailDTO();
-                String paxId = "T" + paxCounter++;
+
+                String rawTitle = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+                boolean isInfantByTitle = rawTitle.contains("INF");
+
+                String assignedPtc = mapPaxType(go7Pax.getPaxtype());
+                if (isInfantByTitle) {
+                    assignedPtc = "INF";
+                }
+
+                String paxId;
+                if ("INF".equals(assignedPtc)) {
+                    if (!adtList.isEmpty()) {
+                        UnpaidCancelRspDto.PaxDetailDTO parent = adtList.get(adtList.size() - 1);
+                        paxId = parent.getPaxId() + ".1";
+                        // Using try-catch just in case UnpaidCancel DTO doesn't have infantRef yet
+                        try {
+                            parent.setInfantRef(paxId);
+                        } catch(Exception e) {}
+                    } else {
+                        paxId = "T" + paxCounter++ + ".1";
+                    }
+                } else {
+                    paxId = "T" + paxCounter++;
+                    if ("ADT".equals(assignedPtc)) {
+                        adtList.add(pax);
+                    }
+                }
+
                 pax.setPaxId(paxId);
-                pax.setPtc(mapPaxType(go7Pax.getPaxtype()));
+                pax.setPtc(assignedPtc);
                 pax.setGivenName(go7Pax.getFirstname() != null ? go7Pax.getFirstname().toUpperCase() : "");
                 pax.setSurname(go7Pax.getLastname() != null ? go7Pax.getLastname().toUpperCase() : "");
-                pax.setTitle(go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR");
+                pax.setTitle(rawTitle);
 
                 // Gender Logic Match OrderCreate
                 if (go7Pax.getPaxtitle() != null && (go7Pax.getPaxtitle().toUpperCase().contains("MR")

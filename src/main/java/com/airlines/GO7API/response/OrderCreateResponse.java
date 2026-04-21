@@ -240,6 +240,7 @@ public class OrderCreateResponse {
             int infCounter = 1;
 
             List<OrderCreateRspDto.TicketDocInfoDTO> topLevelTicketDocs = new ArrayList<>();
+            java.util.Set<OrderCreateReqDto.Pax> mappedReqPaxes = new java.util.HashSet<>();
             String issuingAirlineName = "G7";
             String issuingPlace = "US";
             if (flightList != null && !flightList.isEmpty()) {
@@ -256,10 +257,14 @@ public class OrderCreateResponse {
                 OrderCreateReqDto.Pax reqPax = null;
                 if (requestDto.getPassengers() != null) {
                     for (OrderCreateReqDto.Pax rp : requestDto.getPassengers()) {
-                        if (rp.getFirstName() != null && rp.getLastName() != null &&
+                        if (!mappedReqPaxes.contains(rp) &&
+                                rp.getFirstName() != null && rp.getLastName() != null &&
                                 rp.getFirstName().equalsIgnoreCase(go7Pax.getFirstname()) &&
                                 rp.getLastName().equalsIgnoreCase(go7Pax.getLastname())) {
                             reqPax = rp;
+                            if (!("INF".equalsIgnoreCase(rp.getPtc()) || "INFANT".equalsIgnoreCase(rp.getPtc()))) {
+                                mappedReqPaxes.add(rp);
+                            }
                             break;
                         }
                     }
@@ -268,11 +273,11 @@ public class OrderCreateResponse {
                 String ptc = (reqPax != null && reqPax.getPtc() != null) ? reqPax.getPtc()
                         : mapPaxType(go7Pax.getPaxtype());
 
-                if ("INF".equals(ptc))
+                if ("INF".equals(ptc) || "INFANT".equalsIgnoreCase(ptc))
                     continue;
 
                 OrderCreateRspDto.PaxDetailDTO pax = new OrderCreateRspDto.PaxDetailDTO();
-                String paxId = "T" + (adtCounter + cnnCounter - 1);
+                String paxId = (reqPax != null && reqPax.getPaxId() != null && !reqPax.getPaxId().isEmpty()) ? reqPax.getPaxId() : "T" + (adtCounter + cnnCounter - 1);
                 if ("ADT".equals(ptc))
                     adtCounter++;
                 else
@@ -349,7 +354,14 @@ public class OrderCreateResponse {
                 // Map TicketDocInfo
                 List<OrderCreateRspDto.TicketDocInfoDTO> ticketDocInfoList = new ArrayList<>();
                 if (go7Pax.getETickets() != null && go7Pax.getETickets().getFlight() != null) {
+                    java.util.Set<String> uniqueTickets = new java.util.LinkedHashSet<>();
                     for (OrderCreateRspGo7Dto.Passenger.ETicketFlight etf : go7Pax.getETickets().getFlight()) {
+                        if (etf.getEticketnumber() != null && !etf.getEticketnumber().isEmpty()) {
+                            uniqueTickets.add(etf.getEticketnumber().trim());
+                        }
+                    }
+
+                    for (String ticketNbr : uniqueTickets) {
                         OrderCreateRspDto.TicketDocInfoDTO tdi = new OrderCreateRspDto.TicketDocInfoDTO();
                         tdi.setValidatingCarrier("G7");
                         tdi.setIssuingAirlineName(issuingAirlineName);
@@ -361,7 +373,7 @@ public class OrderCreateResponse {
 
                         List<OrderCreateRspDto.TicketDocInfoDTO.TicketDocumentDTO> docs = new ArrayList<>();
                         OrderCreateRspDto.TicketDocInfoDTO.TicketDocumentDTO doc = new OrderCreateRspDto.TicketDocInfoDTO.TicketDocumentDTO();
-                        doc.setTicketDocNbr(etf.getEticketnumber());
+                        doc.setTicketDocNbr(ticketNbr);
                         doc.setType("T");
                         doc.setNumberOfBooklets(1);
                         doc.setDateOfIssue(formatDate(LocalDate.now().toString()));
@@ -438,24 +450,28 @@ public class OrderCreateResponse {
 
             // Map INF and associate with parents
             for (OrderCreateRspGo7Dto.Passenger go7Pax : go7PaxList) {
-                if (!"INFANT".equalsIgnoreCase(go7Pax.getPaxtype()))
-                    continue;
-
                 // Find matching passenger in Request
                 OrderCreateReqDto.Pax reqPax = null;
                 if (requestDto.getPassengers() != null) {
                     for (OrderCreateReqDto.Pax rp : requestDto.getPassengers()) {
-                        if (rp.getFirstName() != null && rp.getLastName() != null &&
+                        if (!mappedReqPaxes.contains(rp) &&
+                                rp.getFirstName() != null && rp.getLastName() != null &&
                                 rp.getFirstName().equalsIgnoreCase(go7Pax.getFirstname()) &&
                                 rp.getLastName().equalsIgnoreCase(go7Pax.getLastname())) {
                             reqPax = rp;
+                            mappedReqPaxes.add(rp);
                             break;
                         }
                     }
                 }
 
-                String parentId = "T" + infCounter;
-                String paxId = parentId + ".1";
+                String ptcCheck = (reqPax != null && reqPax.getPtc() != null) ? reqPax.getPtc() : mapPaxType(go7Pax.getPaxtype());
+                if (!"INF".equals(ptcCheck) && !"INFANT".equalsIgnoreCase(ptcCheck))
+                    continue;
+
+                String defaultParentId = "T" + infCounter;
+                String paxId = (reqPax != null && reqPax.getPaxId() != null && !reqPax.getPaxId().isEmpty()) ? reqPax.getPaxId() : (defaultParentId + ".1");
+                String parentId = paxId.contains(".") ? paxId.substring(0, paxId.indexOf(".")) : defaultParentId;
                 infCounter++;
 
                 OrderCreateRspDto.PaxDetailDTO inf = new OrderCreateRspDto.PaxDetailDTO();
@@ -532,7 +548,7 @@ public class OrderCreateResponse {
                 adtRefs.add(pid);
             } else if ("CNN".equals(p.getPtc()) || "CHD".equals(p.getPtc())) {
                 cnnRefs.add(pid);
-            } else if ("INF".equals(p.getPtc())) {
+            } else if ("INF".equals(p.getPtc()) || "INFANT".equalsIgnoreCase(p.getPtc())) {
                 infRefs.add(pid);
             }
         }

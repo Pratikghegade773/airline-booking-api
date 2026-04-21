@@ -272,12 +272,40 @@ public class ChangeSeatResponse {
 
         if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
             int paxCounter = 1;
+            List<ChangeSeatRspDto.PaxDetailDTO> adtList = new ArrayList<>();
             for (OrderRetrieveRspGo7Dto.Passenger p : booking.getPassengers().getPassenger()) {
                 ChangeSeatRspDto.PaxDetailDTO pax = new ChangeSeatRspDto.PaxDetailDTO();
-                String pid = "PAX" + paxCounter++;
+                
+                String rawTitle = p.getPaxtitle() != null ? p.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+                boolean isInfantByTitle = rawTitle.contains("INF");
+
+                String assignedPtc = mapPaxType(p.getPaxtype());
+                if (isInfantByTitle) {
+                    assignedPtc = "INF";
+                }
+
+                String pid;
+                if ("INF".equals(assignedPtc)) {
+                    if (!adtList.isEmpty()) {
+                        ChangeSeatRspDto.PaxDetailDTO parent = adtList.get(adtList.size() - 1);
+                        pid = parent.getPaxId() + ".1";
+                        try {
+                            parent.setInfantRef(pid);
+                        } catch(Exception e) {}
+                    } else {
+                        pid = "PAX" + paxCounter++ + ".1";
+                    }
+                } else {
+                    pid = "PAX" + paxCounter++;
+                    if ("ADT".equals(assignedPtc)) {
+                        adtList.add(pax);
+                    }
+                }
+
                 rawPaxIds.add(pid);
-                pax.setPtc(mapPaxType(p.getPaxtype()));
-                pax.setTitle(p.getPaxtitle() != null ? p.getPaxtitle().toUpperCase().replace(".", "") : "MR");
+                pax.setPaxId(pid);
+                pax.setPtc(assignedPtc);
+                pax.setTitle(rawTitle);
                 pax.setGivenName(p.getFirstname() != null ? p.getFirstname().toUpperCase() : "");
                 pax.setSurname(p.getLastname() != null ? p.getLastname().toUpperCase() : "");
                 pax.setBirthDate(formatDate(p.getDob()));
@@ -337,9 +365,17 @@ public class ChangeSeatResponse {
                     tdi.setIssuingPlace(defaultIssuingPlace);
 
                     List<ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO> docs = new ArrayList<>();
+
+                    java.util.Set<String> uniqueTickets = new java.util.LinkedHashSet<>();
                     for (OrderRetrieveRspGo7Dto.Passenger.ETicketFlight etf : p.getETickets().getFlight()) {
+                        if (etf.getEticketnumber() != null && !etf.getEticketnumber().isEmpty()) {
+                            uniqueTickets.add(etf.getEticketnumber().trim());
+                        }
+                    }
+
+                    for (String ticketNbr : uniqueTickets) {
                         ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO doc = new ChangeSeatRspDto.TicketDocInfoDTO.TicketDocumentDTO();
-                        doc.setTicketDocNbr(etf.getEticketnumber());
+                        doc.setTicketDocNbr(ticketNbr);
                         doc.setType("T");
                         doc.setNumberOfBooklets(1);
                         doc.setDateOfIssue(formatCurrentDate()); // Approximated

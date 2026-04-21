@@ -224,15 +224,40 @@ public class OrderRetrieveResponse {
             int paxCounter = 1;
             List<OrderRetrieveRspDto.TicketDocInfoDTO> topLevelTicketDocs = new ArrayList<>();
             List<OrderRetrieveRspDto.EMDInfoDTO> topLevelEmdInfos = new ArrayList<>();
+            List<OrderRetrieveRspDto.PaxDetailDTO> adtList = new ArrayList<>();
 
             for (OrderRetrieveRspGo7Dto.Passenger go7Pax : go7PaxList) {
                 OrderRetrieveRspDto.PaxDetailDTO pax = new OrderRetrieveRspDto.PaxDetailDTO();
-                String paxId = "PAX" + paxCounter++;
+                
+                String rawTitle = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+                boolean isInfantByTitle = rawTitle.contains("INF");
+
+                String assignedPtc = mapPaxType(go7Pax.getPaxtype());
+                if (isInfantByTitle) {
+                    assignedPtc = "INF";
+                }
+
+                String paxId;
+                if ("INF".equals(assignedPtc)) {
+                    if (!adtList.isEmpty()) {
+                        OrderRetrieveRspDto.PaxDetailDTO parent = adtList.get(adtList.size() - 1);
+                        paxId = parent.getPaxId() + ".1";
+                        parent.setInfantRef(paxId);
+                    } else {
+                        paxId = "PAX" + paxCounter++ + ".1";
+                    }
+                } else {
+                    paxId = "PAX" + paxCounter++;
+                    if ("ADT".equals(assignedPtc)) {
+                        adtList.add(pax);
+                    }
+                }
+
                 pax.setPaxId(paxId);
-                pax.setPtc(mapPaxType(go7Pax.getPaxtype()));
+                pax.setPtc(assignedPtc);
                 pax.setGivenName(go7Pax.getFirstname() != null ? go7Pax.getFirstname().toUpperCase() : "");
                 pax.setSurname(go7Pax.getLastname() != null ? go7Pax.getLastname().toUpperCase() : "");
-                pax.setTitle(go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR");
+                pax.setTitle(rawTitle);
 
                 String gender = null;
                 if (go7Pax.getGender() != null && !go7Pax.getGender().isEmpty()) {
@@ -292,7 +317,14 @@ public class OrderRetrieveResponse {
                 if (go7Pax.getETickets() != null && go7Pax.getETickets().getFlight() != null) {
                     List<OrderRetrieveRspDto.TicketDocInfoDTO> paxTicketDocs = new ArrayList<>();
 
+                    java.util.Set<String> uniqueTickets = new java.util.LinkedHashSet<>();
                     for (OrderRetrieveRspGo7Dto.Passenger.ETicketFlight etf : go7Pax.getETickets().getFlight()) {
+                        if (etf.getEticketnumber() != null && !etf.getEticketnumber().isEmpty()) {
+                            uniqueTickets.add(etf.getEticketnumber().trim());
+                        }
+                    }
+
+                    for (String ticketNbr : uniqueTickets) {
                         OrderRetrieveRspDto.TicketDocInfoDTO tdi = new OrderRetrieveRspDto.TicketDocInfoDTO();
                         String issuingDesig = "API Airways";
                         String issuingPlace = "TLV";
@@ -312,7 +344,7 @@ public class OrderRetrieveResponse {
 
                         List<OrderRetrieveRspDto.TicketDocInfoDTO.TicketDocumentDTO> docs = new ArrayList<>();
                         OrderRetrieveRspDto.TicketDocInfoDTO.TicketDocumentDTO doc = new OrderRetrieveRspDto.TicketDocInfoDTO.TicketDocumentDTO();
-                        doc.setTicketDocNbr(etf.getEticketnumber());
+                        doc.setTicketDocNbr(ticketNbr);
                         doc.setType("T");
                         doc.setNumberOfBooklets(1);
                         doc.setDateOfIssue(formatDate(java.time.LocalDate.now().toString()));

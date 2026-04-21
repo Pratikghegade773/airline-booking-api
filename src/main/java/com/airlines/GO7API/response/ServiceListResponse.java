@@ -45,13 +45,34 @@ public class ServiceListResponse {
         List<String> segmentRefs = new ArrayList<>();
 
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            // Extract Passengers
             if (bookingRsp.getAerocrs().getBooking().getPassengers() != null &&
                     bookingRsp.getAerocrs().getBooking().getPassengers().getPassenger() != null) {
                 int pCounter = 1;
+                List<String> adtRefs = new ArrayList<>();
                 for (OrderRetrieveRspGo7Dto.Passenger pax : bookingRsp.getAerocrs().getBooking().getPassengers()
                         .getPassenger()) {
-                    String pRef = "T" + pCounter++;
+                    
+                    String rawTitle = pax.getPaxtitle() != null ? pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+                    boolean isInfantByTitle = rawTitle.contains("INF");
+
+                    String assignedPtc = "ADT";
+                    if ("CHILD".equalsIgnoreCase(pax.getPaxtype())) assignedPtc = "CNN";
+                    if ("INFANT".equalsIgnoreCase(pax.getPaxtype()) || isInfantByTitle) assignedPtc = "INF";
+
+                    String pRef;
+                    if ("INF".equals(assignedPtc)) {
+                        if (!adtRefs.isEmpty()) {
+                            pRef = adtRefs.get(adtRefs.size() - 1) + ".1";
+                        } else {
+                            pRef = "T" + pCounter++ + ".1";
+                        }
+                    } else {
+                        pRef = "T" + pCounter++;
+                        if ("ADT".equals(assignedPtc)) {
+                            adtRefs.add(pRef);
+                        }
+                    }
+
                     paxRefs.add(pRef);
                     paxNames.add((pax.getFirstname() != null ? pax.getFirstname() : "").toUpperCase());
                 }
