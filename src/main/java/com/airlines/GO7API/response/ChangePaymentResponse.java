@@ -255,11 +255,11 @@ public class ChangePaymentResponse {
                         paxId = parent.getPaxId() + ".1";
                         parent.setInfantRef(paxId);
                     } else {
-                        paxId = "PAX1.1";
+                        paxId = "T1.1";
                     }
                     infantCounter++;
                 } else {
-                    paxId = "PAX" + paxCounter++;
+                    paxId = "T" + paxCounter++;
                     if ("ADT".equals(mappedPtc)) {
                         adtList.add(pax);
                     }
