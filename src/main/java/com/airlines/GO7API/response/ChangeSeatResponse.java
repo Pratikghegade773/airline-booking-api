@@ -260,8 +260,8 @@ public class ChangeSeatResponse {
                         if (item.getPaxRefs() != null && item.getRow() != null && item.getColumn() != null) {
                             String seatCoord = item.getRow().toString() + item.getColumn();
                             for (String paxRef : item.getPaxRefs()) {
-                                // "T1" -> "PAX1"
-                                String pid = paxRef.replace("T", "PAX");
+                                // Keep as T1
+                                String pid = paxRef;
                                 paxToRequestedSeats.computeIfAbsent(pid, k -> new ArrayList<>()).add(seatCoord);
                             }
                         }
@@ -293,10 +293,10 @@ public class ChangeSeatResponse {
                             parent.setInfantRef(pid);
                         } catch(Exception e) {}
                     } else {
-                        pid = "PAX" + paxCounter++ + ".1";
+                        pid = "T" + paxCounter++ + ".1";
                     }
                 } else {
-                    pid = "PAX" + paxCounter++;
+                    pid = "T" + paxCounter++;
                     if ("ADT".equals(assignedPtc)) {
                         adtList.add(pax);
                     }
@@ -702,12 +702,12 @@ public class ChangeSeatResponse {
                         ChangeSeatRspDto.OrderItemsDTO seatItem = new ChangeSeatRspDto.OrderItemsDTO();
                         seatItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
 
-                        String assignedPaxId = "PAX1";
+                        String assignedPaxId = "T1";
                         String seatPtc = "ADT";
 
                         if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
                             int paxIdx = seatCounter % booking.getPassengers().getPassenger().size();
-                            assignedPaxId = "PAX" + (paxIdx + 1);
+                            assignedPaxId = "T" + (paxIdx + 1);
                             seatPtc = mapPaxType(booking.getPassengers().getPassenger().get(paxIdx).getPaxtype());
                         }
 

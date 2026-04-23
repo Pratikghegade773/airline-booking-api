@@ -247,8 +247,8 @@ public class ChangeServiceResponse {
                             .getOfferItems()) {
                         if (item.getPaxRefs() != null && item.getOfferItemId() != null) {
                             for (String paxRef : item.getPaxRefs()) {
-                                // "T1" -> "PAX1"
-                                String pid = paxRef.replace("T", "PAX");
+                                // Keep as T1
+                                String pid = paxRef;
                                 paxToRequestedServices.computeIfAbsent(pid, k -> new ArrayList<>())
                                         .add(item.getOfferItemId());
                             }
@@ -283,10 +283,10 @@ public class ChangeServiceResponse {
                             parent.setInfantRef(pid);
                         } catch(Exception e) {}
                     } else {
-                        pid = "PAX" + paxCounter++ + ".1";
+                        pid = "T" + paxCounter++ + ".1";
                     }
                 } else {
-                    pid = "PAX" + paxCounter++;
+                    pid = "T" + paxCounter++;
                     if ("ADT".equals(assignedPtc)) {
                         adtList.add(pax);
                     }
@@ -702,7 +702,7 @@ public class ChangeServiceResponse {
                     srvItem.setTotalTax(new ChangeServiceRspDto.OrderItemsDTO.TotalTax(BigDecimal.ZERO, srvCurrency));
                     srvItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(srvPrice, srvCurrency));
                     srvItem.setTotalPrice(srvPrice);
-                    srvItem.setPassengerIds(Arrays.asList(rawPaxIds.isEmpty() ? "PAX1" : rawPaxIds.get(0)));
+                    srvItem.setPassengerIds(Arrays.asList(rawPaxIds.isEmpty() ? "T1" : rawPaxIds.get(0)));
 
                     // Service List for this Ancillary
                     List<ChangeServiceRspDto.Service> srvList = new ArrayList<>();

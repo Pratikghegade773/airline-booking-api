@@ -270,7 +270,18 @@ public class ChangePaymentResponse {
                 pax.setGivenName(go7Pax.getFirstname() != null ? go7Pax.getFirstname().toUpperCase() : "");
                 pax.setSurname(go7Pax.getLastname() != null ? go7Pax.getLastname().toUpperCase() : "");
                 pax.setTitle(title);
-                pax.setGender(go7Pax.getGender() != null && go7Pax.getGender().startsWith("M") ? "Male" : "Female");
+
+                String gender = "Male";
+                if (go7Pax.getGender() != null && go7Pax.getGender().toUpperCase().startsWith("F")) {
+                    gender = "Female";
+                } else if (title.contains("MRS") || title.contains("MS") || title.contains("MISS")) {
+                    gender = "Female";
+                } else if (title.contains("MR") || title.contains("MSTR")) {
+                    gender = "Male";
+                } else if (go7Pax.getGender() != null && go7Pax.getGender().toUpperCase().startsWith("M")) {
+                    gender = "Male";
+                }
+                pax.setGender(gender);
                 pax.setBirthDate(formatDate(go7Pax.getDob())); // Should match ddMMMyyyy
                 pax.setLanguage("English");
 

@@ -549,6 +549,62 @@ public class Go7Controller {
         try {
             System.out.println("Processing UnpaidCancel for OrderID: " + unpaidCancelReqDto.getOrderId());
 
+            // --- VALIDATION: Check if already Ticketed/Paid ---
+            String storedBookingConfirmationValidation = null;
+            if (unpaidCancelReqDto.getOrderId() != null && !unpaidCancelReqDto.getOrderId().isEmpty()) {
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOpt = bookingService
+                        .getBookingByOrderId(unpaidCancelReqDto.getOrderId());
+                if (entityOpt.isPresent()) {
+                    storedBookingConfirmationValidation = entityOpt.get().getBookingConfirmation();
+                }
+            }
+            
+            com.airlines.GO7API.requestDto.OrderRetrieveReqDto tempRetrieveReq = new com.airlines.GO7API.requestDto.OrderRetrieveReqDto();
+            tempRetrieveReq.setOrderId(unpaidCancelReqDto.getOrderId());
+            tempRetrieveReq.setApiKey(unpaidCancelReqDto.getApiKey());
+
+            com.airlines.GO7API.request.OrderRetrieveReq validationBookingReq = com.airlines.GO7API.request.OrderRetrieveReq
+                    .mapToOrderRetrieveReq(tempRetrieveReq, storedBookingConfirmationValidation);
+            Object validationResponse = validationBookingReq.unmarshal();
+            
+            if (!(validationResponse instanceof com.airlines.GO7API.error.ErrorRsp)) {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                mapper.enable(com.fasterxml.jackson.databind.DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT);
+                
+                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto bookingRsp = null;
+                try {
+                    if (validationResponse instanceof String) {
+                        bookingRsp = mapper.readValue((String) validationResponse,
+                                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
+                    } else {
+                        bookingRsp = mapper.convertValue(validationResponse,
+                                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
+                    }
+                } catch (Exception e) {}
+                
+                if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
+                    boolean hasTickets = false;
+                    if (bookingRsp.getAerocrs().getBooking().getPassengers() != null && bookingRsp.getAerocrs().getBooking().getPassengers().getPassenger() != null) {
+                        for (com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passenger p : bookingRsp.getAerocrs().getBooking().getPassengers().getPassenger()) {
+                            if (p.getETickets() != null && p.getETickets().getFlight() != null && !p.getETickets().getFlight().isEmpty()) {
+                                hasTickets = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (hasTickets) {
+                        com.airlines.GO7API.error.ErrorRsp errorRsp = new com.airlines.GO7API.error.ErrorRsp();
+                        com.airlines.GO7API.error.ErrorRsp.Error error = new com.airlines.GO7API.error.ErrorRsp.Error();
+                        error.setError("Cannot perform UnpaidCancel. The order has already been ticketed or paid.");
+                        error.setCode("400");
+                        errorRsp.getErrorList().add(error);
+                        return new ResponseEntity<>(errorRsp, HttpStatus.BAD_REQUEST);
+                    }
+                }
+            }
+            // --- END VALIDATION ---
+
             // 1. Execute UnpaidCancel Request
             UnpaidCancelReq unpaidCancelReq = UnpaidCancelReq.mapToUnpaidCancelReq(unpaidCancelReqDto);
             Object cancelResponse = unpaidCancelReq.unmarshal();
