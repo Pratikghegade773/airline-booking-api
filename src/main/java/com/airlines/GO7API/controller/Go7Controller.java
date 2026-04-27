@@ -22,6 +22,9 @@ public class Go7Controller {
     AirshopResponse airshopResponse;
 
     @Autowired
+    private com.airlines.GO7API.response.OrderReshopResponse orderReshopResponse;
+
+    @Autowired
     private com.airlines.GO7API.response.ServiceListResponse serviceListResponse;
 
     @Autowired
@@ -1337,6 +1340,19 @@ public class Go7Controller {
     @PostMapping("/orderchange")
     public ResponseEntity<Object> orderChange(@RequestBody OrderChangeReqDto orderChangeReqDto) {
         try {
+            // Fetch real Booking Confirmation from MongoDB using OrderID if available
+            if (orderChangeReqDto.getOrderId() != null) {
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOpt = bookingService
+                        .getBookingByOrderId(orderChangeReqDto.getOrderId());
+                if (entityOpt.isPresent()) {
+                    String realConfirmation = entityOpt.get().getBookingConfirmation();
+                    if (realConfirmation != null && !realConfirmation.isEmpty()) {
+                        System.out.println("OrderChange: Found real BookingConfirmation in DB: " + realConfirmation);
+                        orderChangeReqDto.setOrderId(realConfirmation);
+                    }
+                }
+            }
+
             // Map the DTO to the internal Request object
             OrderChangeReq orderChangeReq = OrderChangeReq.mapToOrderChangeReq(orderChangeReqDto);
 
@@ -1355,79 +1371,101 @@ public class Go7Controller {
     @PostMapping("/orderreshop")
     public ResponseEntity<Object> orderReshop(@RequestBody String requestBody) {
         try {
-            // Map the raw JSON to the internal Request object
-            FSorderreshopReq orderReshopReq = FSorderreshopReq.mapFromJson(requestBody);
+            JsonNode root = mapper.readTree(requestBody);
 
-            // Call internal get booking to get booking confirmation if missing
-            Object bConfObj = orderReshopReq.aerocrs.parms.get("bookingconfirmation");
-            String bookingConfirmation = (bConfObj != null) ? String.valueOf(bConfObj) : null;
-            Object bIdObj = orderReshopReq.aerocrs.parms.get("bookingid");
-            Long bookingId = null;
-            if (bIdObj instanceof Number) {
-                bookingId = ((Number) bIdObj).longValue();
-            } else if (bIdObj instanceof String) {
-                try {
-                    bookingId = Long.parseLong((String) bIdObj);
-                } catch (Exception e) {
+            String orderId = null;
+            if (root.has("orderId")) {
+                orderId = root.get("orderId").asText();
+            } else if (root.has("aerocrs") && root.get("aerocrs").has("parms")) {
+                JsonNode parms = root.get("aerocrs").get("parms");
+                if (parms.has("bookingconfirmation"))
+                    orderId = parms.get("bookingconfirmation").asText();
+                else if (parms.has("bookingid"))
+                    orderId = parms.get("bookingid").asText();
+            }
+
+            // 1. Determine Passenger Counts
+            int adults = 0, children = 0, infants = 0;
+            JsonNode paxList = root.path("paxList");
+
+            if (paxList.isArray() && paxList.size() > 0) {
+                for (JsonNode pax : paxList) {
+                    String ptc = pax.path("ptc").asText("");
+                    if ("ADT".equalsIgnoreCase(ptc))
+                        adults++;
+                    else if ("CHD".equalsIgnoreCase(ptc))
+                        children++;
+                    else if ("INF".equalsIgnoreCase(ptc))
+                        infants++;
+                }
+            } else if (orderId != null) {
+                // Fetch real Booking Confirmation from MongoDB if needed
+                String bookingConfirmation = orderId;
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOpt = bookingService
+                        .getBookingByOrderId(orderId);
+                if (entityOpt.isPresent()) {
+                    bookingConfirmation = entityOpt.get().getBookingConfirmation();
+                }
+
+                // Call Internal GetBooking to get pax counts
+                com.airlines.GO7API.request.OrderRetrieveReq getBookingReq = SeatAvailabilityReq
+                        .mapToGetBookingReq(bookingConfirmation);
+                Object getBookingResponse = getBookingReq.unmarshal();
+
+                if (getBookingResponse != null && !(getBookingResponse instanceof com.airlines.GO7API.error.ErrorRsp)) {
+                    com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto bookingRsp;
+                    if (getBookingResponse instanceof String) {
+                        bookingRsp = mapper.readValue((String) getBookingResponse,
+                                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
+                    } else {
+                        bookingRsp = mapper.convertValue(getBookingResponse,
+                                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
+                    }
+                    if (bookingRsp != null && bookingRsp.getAerocrs() != null
+                            && bookingRsp.getAerocrs().getBooking() != null) {
+                        adults = bookingRsp.getAerocrs().getBooking().getAdults();
+                        children = bookingRsp.getAerocrs().getBooking().getChild();
+                        infants = bookingRsp.getAerocrs().getBooking().getInfant();
+                    }
                 }
             }
 
-            // If confirmation is purely numeric, treat as ID and trigger lookup
-            if (bookingConfirmation != null && bookingConfirmation.matches("\\d+")) {
-                if (bookingId == null) {
-                    try {
-                        bookingId = Long.parseLong(bookingConfirmation);
-                    } catch (Exception e) {
-                    }
-                }
-                bookingConfirmation = null;
-            }
-
-            if (bookingConfirmation == null || bookingConfirmation.isEmpty()) {
-                System.out.println(
-                        "DEBUG: Missing bookingconfirmation. Attempting internal lookup for bookingId: " + bookingId);
-
-                // 1. Try Database
-                if (bookingId != null) {
-                    java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entity = bookingService
-                            .getBookingByOrderId(String.valueOf(bookingId));
-                    if (entity.isPresent()) {
-                        bookingConfirmation = entity.get().getBookingConfirmation();
-                        System.out.println("DEBUG: Found bookingconfirmation in DB: " + bookingConfirmation);
-                    }
-                }
-
-                // 2. Try GetBooking API if still missing
-                if (bookingConfirmation == null || bookingConfirmation.isEmpty()) {
-                    if (bookingId != null) {
-                        System.out.println("DEBUG: Calling internal getBooking API for bookingId: " + bookingId);
-                        OrderCreateReq getBookingReq = OrderCreateReq.mapToOrderTicketReq(bookingId); // Using ticket
-                                                                                                      // req logic as it
-                                                                                                      // maps ID to
-                                                                                                      // parms
-                        getBookingReq.setApiUrl("https://api.aerocrs.com/v5/getBooking");
-                        Object getBookingRsp = getBookingReq.unmarshal();
-
-                        // Parse confirmation from response
-                        if (getBookingRsp != null && !(getBookingRsp instanceof com.airlines.GO7API.error.ErrorRsp)) {
-                            JsonNode root = mapper.valueToTree(getBookingRsp);
-                            bookingConfirmation = root.path("aerocrs").path("booking").path("bookingconfirmation")
-                                    .asText();
-                            System.out.println("DEBUG: Retrieved bookingconfirmation from API: " + bookingConfirmation);
-                        }
-                    }
-                }
-
-                // 3. Update Request
-                if (bookingConfirmation != null && !bookingConfirmation.isEmpty()) {
-                    orderReshopReq.aerocrs.parms.put("bookingconfirmation", bookingConfirmation);
+            // 2. Prepare Airshop Request
+            AirshopReqDto airshopReqDto = new AirshopReqDto();
+            java.util.List<AirshopReqDto.OD> ods = new java.util.ArrayList<>();
+            JsonNode odsNode = root.path("ods");
+            if (odsNode.isArray()) {
+                for (JsonNode odNode : odsNode) {
+                    AirshopReqDto.OD od = new AirshopReqDto.OD();
+                    od.setOrigin(odNode.path("origin").asText(null));
+                    od.setDestination(odNode.path("destination").asText(null));
+                    od.setDate(odNode.path("date").asText(null));
+                    od.setCabinPreference(odNode.path("cabinPreference").asText(null));
+                    od.setPreferenceLevel(odNode.path("preferenceLevel").asText(null));
+                    ods.add(od);
                 }
             }
+            airshopReqDto.setOds(ods);
+            airshopReqDto.setAdults(adults > 0 ? adults : 1);
+            airshopReqDto.setChildren(children);
+            airshopReqDto.setInfants(infants);
+            airshopReqDto.setTripType(ods.size() > 1 ? "return" : "oneway");
+            if (ods.size() > 1) {
+                airshopReqDto.setReturnDate(ods.get(1).getDate());
+            }
 
-            // Execute the API call
-            Object response = orderReshopReq.unmarshal();
+            // 3. Execute Internal Airshop Search
+            System.out.println("DEBUG: Executing internal Airshop search for OrderReshop. OrderId: " + orderId);
+            AirshopReq flightSearchRequestDTO = AirshopReq.mapToFlightSearchRequestDTO(airshopReqDto);
+            AirshopRspGo7Dto response = flightSearchRequestDTO.unmarshal();
 
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            if (response != null && response.getAerocrs() != null && response.getAerocrs().isSuccess()) {
+                com.airlines.GO7API.responseDto.OrderReshopRspDto reshopRspDto = orderReshopResponse.orderReshopMapper(response,
+                        airshopReqDto);
+                return new ResponseEntity<>(reshopRspDto, HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -1439,74 +1477,57 @@ public class Go7Controller {
     @PostMapping("/FSorderreshop")
     public ResponseEntity<Object> fsOrderReshop(@RequestBody String requestBody) {
         try {
-            // Map the raw JSON to the internal Request object
-            FSorderreshopReq orderReshopReq = FSorderreshopReq.mapFromJson(requestBody);
-
-            // Call internal get booking to get booking confirmation if missing
-            Object bConfObj = orderReshopReq.aerocrs.parms.get("bookingconfirmation");
-            String bookingConfirmation = (bConfObj != null) ? String.valueOf(bConfObj) : null;
-            Object bIdObj = orderReshopReq.aerocrs.parms.get("bookingid");
-            Long bookingId = null;
-            if (bIdObj instanceof Number) {
-                bookingId = ((Number) bIdObj).longValue();
-            } else if (bIdObj instanceof String) {
-                try {
-                    bookingId = Long.parseLong((String) bIdObj);
-                } catch (Exception e) {
+            JsonNode root = mapper.readTree(requestBody);
+            
+            AirshopReqDto airshopReqDto = new AirshopReqDto();
+            
+            // Populate ods
+            java.util.List<AirshopReqDto.OD> ods = new java.util.ArrayList<>();
+            JsonNode odsNode = root.path("ods");
+            if (odsNode.isArray()) {
+                for (JsonNode odNode : odsNode) {
+                    AirshopReqDto.OD od = new AirshopReqDto.OD();
+                    od.setOrigin(odNode.path("origin").asText(null));
+                    od.setDestination(odNode.path("destination").asText(null));
+                    od.setDate(odNode.path("date").asText(null));
+                    od.setCabinPreference(odNode.path("cabinPreference").asText(null));
+                    od.setPreferenceLevel(odNode.path("preferenceLevel").asText(null));
+                    ods.add(od);
                 }
             }
-
-            // If confirmation is purely numeric, treat as ID and trigger lookup
-            if (bookingConfirmation != null && bookingConfirmation.matches("\\d+")) {
-                if (bookingId == null) {
-                    try {
-                        bookingId = Long.parseLong(bookingConfirmation);
-                    } catch (Exception e) {
-                    }
-                }
-                bookingConfirmation = null;
-            }
-
-            if (bookingConfirmation == null || bookingConfirmation.isEmpty()) {
-                System.out.println(
-                        "DEBUG: Missing bookingconfirmation. Attempting internal lookup for bookingId: " + bookingId);
-
-                // 1. Try Database
-                if (bookingId != null) {
-                    java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entity = bookingService
-                            .getBookingByOrderId(String.valueOf(bookingId));
-                    if (entity.isPresent()) {
-                        bookingConfirmation = entity.get().getBookingConfirmation();
-                        System.out.println("DEBUG: Found bookingconfirmation in DB: " + bookingConfirmation);
-                    }
-                }
-
-                // 2. Try GetBooking API if still missing
-                if (bookingConfirmation == null || bookingConfirmation.isEmpty()) {
-                    if (bookingId != null) {
-                        System.out.println("DEBUG: Calling internal getBooking API for bookingId: " + bookingId);
-                        OrderCreateReq getBookingReq = OrderCreateReq.mapToOrderTicketReq(bookingId);
-                        getBookingReq.setApiUrl("https://api.aerocrs.com/v5/getBooking");
-                        Object getBookingRsp = getBookingReq.unmarshal();
-
-                        if (getBookingRsp != null && !(getBookingRsp instanceof com.airlines.GO7API.error.ErrorRsp)) {
-                            JsonNode root = mapper.valueToTree(getBookingRsp);
-                            bookingConfirmation = root.path("aerocrs").path("booking").path("bookingconfirmation")
-                                    .asText();
-                            System.out.println("DEBUG: Retrieved bookingconfirmation from API: " + bookingConfirmation);
-                        }
-                    }
-                }
-
-                if (bookingConfirmation != null && !bookingConfirmation.isEmpty()) {
-                    orderReshopReq.aerocrs.parms.put("bookingconfirmation", bookingConfirmation);
+            airshopReqDto.setOds(ods);
+            
+            // Populate passengers
+            int adults = 0, children = 0, infants = 0;
+            JsonNode paxList = root.path("paxList");
+            if (paxList.isArray()) {
+                for (JsonNode pax : paxList) {
+                    String ptc = pax.path("ptc").asText("");
+                    if ("ADT".equalsIgnoreCase(ptc)) adults++;
+                    else if ("CHD".equalsIgnoreCase(ptc)) children++;
+                    else if ("INF".equalsIgnoreCase(ptc)) infants++;
                 }
             }
+            airshopReqDto.setAdults(adults > 0 ? adults : 1); // Default to 1 ADT if none found
+            airshopReqDto.setChildren(children);
+            airshopReqDto.setInfants(infants);
+            
+            airshopReqDto.setTripType(ods.size() > 1 ? "return" : "oneway");
+            if (ods.size() > 1) {
+                airshopReqDto.setReturnDate(ods.get(1).getDate());
+            }
 
-            // Execute the API call
-            Object response = orderReshopReq.unmarshal();
-
-            return new ResponseEntity<>(response, HttpStatus.OK);
+            // Execute Airshop logic
+            System.out.println("DEBUG: Executing Airshop search for FSOrderReshop");
+            AirshopReq flightSearchRequestDTO = AirshopReq.mapToFlightSearchRequestDTO(airshopReqDto);
+            AirshopRspGo7Dto response = flightSearchRequestDTO.unmarshal();
+            
+            if (response != null && response.getAerocrs() != null && response.getAerocrs().isSuccess()) {
+                com.airlines.GO7API.responseDto.OrderReshopRspDto reshopRspDto = orderReshopResponse.orderReshopMapper(response, airshopReqDto);
+                return new ResponseEntity<>(reshopRspDto, HttpStatus.OK);
+            } else {
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();

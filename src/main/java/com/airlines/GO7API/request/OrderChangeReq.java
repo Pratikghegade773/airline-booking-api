@@ -71,52 +71,104 @@ public class OrderChangeReq {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Parms {
-        @JsonProperty("bookingid")
-        private Long bookingId;
+        @JsonProperty("bookingconfirmation")
+        private String bookingConfirmation;
 
-        // Add other params supported by OrderChange (e.g., adding seats, splitting PNR)
-        // For basic seat addition, Go7 uses specialized calls, but if this is for
-        // generic OrderChange:
-        // Adjust as needed based on specific Go7 API documentation for this endpoint.
+        @JsonProperty("action")
+        private String action = "amend";
 
-        // Example: If supporting PNR split or name change
-        // @JsonProperty("splitPnr")
-        // private Boolean splitPnr;
+        @JsonProperty("currency")
+        private String currency;
 
-        public Long getBookingId() {
-            return bookingId;
+        @JsonProperty("bookflight")
+        private java.util.List<BookFlight> bookFlight;
+
+        public String getBookingConfirmation() {
+            return bookingConfirmation;
         }
 
-        public void setBookingId(Long bookingId) {
-            this.bookingId = bookingId;
+        public void setBookingConfirmation(String bookingConfirmation) {
+            this.bookingConfirmation = bookingConfirmation;
         }
+
+        public String getAction() {
+            return action;
+        }
+
+        public void setAction(String action) {
+            this.action = action;
+        }
+
+        public String getCurrency() {
+            return currency;
+        }
+
+        public void setCurrency(String currency) {
+            this.currency = currency;
+        }
+
+        public java.util.List<BookFlight> getBookFlight() {
+            return bookFlight;
+        }
+
+        public void setBookFlight(java.util.List<BookFlight> bookFlight) {
+            this.bookFlight = bookFlight;
+        }
+    }
+
+    public static class BookFlight {
+        private String fromcode;
+        private String tocode;
+        private String flightid;
+        private String fareid;
+
+        public String getFromcode() { return fromcode; }
+        public void setFromcode(String fromcode) { this.fromcode = fromcode; }
+        public String getTocode() { return tocode; }
+        public void setTocode(String tocode) { this.tocode = tocode; }
+        public String getFlightid() { return flightid; }
+        public void setFlightid(String flightid) { this.flightid = flightid; }
+        public String getFareid() { return fareid; }
+        public void setFareid(String fareid) { this.fareid = fareid; }
     }
 
     public static OrderChangeReq mapToOrderChangeReq(OrderChangeReqDto dto) {
         OrderChangeReq req = new OrderChangeReq();
         req.setApiKey(dto.getApiKey());
 
-        if (dto.getOrderChangeUrl() != null && !dto.getOrderChangeUrl().isEmpty()) {
-            req.setOrderChangeUrl(dto.getOrderChangeUrl());
-        } else {
-            // Default URL - verifying if this exists or if it maps to specific actions
-            req.setOrderChangeUrl("https://api.aerocrs.com/v5/orderChange");
-        }
+        // Use changeBooking endpoint for amendments
+        req.setOrderChangeUrl("https://api.aerocrs.com/v5/changeBooking");
 
         Aerocrs aerocrs = new Aerocrs();
         Parms parms = new Parms();
 
-        if (dto.getOrderId() != null) {
-            try {
-                parms.setBookingId(Long.parseLong(dto.getOrderId()));
-            } catch (NumberFormatException e) {
-                // Ignore
-            }
-        }
+        parms.setBookingConfirmation(dto.getOrderId());
+        parms.setAction("amend");
 
-        // Note: The Go7 "OrderChange" capability is often split into specific calls
-        // (UpdatePassenger, SplitPNR, etc.). Ensuring strict minimal mapping for now
-        // to satisfy compilation and basic connectivity.
+        if (dto.getOffers() != null && !dto.getOffers().isEmpty()) {
+            java.util.List<BookFlight> bookFlights = new java.util.ArrayList<>();
+            for (OrderChangeReqDto.Offer offer : dto.getOffers()) {
+                String offerId = offer.getOfferId();
+                if (offerId != null && offerId.contains("-")) {
+                    String[] parts = offerId.split("-");
+                    // Structure: flightid-fareid-fromcode-tocode-...
+                    if (parts.length >= 4) {
+                        BookFlight bf = new BookFlight();
+                        bf.setFlightid(parts[0]);
+                        bf.setFareid(parts[1]);
+                        bf.setFromcode(parts[2]);
+                        bf.setTocode(parts[3]);
+                        bookFlights.add(bf);
+                        
+                        // Set currency from the last part of offerId if available
+                        if (parms.getCurrency() == null) {
+                            parms.setCurrency(parts[parts.length - 1]);
+                        }
+                    }
+                }
+            }
+            parms.setBookFlight(bookFlights);
+        }
 
         aerocrs.setParms(parms);
         req.setAerocrs(aerocrs);
@@ -125,8 +177,10 @@ public class OrderChangeReq {
 
     public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
         String response = makeApiCall();
+        if (response == null || response.trim().isEmpty()) {
+            return null;
+        }
         ObjectMapper objectMapper = new ObjectMapper();
-
         objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
         try {
@@ -159,30 +213,43 @@ public class OrderChangeReq {
 
     public String makeApiCall() throws IOException {
         String baseUrl = orderChangeUrl;
+
+        // Simplify URL: Only include bookingconfirmation
+        StringBuilder urlWithParams = new StringBuilder(baseUrl);
+        Parms p = this.aerocrs.getParms();
+        if (p != null && p.getBookingConfirmation() != null) {
+            urlWithParams.append("?bookingconfirmation=").append(p.getBookingConfirmation());
+        }
+
+        String finalUrl = urlWithParams.toString();
         String jsonBody = new ObjectMapper()
                 .enable(SerializationFeature.INDENT_OUTPUT)
                 .writeValueAsString(this);
 
         HttpHeaders headers = new HttpHeaders();
-        // Standard headers matching OrderCancel/OrderRetrieve
         headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
         headers.add("auth_password", "vJ3yGilZ9u7N");
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated OrderChange Request is:\n" + jsonBody);
+        System.out.println("Generated OrderChange Request URL: " + finalUrl);
+        System.out.println("Generated OrderChange Request Body:\n" + jsonBody);
 
         RestTemplate restTemplate = new RestTemplate();
 
         try {
-            ResponseEntity<String> response = restTemplate.exchange(baseUrl, HttpMethod.POST, entity, String.class);
+            ResponseEntity<String> response = restTemplate.exchange(finalUrl, HttpMethod.POST, entity, String.class);
             System.out.println("HTTP Response Status Code: " + response.getStatusCode());
             System.out.println("OrderChange Response: " + response.getBody());
             return response.getBody();
 
         } catch (HttpClientErrorException e) {
+            System.out.println("HTTP Error Status Code: " + e.getStatusCode());
             System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
             return e.getResponseBodyAsString();
+        } catch (Exception e) {
+            System.out.println("General Error in makeApiCall: " + e.getMessage());
+            return null;
         }
     }
 }

@@ -1,7 +1,7 @@
 package com.airlines.GO7API.request;
 
 import com.airlines.GO7API.error.ErrorRsp;
-import com.airlines.GO7API.requestDto.FSorderreshopReqDto;
+import com.airlines.GO7API.requestDto.OrderReshopReqDto;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class FSorderreshopReq {
+public class OrderReshopReq {
 
     @JsonProperty("aerocrs")
     public Aerocrs aerocrs;
@@ -36,12 +36,12 @@ public class FSorderreshopReq {
         public java.util.Map<String, Object> parms;
     }
 
-    public static FSorderreshopReq mapFromJson(String json) throws IOException {
+    public static OrderReshopReq mapFromJson(String json) throws IOException {
         System.out.println("DEBUG: mapFromJson starting. Body: " + json);
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-        FSorderreshopReq req = new FSorderreshopReq();
+        OrderReshopReq req = new OrderReshopReq();
         JsonNode root = mapper.readTree(json);
 
         java.util.Map<String, Object> sourceParms = new java.util.LinkedHashMap<>();
@@ -97,26 +97,8 @@ public class FSorderreshopReq {
         if (sourceParms.containsKey("bookflight")) {
             bookflightList = (java.util.List) sourceParms.get("bookflight");
         } else if (sourceParms.containsKey("deleteOrderItems")) {
-            System.out.println("DEBUG: Attempting to parse bookflight from deleteOrderItems");
-            Object doi = sourceParms.get("deleteOrderItems");
-            if (doi instanceof java.util.List) {
-                for (Object itemObj : (java.util.List) doi) {
-                    java.util.Map<String, Object> item = (java.util.Map) itemObj;
-                    String itemId = (String) (item.containsKey("orderItemid") ? item.get("orderItemid")
-                            : item.get("orderItemId"));
-                    if (itemId != null && itemId.contains("-")) {
-                        String[] parts = itemId.split("-");
-                        if (parts.length >= 4) {
-                            java.util.Map<String, Object> bf = new java.util.LinkedHashMap<>();
-                            bf.put("fromcode", parts[2]);
-                            bf.put("tocode", parts[3]);
-                            bf.put("flightid", parts[0]);
-                            bf.put("fareid", parts[1]);
-                            bookflightList.add(bf);
-                        }
-                    }
-                }
-            }
+            System.out.println("DEBUG: Ignoring deleteOrderItems for bookflight generation. Controller will fetch true flight IDs from AeroCRS.");
+            // Do not parse from deleteOrderItems because GO7 orderItemIds (e.g., PF7963B26) are not AeroCRS flight IDs!
         }
         if (!bookflightList.isEmpty()) {
             targetParms.put("bookflight", bookflightList);

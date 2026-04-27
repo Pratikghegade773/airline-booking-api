@@ -10,7 +10,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class FSorderreshopReqDto {
+public class OrderReshopReqDto {
     private String airlineCode;
     private String orderId;
     private String agencyId;

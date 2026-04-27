@@ -118,6 +118,7 @@ public class OrderRetrieveRspGo7Dto {
 
         private Long invid;
         private String invpricing;
+        private String fareid;
 
         @JsonProperty("Adultfare")
         private String adultfare;
