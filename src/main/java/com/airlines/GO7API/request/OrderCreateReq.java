@@ -420,6 +420,19 @@ public class OrderCreateReq {
                 .enable(SerializationFeature.INDENT_OUTPUT)
                 .writeValueAsString(this);
 
+        String logPrefix = "OrderCreate";
+        if (apiUrl != null) {
+            if (apiUrl.contains("confirmBooking")) {
+                logPrefix = "OrderConfirm";
+            } else if (apiUrl.contains("getBooking")) {
+                logPrefix = "GetBooking";
+            } else if (apiUrl.contains("makePayment")) {
+                logPrefix = "MakePayment";
+            } else if (apiUrl.contains("ticketBooking")) {
+                logPrefix = "OrderTicket";
+            }
+        }
+
         HttpHeaders headers = new HttpHeaders();
         // Hardcoded Auth (or derived if passed)
         headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
@@ -427,13 +440,13 @@ public class OrderCreateReq {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated OrderCreate Request is:\n" + jsonBody);
+        System.out.println("Generated " + logPrefix + " Request is:\n" + jsonBody);
 
         RestTemplate restTemplate = new RestTemplate();
         try {
             ResponseEntity<String> response = restTemplate.exchange(apiUrl, HttpMethod.POST, entity,
                     String.class);
-            System.out.println("OrderCreate Response: " + response.getBody());
+            System.out.println(logPrefix + " Response: " + response.getBody());
             return response.getBody();
         } catch (HttpClientErrorException e) {
             System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());

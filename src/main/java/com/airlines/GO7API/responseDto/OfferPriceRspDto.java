@@ -60,8 +60,8 @@ public class OfferPriceRspDto {
         private String operatingCarrierName;
         private Object operatingCarrierCode;
         private String operatingCarrierLogo;
-        private String departureTerminal;
         private String arrivalTerminal;
+        private String departureTerminal;
         private String operatingCarrierFlightNumber;
         private int changeOfDay;
     }

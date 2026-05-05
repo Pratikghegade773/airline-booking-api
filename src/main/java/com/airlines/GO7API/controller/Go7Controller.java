@@ -598,11 +598,36 @@ public class Go7Controller {
                     }
                     if (hasTickets) {
                         com.airlines.GO7API.error.ErrorRsp errorRsp = new com.airlines.GO7API.error.ErrorRsp();
+                        errorRsp.setAirlineCode("G7");
+                        errorRsp.setSource("G7-API");
                         com.airlines.GO7API.error.ErrorRsp.Error error = new com.airlines.GO7API.error.ErrorRsp.Error();
-                        error.setError("Cannot perform UnpaidCancel. The order has already been ticketed or paid.");
+                        error.setError("Cannot perform UnpaidCancel. Booking is ticketed and can not be canceled from this interface at the moment, please consult airline.");
                         error.setCode("400");
                         errorRsp.getErrorList().add(error);
                         return new ResponseEntity<>(errorRsp, HttpStatus.BAD_REQUEST);
+                    }
+
+                    // Additional Check: Balance/Paid Status
+                    if (bookingRsp.getAerocrs().getBooking().getBalanceInformation() != null) {
+                        double outstanding = bookingRsp.getAerocrs().getBooking().getBalanceInformation().getPnrOutstandingPayment();
+                        if (outstanding <= 0) {
+                            com.airlines.GO7API.error.ErrorRsp errorRsp = new com.airlines.GO7API.error.ErrorRsp();
+                            errorRsp.setAirlineCode("G7");
+                            errorRsp.setSource("G7-API");
+                            com.airlines.GO7API.error.ErrorRsp.Error error = new com.airlines.GO7API.error.ErrorRsp.Error();
+                            error.setError("Cannot perform UnpaidCancel. The order has already been fully paid.");
+                            error.setCode("400");
+                            errorRsp.getErrorList().add(error);
+                            return new ResponseEntity<>(errorRsp, HttpStatus.BAD_REQUEST);
+                        }
+                    }
+
+                    // Additional Check: Status
+                    String status = bookingRsp.getAerocrs().getBooking().getStatus();
+                    if ("OK".equalsIgnoreCase(status) || "TICKETED".equalsIgnoreCase(status)) {
+                        // If it's OK but not caught by hasTickets, we still might want to be cautious, 
+                        // but usually hasTickets is the definitive check for 'Unpaid'.
+                        // For now, let's stick to hasTickets and Balance.
                     }
                 }
             }
@@ -615,6 +640,32 @@ public class Go7Controller {
             if (cancelResponse instanceof com.airlines.GO7API.error.ErrorRsp) {
                 return new ResponseEntity<>(cancelResponse, HttpStatus.BAD_REQUEST);
             }
+
+            // --- Post-call Validation: Handle provider-side failure without 'errors' array ---
+            try {
+                ObjectMapper tempMapper = new ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode root = tempMapper.valueToTree(cancelResponse);
+                if (root.has("success") && !root.get("success").asBoolean()) {
+                    com.airlines.GO7API.error.ErrorRsp errorRsp = new com.airlines.GO7API.error.ErrorRsp();
+                    errorRsp.setAirlineCode("G7");
+                    errorRsp.setSource("G7-API");
+                    String errMsg = "Cancellation failed on provider side.";
+                    if (root.has("details") && root.get("details").has("detail")) {
+                        com.fasterxml.jackson.databind.JsonNode detailNode = root.get("details").get("detail");
+                        if (detailNode.isArray() && detailNode.size() > 0) {
+                            errMsg = detailNode.get(0).asText();
+                        }
+                    }
+                    com.airlines.GO7API.error.ErrorRsp.Error error = new com.airlines.GO7API.error.ErrorRsp.Error();
+                    error.setError(errMsg);
+                    error.setCode("400");
+                    errorRsp.getErrorList().add(error);
+                    return new ResponseEntity<>(errorRsp, HttpStatus.BAD_REQUEST);
+                }
+            } catch (Exception e) {
+                System.out.println("Error parsing cancelResponse for failure: " + e.getMessage());
+            }
+            // --- End Post-call Validation ---
 
             // 2. Fetch Full Booking Details (Internal OrderRetrieve)
             // 2. Fetch Full Booking Details (Internal OrderRetrieve)

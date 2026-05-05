@@ -66,12 +66,7 @@ public class OrderReshopResponse {
         reshopRspDto.setResponseId(responseId);
         reshopRspDto.setApiOwner("G7");
 
-        String type = request != null && request.getTripType() != null ? request.getTripType() : "OneWay";
-        if (type.equalsIgnoreCase("OneWay")) {
-            reshopRspDto.setRoundTripType("OneWay");
-        } else {
-            reshopRspDto.setRoundTripType("RoundTrip");
-        }
+        reshopRspDto.setRoundTripType("RT");
 
         int adults = request != null ? request.getAdults() : 1;
         int children = request != null ? request.getChildren() : 0;

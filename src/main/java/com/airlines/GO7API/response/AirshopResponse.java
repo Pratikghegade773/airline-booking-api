@@ -67,12 +67,7 @@ public class AirshopResponse {
         airshopRspDto.setResponseId(responseId);
         airshopRspDto.setApiOwner("G7");
 
-        String type = request != null && request.getTripType() != null ? request.getTripType() : "OneWay";
-        if (type.equalsIgnoreCase("OneWay")) {
-            airshopRspDto.setRoundTripType("OneWay");
-        } else {
-            airshopRspDto.setRoundTripType("RoundTrip");
-        }
+        airshopRspDto.setRoundTripType("RT");
 
         // Generate Passenger Refs
         // Counts
