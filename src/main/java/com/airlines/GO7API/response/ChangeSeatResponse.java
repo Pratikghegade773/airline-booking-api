@@ -588,18 +588,7 @@ public class ChangeSeatResponse {
                 seatCharges = fetched;
         }
 
-        BigDecimal invPricingBasis = BigDecimal.ZERO;
-        if (flightList != null && !flightList.isEmpty() && flightList.get(0).getInvpricing() != null) {
-            try {
-                invPricingBasis = new BigDecimal(flightList.get(0).getInvpricing());
-            } catch (Exception e) {
-            }
-        }
-
-        BigDecimal airItemPrice = (invPricingBasis.compareTo(BigDecimal.ZERO) > 0) ? invPricingBasis
-                : bkTotal.subtract(seatCharges);
-        if (airItemPrice.compareTo(BigDecimal.ZERO) < 0)
-            airItemPrice = bkTotal;
+        BigDecimal airItemPrice = bkTotal;
 
         airItemPrice = airItemPrice.setScale(2, java.math.RoundingMode.HALF_UP);
 

@@ -228,8 +228,9 @@ public class OrderRetrieveResponse {
 
             for (OrderRetrieveRspGo7Dto.Passenger go7Pax : go7PaxList) {
                 OrderRetrieveRspDto.PaxDetailDTO pax = new OrderRetrieveRspDto.PaxDetailDTO();
-                
-                String rawTitle = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+
+                String rawTitle = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "")
+                        : "MR";
                 boolean isInfantByTitle = rawTitle.contains("INF");
 
                 String assignedPtc = mapPaxType(go7Pax.getPaxtype());
@@ -244,10 +245,10 @@ public class OrderRetrieveResponse {
                         paxId = parent.getPaxId() + ".1";
                         parent.setInfantRef(paxId);
                     } else {
-                        paxId = "PAX" + paxCounter++ + ".1";
+                        paxId = "T" + paxCounter++ + ".1";
                     }
                 } else {
-                    paxId = "PAX" + paxCounter++;
+                    paxId = "T" + paxCounter++;
                     if ("ADT".equals(assignedPtc)) {
                         adtList.add(pax);
                     }
@@ -717,24 +718,33 @@ public class OrderRetrieveResponse {
         if (currency == null)
             currency = "USD";
 
+        BigDecimal airTotalForFallback = null;
+        if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
+            airTotalForFallback = booking.getBalanceInformation().getPnrTotal();
+        } else if (booking.getTotalprice() != null) {
+            try {
+                airTotalForFallback = new BigDecimal(String.valueOf(booking.getTotalprice()));
+            } catch (Exception e) {}
+        }
+
         // ADT Item
         if (!adtRefs.isEmpty()) {
             OrderRetrieveRspDto.OrderItemDTO item = createOrderItem(response.getResponseId(), itemIdx++, "ADT", adtRefs,
-                    flightListRef, currency, booking, dbTotalOrderPrice);
+                    flightListRef, currency, booking, airTotalForFallback);
             orderItems.add(item);
         }
 
         // CHD Item
         if (!cnnRefs.isEmpty()) {
             OrderRetrieveRspDto.OrderItemDTO item = createOrderItem(response.getResponseId(), itemIdx++, "CHD", cnnRefs,
-                    flightListRef, currency, booking, dbTotalOrderPrice);
+                    flightListRef, currency, booking, airTotalForFallback);
             orderItems.add(item);
         }
 
         // INF Item
         if (!infRefs.isEmpty()) {
             OrderRetrieveRspDto.OrderItemDTO item = createOrderItem(response.getResponseId(), itemIdx++, "INF", infRefs,
-                    flightListRef, currency, booking, dbTotalOrderPrice);
+                    flightListRef, currency, booking, airTotalForFallback);
             orderItems.add(item);
         }
 
@@ -765,6 +775,8 @@ public class OrderRetrieveResponse {
             BigDecimal bookingTotal = BigDecimal.ZERO;
             if (dbTotalOrderPrice != null) {
                 bookingTotal = dbTotalOrderPrice;
+            } else if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
+                bookingTotal = booking.getBalanceInformation().getPnrTotal();
             } else if (booking.getTotalprice() != null) {
                 try {
                     bookingTotal = new BigDecimal(booking.getTotalprice());
@@ -1012,9 +1024,12 @@ public class OrderRetrieveResponse {
                     fareStr = f.getInfantfare();
 
                 // Fallback logic
-                if (fareStr == null) {
-                    if (isAdt)
+                if (fareStr == null || fareStr.isEmpty() || "0".equals(fareStr)) {
+                    if (f.getInvpricingwithouttax() != null && !f.getInvpricingwithouttax().isEmpty()) {
+                        fareStr = f.getInvpricingwithouttax();
+                    } else if (isAdt) {
                         fareStr = f.getNetFare();
+                    }
                 }
 
                 // If fareStr has value, parse it.
@@ -1046,12 +1061,13 @@ public class OrderRetrieveResponse {
 
         // --- NEW FALLBACK FOR BASE FARE IF IT IS 0 AND NO EXPLICIT FARES WERE GIVEN
         // ---
-        if (unitBase.compareTo(BigDecimal.ZERO) == 0
-                && (booking.getTotalprice() != null || dbTotalOrderPrice != null)) {
+        if (unitBase.compareTo(BigDecimal.ZERO) == 0) {
             try {
                 BigDecimal totalBookingPrice = BigDecimal.ZERO;
                 if (dbTotalOrderPrice != null) {
                     totalBookingPrice = dbTotalOrderPrice;
+                } else if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
+                    totalBookingPrice = booking.getBalanceInformation().getPnrTotal();
                 } else if (booking.getTotalprice() != null) {
                     totalBookingPrice = new BigDecimal(booking.getTotalprice());
                 }

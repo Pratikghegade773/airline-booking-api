@@ -462,7 +462,7 @@ public class Go7Controller {
                         .getBookingByOrderId(orderRetrieveReqDto.getOrderId());
                 if (entityOpt.isPresent()) {
                     bookingEntity = entityOpt.get();
-                    System.out.println("Found Booking in DB by OrderID: " + bookingEntity.getPnr());
+                    System.out.println("Found Booking in DB by OrderID: " + bookingEntity.getOrderId() + " (PNR: " + bookingEntity.getPnr() + ")");
                 } else {
                     System.out.println("Booking not found in DB by OrderID.");
                 }
@@ -1343,11 +1343,11 @@ public class Go7Controller {
                 java.util.Map<String, String> passengerServices = new java.util.HashMap<>();
                 for (com.airlines.GO7API.responseDto.ChangeServiceRspDto.OrderItemsDTO item : standardResponse
                         .getOrderItems()) {
-                    if (item.getServiceList() != null) {
-                        for (com.airlines.GO7API.responseDto.ChangeServiceRspDto.Service srv : item.getServiceList()) {
-                            if (srv.getServiceCode() != null && srv.getServiceCode().equals("SRV")) {
+                    if (item.getOrderItemId() != null && item.getOrderItemId().contains("_SRV")) {
+                        if (item.getServiceList() != null) {
+                            for (com.airlines.GO7API.responseDto.ChangeServiceRspDto.Service srv : item.getServiceList()) {
                                 if (item.getPassengerIds() != null && !item.getPassengerIds().isEmpty()) {
-                                    passengerServices.put(item.getPassengerIds().get(0), srv.getServiceId());
+                                    passengerServices.put(item.getPassengerIds().get(0), srv.getServiceCode());
                                 }
                             }
                         }
