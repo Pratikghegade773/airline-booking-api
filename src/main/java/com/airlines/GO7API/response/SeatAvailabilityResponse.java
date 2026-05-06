@@ -249,26 +249,23 @@ public class SeatAvailabilityResponse {
                     new SeatAvailabilityRspDto.OfferItem.Compartment.Seat.SeatCharacteristic("CH", "Chargeable Seat"));
         }
 
-        // 2. Window/Aisle Heuristic (assuming standard 3-3 ABC-DEF)
-        // A, F -> Window (W)
-        // C, D -> Aisle (A)
-        // B, E -> Center (9)
-        if ("A".equalsIgnoreCase(columnId) || "F".equalsIgnoreCase(columnId)) {
-            characteristics
-                    .add(new SeatAvailabilityRspDto.OfferItem.Compartment.Seat.SeatCharacteristic("W", "Window seat"));
-        } else if ("C".equalsIgnoreCase(columnId) || "D".equalsIgnoreCase(columnId)) {
-            characteristics
-                    .add(new SeatAvailabilityRspDto.OfferItem.Compartment.Seat.SeatCharacteristic("A", "Aisle seat"));
-        } else if ("B".equalsIgnoreCase(columnId) || "E".equalsIgnoreCase(columnId)) {
-            characteristics.add(new SeatAvailabilityRspDto.OfferItem.Compartment.Seat.SeatCharacteristic("9",
-                    "Center seat (not window, not aisle)"));
+        // 2. Window/Aisle Heuristic (Handling ABC-DEF and ABC-EFG patterns)
+        // Window (W): A, F, G
+        // Aisle (A): C, D, E
+        // Center (9): B, F (if G exists)
+        if ("A".equalsIgnoreCase(columnId) || "G".equalsIgnoreCase(columnId) || ("F".equalsIgnoreCase(columnId) && !row.getSeats().containsKey(columnId.substring(0, columnId.length() - 1) + "G"))) {
+            // Note: F is window if G doesn't exist in the row
+            characteristics.add(new SeatAvailabilityRspDto.OfferItem.Compartment.Seat.SeatCharacteristic("W", "Window seat"));
+        } else if ("C".equalsIgnoreCase(columnId) || "D".equalsIgnoreCase(columnId) || "E".equalsIgnoreCase(columnId)) {
+            characteristics.add(new SeatAvailabilityRspDto.OfferItem.Compartment.Seat.SeatCharacteristic("A", "Aisle seat"));
+        } else if ("B".equalsIgnoreCase(columnId) || "F".equalsIgnoreCase(columnId)) {
+            characteristics.add(new SeatAvailabilityRspDto.OfferItem.Compartment.Seat.SeatCharacteristic("9", "Center seat (not window, not aisle)"));
         }
 
-        // 3. Exit Row? (Hard to know w/o data, but "brandname" might hint)
-        // Check brandname for "Exit" or similar keywords? Or map explicitly if user
-        // provided logic?
-        // User example didn't strictly correlate brands to exit, but let's leave it
-        // generic for now.
+        // 3. Exit Row?
+        if (row.getBrandName() != null && row.getBrandName().toLowerCase().contains("exit")) {
+            characteristics.add(new SeatAvailabilityRspDto.OfferItem.Compartment.Seat.SeatCharacteristic("EX", "Exit row seat"));
+        }
 
         seat.setSeatCharacteristics(characteristics);
 

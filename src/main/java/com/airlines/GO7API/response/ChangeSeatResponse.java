@@ -573,22 +573,42 @@ public class ChangeSeatResponse {
             }
         }
 
-        BigDecimal seatTotal = BigDecimal.ZERO;
+        // 2. Calculate Air Item Price by summing flight base + taxes (The "Original" price)
+        BigDecimal sumFlightPrice = BigDecimal.ZERO;
+        if (flightList != null) {
+            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+                BigDecimal fBase = BigDecimal.ZERO;
+                if (f.getInvpricingwithouttax() != null) {
+                    try {
+                        fBase = new BigDecimal(f.getInvpricingwithouttax());
+                    } catch (Exception e) {}
+                }
+                sumFlightPrice = sumFlightPrice.add(fBase).add(BigDecimal.valueOf(f.getTotaltaxes()));
+            }
+        }
+
+        BigDecimal airItemPrice = sumFlightPrice;
+        
+        // 3. Payment Amount for Seats (Strictly from request if provided)
+        BigDecimal paymentSeatAmount = BigDecimal.ZERO;
         if (isPaymentProvided && requestDto.getPaymentInformation().getAmount() != null) {
-            seatTotal = requestDto.getPaymentInformation().getAmount();
+            paymentSeatAmount = requestDto.getPaymentInformation().getAmount();
+        } else {
+            paymentSeatAmount = seatCharges;
         }
 
-        // 2. PRIORITIZE request amount if provided per user requirement
-        if (seatTotal.compareTo(BigDecimal.ZERO) > 0) {
-            seatCharges = seatTotal;
-        } else if (seatCharges.compareTo(BigDecimal.ZERO) <= 0) {
-            // Fallback to sum from Go7 or fetched from link
-            BigDecimal fetched = fetchPriceFromLink(booking.getLinktoticket());
-            if (fetched != null)
-                seatCharges = fetched;
+        // If seatCharges (from Go7) is 0, use payment amount as a fallback for the product price
+        if (seatCharges.compareTo(BigDecimal.ZERO) <= 0) {
+            seatCharges = paymentSeatAmount;
         }
 
-        BigDecimal airItemPrice = bkTotal;
+        if (airItemPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            airItemPrice = bkTotal.subtract(seatCharges);
+        }
+
+        if (airItemPrice.compareTo(BigDecimal.ZERO) < 0) {
+            airItemPrice = bkTotal; // fallback
+        }
 
         airItemPrice = airItemPrice.setScale(2, java.math.RoundingMode.HALF_UP);
 
@@ -773,12 +793,18 @@ public class ChangeSeatResponse {
             }
 
             // Payment for Seat Item (Combined New Charges)
-            if (seatCharges.compareTo(BigDecimal.ZERO) > 0) {
+            if (paymentSeatAmount.compareTo(BigDecimal.ZERO) > 0 || seatCharges.compareTo(BigDecimal.ZERO) > 0) {
                 ChangeSeatRspDto.PaymentsDTO paySeat = new ChangeSeatRspDto.PaymentsDTO();
                 paySeat.setType(pType);
                 paySeat.setStatusCode("SUCCESSFUL");
                 paySeat.setCurrency(response.getCurrency());
-                paySeat.setAmount(seatCharges.setScale(2, java.math.RoundingMode.HALF_UP));
+                // Prioritize paymentSeatAmount (which has the request amount) for the payment block
+                paySeat.setAmount(paymentSeatAmount.setScale(2, java.math.RoundingMode.HALF_UP));
+                
+                // If paymentSeatAmount is 0, fallback to seatCharges if available
+                if (paymentSeatAmount.compareTo(BigDecimal.ZERO) <= 0 && seatCharges.compareTo(BigDecimal.ZERO) > 0) {
+                    paySeat.setAmount(seatCharges.setScale(2, java.math.RoundingMode.HALF_UP));
+                }
                 // Link to first SRV item as before
                 paySeat.setOrderItem(Arrays.asList(response.getOrderId() + "_SRV" + (flightServices.size() + 1)));
                 payments.add(paySeat);

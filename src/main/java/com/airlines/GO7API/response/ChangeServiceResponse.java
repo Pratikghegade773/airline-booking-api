@@ -558,8 +558,8 @@ public class ChangeServiceResponse {
         }
         airItem.setPtc(primaryPtc);
 
-        // 1. Calculate Unified Service Charges
-        BigDecimal serviceCharges = BigDecimal.ZERO;
+        // 1. Calculate Actual Service Fare from AeroCRS details
+        BigDecimal actualSrvPrice = BigDecimal.ZERO;
         if (changeServiceRsp != null && changeServiceRsp.getAerocrs() != null
                 && changeServiceRsp.getAerocrs().getDetails() != null) {
             for (ChangeServiceRspGo7Dto.Aerocrs.Detail detail : changeServiceRsp.getAerocrs().getDetails()) {
@@ -567,9 +567,8 @@ public class ChangeServiceResponse {
                     Object priceObj = detail.getAncillary().get("totalprice");
                     if (priceObj != null) {
                         try {
-                            serviceCharges = serviceCharges.add(new BigDecimal(priceObj.toString()));
-                        } catch (Exception e) {
-                        }
+                            actualSrvPrice = actualSrvPrice.add(new BigDecimal(priceObj.toString()));
+                        } catch (Exception e) {}
                     }
                 }
             }
@@ -591,13 +590,21 @@ public class ChangeServiceResponse {
 
         BigDecimal airItemPrice = sumFlightPrice;
         
-        // 3. Service Charges strictly from request if provided, otherwise fallback to details
+        // 3. Payment Amount for Services (Strictly from request if provided)
+        BigDecimal paymentSrvAmount = BigDecimal.ZERO;
         if (isPaymentProvided && requestDto.getPaymentInformation().getAmount() != null) {
-            serviceCharges = requestDto.getPaymentInformation().getAmount();
+            paymentSrvAmount = requestDto.getPaymentInformation().getAmount();
+        } else {
+            paymentSrvAmount = actualSrvPrice;
+        }
+
+        // If actualSrvPrice (from Go7) is 0, use payment amount as a fallback for the product price
+        if (actualSrvPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            actualSrvPrice = paymentSrvAmount;
         }
 
         if (airItemPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            airItemPrice = bkTotal.subtract(serviceCharges);
+            airItemPrice = bkTotal.subtract(actualSrvPrice);
         }
 
         if (airItemPrice.compareTo(BigDecimal.ZERO) < 0) {
@@ -700,7 +707,7 @@ public class ChangeServiceResponse {
                     }
 
                     if (srvPrice.compareTo(BigDecimal.ZERO) <= 0) {
-                        srvPrice = serviceCharges;
+                        srvPrice = actualSrvPrice;
                     }
 
                     String srvCurrency = response.getCurrency();
@@ -755,8 +762,8 @@ public class ChangeServiceResponse {
                 totalServices += srvs.size();
             }
             BigDecimal pricePerSrv = BigDecimal.ZERO;
-            if (totalServices > 0 && serviceCharges.compareTo(BigDecimal.ZERO) > 0) {
-                pricePerSrv = serviceCharges.divide(new BigDecimal(totalServices), 2, java.math.RoundingMode.HALF_UP);
+            if (totalServices > 0 && actualSrvPrice.compareTo(BigDecimal.ZERO) > 0) {
+                pricePerSrv = actualSrvPrice.divide(new BigDecimal(totalServices), 2, java.math.RoundingMode.HALF_UP);
             }
 
             for (Map.Entry<String, List<String>> entry : paxToRequestedServices.entrySet()) {
@@ -791,14 +798,14 @@ public class ChangeServiceResponse {
         }
 
         response.setOrderItems(orderItems);
-        response.setTotalOrderPrice(airItemPrice.add(serviceCharges).setScale(2, java.math.RoundingMode.HALF_UP));
+        response.setTotalOrderPrice(airItemPrice.add(actualSrvPrice).setScale(2, java.math.RoundingMode.HALF_UP));
 
         // 5. Payments split
         if (isPaymentProvided) {
             List<ChangeServiceRspDto.PaymentsDTO> payments = new ArrayList<>();
             String pType = requestDto.getPaymentType() != null ? requestDto.getPaymentType() : "CA";
 
-            // Payment for Air Item
+            // Payment for Air Item (Existing Booking)
             if (airItemPrice.compareTo(BigDecimal.ZERO) > 0) {
                 ChangeServiceRspDto.PaymentsDTO payAir = new ChangeServiceRspDto.PaymentsDTO();
                 payAir.setType(pType);
@@ -809,21 +816,18 @@ public class ChangeServiceResponse {
                 payments.add(payAir);
             }
 
-            // Payment for Services
-            boolean shouldAddServicePayment = (isPaymentProvided && requestDto.getPaymentInformation().getAmount() != null) 
-                    || totalSrvPrice.compareTo(BigDecimal.ZERO) > 0;
-            
-            if (shouldAddServicePayment) {
+            // Payment for Service Item (Combined New Charges)
+            if (paymentSrvAmount.compareTo(BigDecimal.ZERO) > 0 || actualSrvPrice.compareTo(BigDecimal.ZERO) > 0) {
                 ChangeServiceRspDto.PaymentsDTO paySrv = new ChangeServiceRspDto.PaymentsDTO();
                 paySrv.setType(pType);
                 paySrv.setStatusCode("SUCCESSFUL");
                 paySrv.setCurrency(response.getCurrency());
                 
-                // Prioritize serviceCharges (which has the request amount) for the payment block
-                paySrv.setAmount(serviceCharges.setScale(2, java.math.RoundingMode.HALF_UP));
+                // Prioritize paymentSrvAmount (which has the request amount) for the payment block
+                paySrv.setAmount(paymentSrvAmount.setScale(2, java.math.RoundingMode.HALF_UP));
                 
-                // If serviceCharges is 0, fallback to totalSrvPrice if available
-                if (serviceCharges.compareTo(BigDecimal.ZERO) <= 0 && totalSrvPrice.compareTo(BigDecimal.ZERO) > 0) {
+                // If paymentSrvAmount is 0, fallback to totalSrvPrice if available
+                if (paymentSrvAmount.compareTo(BigDecimal.ZERO) <= 0 && totalSrvPrice.compareTo(BigDecimal.ZERO) > 0) {
                     paySrv.setAmount(totalSrvPrice.setScale(2, java.math.RoundingMode.HALF_UP));
                 }
                 // Collect service item IDs
