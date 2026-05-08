@@ -55,15 +55,7 @@ public class ChangePaymentResponse {
 
         // Pricing
         BigDecimal totalOrderPrice = BigDecimal.ZERO;
-        if (booking.getBalanceInformation() != null) {
-            response.setTotalOrderPrice(booking.getBalanceInformation().getPnrTotal());
-        } else if (booking.getTotalprice() != null) {
-            try {
-                response.setTotalOrderPrice(new BigDecimal(booking.getTotalprice()));
-            } catch (NumberFormatException e) {
-                response.setTotalOrderPrice(BigDecimal.ZERO);
-            }
-        }
+        response.setTotalOrderPrice(BigDecimal.ZERO); // Initial placeholder
 
         response.setCurrency(booking.getCurrency() != null ? booking.getCurrency() : "USD");
         // Exchange Rate if available in Go7 (Sample didn't explicitly show it in top
@@ -242,7 +234,8 @@ public class ChangePaymentResponse {
             for (ChangePaymentRspGo7Dto.Passenger go7Pax : go7PaxList) {
                 ChangePaymentRspDto.PaxDetailDTO pax = new ChangePaymentRspDto.PaxDetailDTO();
                 String mappedPtc = mapPaxType(go7Pax.getPaxtype());
-                String title = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+                String title = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "")
+                        : "MR";
                 if ("INFANT".equals(title) || "INF".equals(title)) {
                     mappedPtc = "INF";
                 }
@@ -264,7 +257,7 @@ public class ChangePaymentResponse {
                         adtList.add(pax);
                     }
                 }
-                
+
                 pax.setPaxId(paxId);
                 pax.setPtc(mappedPtc);
                 pax.setGivenName(go7Pax.getFirstname() != null ? go7Pax.getFirstname().toUpperCase() : "");
@@ -291,7 +284,7 @@ public class ChangePaymentResponse {
                     email.setEmailAddress(go7Pax.getEmail()); // Example NUK1234? Keeping actual email
                     email.setLabel("OTH");
                     email.setType("OSI");
-//                    email.setLanguage("English");
+                    // email.setLanguage("English");
                     List<ChangePaymentRspDto.PaxDetailDTO.EmailDTO> emails = new ArrayList<>();
                     emails.add(email);
                     pax.setEmails(emails);
@@ -528,15 +521,7 @@ public class ChangePaymentResponse {
                 .collect(Collectors.toList());
         item.setPassengerIds(paxIds);
 
-        if (booking.getBalanceInformation() != null) {
-            item.setTotalPrice(booking.getBalanceInformation().getPnrTotal());
-        } else if (booking.getTotalprice() != null) {
-            try {
-                item.setTotalPrice(new BigDecimal(booking.getTotalprice()));
-            } catch (Exception e) {
-                item.setTotalPrice(BigDecimal.ZERO);
-            }
-        }
+        item.setTotalPrice(BigDecimal.ZERO);
 
         // Fares & Taxes
         BigDecimal totalTaxAmount = BigDecimal.ZERO;
@@ -597,24 +582,24 @@ public class ChangePaymentResponse {
                                         ba.setCategory("Checked-In");
                                         ba.setName("Bag allowances");
 
-                                    // Only add 30KG if ADT or equivalent, otherwise maybe 10KG for infant, etc.
-                                    // Keeping it generic or omitting weight payload if unknown?
-                                    // The user requested to remove hardcoding. We can map standard weights based on
-                                    // PTC.
-                                    ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.Weight w = new ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.Weight();
-                                    w.setValue("INF".equals(paxPtc) ? "10" : "30");
-                                    w.setUom("KG");
-                                    List<ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.Weight> wl = new ArrayList<>();
-                                    wl.add(w);
-                                    ba.setWeight(wl);
+                                        // Only add 30KG if ADT or equivalent, otherwise maybe 10KG for infant, etc.
+                                        // Keeping it generic or omitting weight payload if unknown?
+                                        // The user requested to remove hardcoding. We can map standard weights based on
+                                        // PTC.
+                                        ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.Weight w = new ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.Weight();
+                                        w.setValue("INF".equals(paxPtc) ? "10" : "30");
+                                        w.setUom("KG");
+                                        List<ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.Weight> wl = new ArrayList<>();
+                                        wl.add(w);
+                                        ba.setWeight(wl);
 
-                                    ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.DescriptionDTO desc = new ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.DescriptionDTO();
-                                    desc.setDescription("Bag allowances");
-                                    List<ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.DescriptionDTO> dl = new ArrayList<>();
-                                    dl.add(desc);
-                                    ba.setDescriptions(dl);
+                                        ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.DescriptionDTO desc = new ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.DescriptionDTO();
+                                        desc.setDescription("Bag allowances");
+                                        List<ChangePaymentRspDto.OrderItemsDTO.BaggageAllowance.DescriptionDTO> dl = new ArrayList<>();
+                                        dl.add(desc);
+                                        ba.setDescriptions(dl);
 
-                                    orderItemBags.add(ba);
+                                        orderItemBags.add(ba);
                                     } // end if CheckedInBaggage
                                 } // end for loopPaxId
                             } // end if TRUE
@@ -643,17 +628,31 @@ public class ChangePaymentResponse {
 
         orderItems.add(item);
 
-        BigDecimal totalBookingPrice = item.getTotalPrice(); // Initially holds full booking total
-        BigDecimal airItemPrice = totalBookingPrice;
-
-        BigDecimal invPricingBasis = BigDecimal.ZERO;
-        if (flightList != null && !flightList.isEmpty() && flightList.get(0).getInvpricing() != null) {
-            try {
-                invPricingBasis = new BigDecimal(flightList.get(0).getInvpricing());
-            } catch (Exception e) {
+        BigDecimal sumFlightPrice = BigDecimal.ZERO;
+        if (flightList != null) {
+            for (ChangePaymentRspGo7Dto.Flight f : flightList) {
+                BigDecimal fBase = BigDecimal.ZERO;
+                if (f.getInvpricingwithouttax() != null) {
+                    try {
+                        fBase = new BigDecimal(f.getInvpricingwithouttax());
+                    } catch (Exception e) {}
+                }
+                sumFlightPrice = sumFlightPrice.add(fBase).add(BigDecimal.valueOf(f.getTotaltaxes()));
             }
         }
 
+        BigDecimal invPricingBasis = BigDecimal.ZERO;
+        if (flightList != null && !flightList.isEmpty()) {
+            for (ChangePaymentRspGo7Dto.Flight f : flightList) {
+                if (f.getInvpricing() != null) {
+                    try {
+                        invPricingBasis = invPricingBasis.add(new BigDecimal(f.getInvpricing()));
+                    } catch (Exception e) {}
+                }
+            }
+        }
+
+        BigDecimal airItemPrice = (invPricingBasis.compareTo(BigDecimal.ZERO) > 0) ? invPricingBasis : sumFlightPrice;
         item.setTotalPrice(airItemPrice);
 
         List<ChangePaymentRspDto.OrderItemsDTO> secondaryOrderItems = new ArrayList<>();
@@ -675,6 +674,15 @@ public class ChangePaymentResponse {
                 for (Map.Entry<String, String> entry : passengerServices.entrySet()) {
                     combinedMap.put(entry.getKey() + "_SRV", entry.getValue());
                 }
+            }
+
+            BigDecimal pnrTotal = BigDecimal.ZERO;
+            if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
+                pnrTotal = booking.getBalanceInformation().getPnrTotal();
+            } else if (booking.getTotalprice() != null) {
+                try {
+                    pnrTotal = new BigDecimal(booking.getTotalprice());
+                } catch (Exception e) {}
             }
 
             // Map each designated seat/service to a separate SRV item
@@ -712,21 +720,11 @@ public class ChangePaymentResponse {
                     }
                 }
 
-                // If the payment details contain an amount, prioritize mapping the charge from
-                // there if only one seat or equally distribute
-                if (itemPrice.compareTo(BigDecimal.ZERO) == 0 && requestDto.getPaymentInformation() != null
-                        && requestDto.getPaymentInformation().getAmount() != null) {
-                    // Count how many items of this type (seat or service) are in the map to evenly
-                    // distribute the payment specific to that type
-                    long subsetSize = combinedMap.entrySet().stream()
-                            .filter(e -> e.getKey().endsWith(isSeat ? "_SEAT" : "_SRV")).count();
-
-                    if (subsetSize > 0) {
-                        itemPrice = requestDto.getPaymentInformation().getAmount()
-                                .divide(new BigDecimal(subsetSize), 2, java.math.RoundingMode.HALF_UP);
-                    } else {
-                        itemPrice = requestDto.getPaymentInformation().getAmount()
-                                .divide(new BigDecimal(combinedMap.size()), 2, java.math.RoundingMode.HALF_UP);
+                // Fallback: Infer price from PNR total difference if seat/service price is not explicitly stated
+                if (itemPrice.compareTo(BigDecimal.ZERO) == 0 && pnrTotal.compareTo(airItemPrice) > 0) {
+                    BigDecimal diff = pnrTotal.subtract(airItemPrice);
+                    if (combinedMap.size() > 0) {
+                        itemPrice = diff.divide(new BigDecimal(combinedMap.size()), 2, java.math.RoundingMode.HALF_UP);
                     }
                 }
 
@@ -788,9 +786,7 @@ public class ChangePaymentResponse {
         if (secondaryCharges.compareTo(BigDecimal.ZERO) > 0) {
 
             airItemPrice = (invPricingBasis.compareTo(BigDecimal.ZERO) > 0) ? invPricingBasis
-                    : totalBookingPrice.subtract(secondaryCharges);
-            if (airItemPrice.compareTo(BigDecimal.ZERO) < 0)
-                airItemPrice = totalBookingPrice;
+                    : sumFlightPrice;
 
             // Recalculate AirItem based on separation
             BigDecimal airBaseFare = airItemPrice.subtract(totalTaxAmount);

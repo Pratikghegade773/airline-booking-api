@@ -53,15 +53,6 @@ public class ChangeServiceResponse {
                     totalTax = totalTax.add(BigDecimal.valueOf(f.getTotaltaxes()));
             }
         }
-        BigDecimal bkTotal = BigDecimal.ZERO;
-        if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
-            bkTotal = booking.getBalanceInformation().getPnrTotal();
-        } else if (booking.getTotalprice() != null) {
-            try {
-                bkTotal = new BigDecimal(booking.getTotalprice());
-            } catch (Exception e) {
-            }
-        }
 
         // Define Carrier Code dynamically
         String carrierCode = (changeServiceRsp != null && changeServiceRsp.getAerocrs() != null
@@ -265,7 +256,7 @@ public class ChangeServiceResponse {
             List<ChangeServiceRspDto.PaxDetailDTO> adtList = new ArrayList<>();
             for (OrderRetrieveRspGo7Dto.Passenger p : booking.getPassengers().getPassenger()) {
                 ChangeServiceRspDto.PaxDetailDTO pax = new ChangeServiceRspDto.PaxDetailDTO();
-                
+
                 String rawTitle = p.getPaxtitle() != null ? p.getPaxtitle().toUpperCase().replace(".", "") : "MR";
                 boolean isInfantByTitle = rawTitle.contains("INF");
 
@@ -281,7 +272,8 @@ public class ChangeServiceResponse {
                         pid = parent.getPaxId() + ".1";
                         try {
                             parent.setInfantRef(pid);
-                        } catch(Exception e) {}
+                        } catch (Exception e) {
+                        }
                     } else {
                         pid = "T" + paxCounter++ + ".1";
                     }
@@ -568,14 +560,16 @@ public class ChangeServiceResponse {
                     if (priceObj != null) {
                         try {
                             actualSrvPrice = actualSrvPrice.add(new BigDecimal(priceObj.toString()));
-                        } catch (Exception e) {}
+                        } catch (Exception e) {
+                        }
                     }
                 }
             }
         }
 
-        // 2. Calculate Air Item Price by summing flight base + taxes (The "Original" price)
+        // 2. Calculate Air Item Price from original booking
         BigDecimal sumFlightPrice = BigDecimal.ZERO;
+        totalTax = BigDecimal.ZERO;
         if (flightList != null) {
             for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
                 BigDecimal fBase = BigDecimal.ZERO;
@@ -584,12 +578,26 @@ public class ChangeServiceResponse {
                         fBase = new BigDecimal(f.getInvpricingwithouttax());
                     } catch (Exception e) {}
                 }
+                if (f.getTotaltaxes() > 0) {
+                    totalTax = totalTax.add(BigDecimal.valueOf(f.getTotaltaxes()));
+                }
                 sumFlightPrice = sumFlightPrice.add(fBase).add(BigDecimal.valueOf(f.getTotaltaxes()));
             }
         }
-
-        BigDecimal airItemPrice = sumFlightPrice;
         
+        BigDecimal invPricingBasis = BigDecimal.ZERO;
+        if (flightList != null && !flightList.isEmpty()) {
+            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+                if (f.getInvpricing() != null) {
+                    try {
+                        invPricingBasis = invPricingBasis.add(new BigDecimal(f.getInvpricing()));
+                    } catch (Exception e) {}
+                }
+            }
+        }
+        
+        BigDecimal airItemPrice = (invPricingBasis.compareTo(BigDecimal.ZERO) > 0) ? invPricingBasis : sumFlightPrice;
+
         // 3. Payment Amount for Services (Strictly from request if provided)
         BigDecimal paymentSrvAmount = BigDecimal.ZERO;
         if (isPaymentProvided && requestDto.getPaymentInformation().getAmount() != null) {
@@ -598,17 +606,30 @@ public class ChangeServiceResponse {
             paymentSrvAmount = actualSrvPrice;
         }
 
-        // If actualSrvPrice (from Go7) is 0, use payment amount as a fallback for the product price
+        // Calculate pnrTotal from booking response
+        BigDecimal pnrTotal = BigDecimal.ZERO;
+        if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
+            pnrTotal = booking.getBalanceInformation().getPnrTotal();
+        } else if (booking.getTotalprice() != null) {
+            try {
+                pnrTotal = new BigDecimal(booking.getTotalprice());
+            } catch (Exception e) {}
+        }
+
+        // If actualSrvPrice (from Go7) is 0:
         if (actualSrvPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            actualSrvPrice = paymentSrvAmount;
-        }
-
-        if (airItemPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            airItemPrice = bkTotal.subtract(actualSrvPrice);
-        }
-
-        if (airItemPrice.compareTo(BigDecimal.ZERO) < 0) {
-            airItemPrice = bkTotal; // fallback
+            // Priority 1: Infer from PNR total difference (Ground Truth of what Go7 added to the booking)
+            if (pnrTotal.compareTo(airItemPrice) > 0) {
+                actualSrvPrice = pnrTotal.subtract(airItemPrice);
+            } 
+            // Priority 2: If no PNR diff, use specific payment block amount provided by user
+            else if (isPaymentProvided && paymentSrvAmount.compareTo(BigDecimal.ZERO) > 0) {
+                actualSrvPrice = paymentSrvAmount;
+            } 
+            // Priority 3: Default
+            else {
+                actualSrvPrice = paymentSrvAmount;
+            }
         }
 
         airItemPrice = airItemPrice.setScale(2, java.math.RoundingMode.HALF_UP);
@@ -798,23 +819,12 @@ public class ChangeServiceResponse {
         }
 
         response.setOrderItems(orderItems);
-        response.setTotalOrderPrice(airItemPrice.add(actualSrvPrice).setScale(2, java.math.RoundingMode.HALF_UP));
+        response.setTotalOrderPrice(airItemPrice.add(totalSrvPrice).setScale(2, java.math.RoundingMode.HALF_UP));
 
         // 5. Payments split
         if (isPaymentProvided) {
             List<ChangeServiceRspDto.PaymentsDTO> payments = new ArrayList<>();
             String pType = requestDto.getPaymentType() != null ? requestDto.getPaymentType() : "CA";
-
-            // Payment for Air Item (Existing Booking)
-            if (airItemPrice.compareTo(BigDecimal.ZERO) > 0) {
-                ChangeServiceRspDto.PaymentsDTO payAir = new ChangeServiceRspDto.PaymentsDTO();
-                payAir.setType(pType);
-                payAir.setStatusCode("SUCCESSFUL");
-                payAir.setCurrency(response.getCurrency());
-                payAir.setAmount(airItemPrice.setScale(2, java.math.RoundingMode.HALF_UP));
-                payAir.setOrderItem(Arrays.asList(response.getOrderId() + "_AIR-1"));
-                payments.add(payAir);
-            }
 
             // Payment for Service Item (Combined New Charges)
             if (paymentSrvAmount.compareTo(BigDecimal.ZERO) > 0 || actualSrvPrice.compareTo(BigDecimal.ZERO) > 0) {
@@ -822,10 +832,11 @@ public class ChangeServiceResponse {
                 paySrv.setType(pType);
                 paySrv.setStatusCode("SUCCESSFUL");
                 paySrv.setCurrency(response.getCurrency());
-                
-                // Prioritize paymentSrvAmount (which has the request amount) for the payment block
+
+                // Prioritize paymentSrvAmount (which has the request amount) for the payment
+                // block
                 paySrv.setAmount(paymentSrvAmount.setScale(2, java.math.RoundingMode.HALF_UP));
-                
+
                 // If paymentSrvAmount is 0, fallback to totalSrvPrice if available
                 if (paymentSrvAmount.compareTo(BigDecimal.ZERO) <= 0 && totalSrvPrice.compareTo(BigDecimal.ZERO) > 0) {
                     paySrv.setAmount(totalSrvPrice.setScale(2, java.math.RoundingMode.HALF_UP));
