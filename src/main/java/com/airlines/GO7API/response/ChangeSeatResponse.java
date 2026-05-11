@@ -623,10 +623,12 @@ public class ChangeSeatResponse {
         } else if (booking.getTotalprice() != null) {
             try {
                 pnrTotal = new BigDecimal(booking.getTotalprice());
-            } catch (Exception e) {}
+            } catch (Exception e) {
+            }
         }
 
-        // If seatCharges (from Go7) is 0, calculate it from pnrTotal, otherwise fallback to payment amount
+        // 3. Logic to detect seat charges - If Go7 response lacks fares, check PNR
+        // balance or payment block
         if (seatCharges.compareTo(BigDecimal.ZERO) <= 0) {
             if (pnrTotal.compareTo(airItemPrice) > 0) {
                 seatCharges = pnrTotal.subtract(airItemPrice);
@@ -634,6 +636,9 @@ public class ChangeSeatResponse {
                 seatCharges = paymentSeatAmount;
             }
         }
+
+
+        // If seatCharges (from Go7) is 0, calculate it from pnrTotal, otherwise fallback to payment amount
 
         airItemPrice = airItemPrice.setScale(2, java.math.RoundingMode.HALF_UP);
 

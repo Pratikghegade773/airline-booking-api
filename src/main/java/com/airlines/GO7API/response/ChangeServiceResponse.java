@@ -616,6 +616,7 @@ public class ChangeServiceResponse {
             } catch (Exception e) {}
         }
 
+
         // If actualSrvPrice (from Go7) is 0:
         if (actualSrvPrice.compareTo(BigDecimal.ZERO) <= 0) {
             // Priority 1: Infer from PNR total difference (Ground Truth of what Go7 added to the booking)
