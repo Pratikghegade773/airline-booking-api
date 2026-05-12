@@ -10,6 +10,7 @@ import com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -501,7 +502,8 @@ public class Go7Controller {
                         .getBookingByOrderId(orderRetrieveReqDto.getOrderId());
                 if (entityOpt.isPresent()) {
                     bookingEntity = entityOpt.get();
-                    System.out.println("Found Booking in DB by OrderID: " + bookingEntity.getOrderId() + " (PNR: " + bookingEntity.getPnr() + ")");
+                    System.out.println("Found Booking in DB by OrderID: " + bookingEntity.getOrderId() + " (PNR: "
+                            + bookingEntity.getPnr() + ")");
                 } else {
                     System.out.println("Booking not found in DB by OrderID.");
                 }
@@ -600,7 +602,7 @@ public class Go7Controller {
                     storedBookingConfirmationValidation = entityOpt.get().getBookingConfirmation();
                 }
             }
-            
+
             com.airlines.GO7API.requestDto.OrderRetrieveReqDto tempRetrieveReq = new com.airlines.GO7API.requestDto.OrderRetrieveReqDto();
             tempRetrieveReq.setOrderId(unpaidCancelReqDto.getOrderId());
             tempRetrieveReq.setApiKey(unpaidCancelReqDto.getApiKey());
@@ -608,12 +610,13 @@ public class Go7Controller {
             com.airlines.GO7API.request.OrderRetrieveReq validationBookingReq = com.airlines.GO7API.request.OrderRetrieveReq
                     .mapToOrderRetrieveReq(tempRetrieveReq, storedBookingConfirmationValidation);
             Object validationResponse = validationBookingReq.unmarshal();
-            
+
             if (!(validationResponse instanceof com.airlines.GO7API.error.ErrorRsp)) {
                 ObjectMapper mapper = new ObjectMapper();
-                mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                        false);
                 mapper.enable(com.fasterxml.jackson.databind.DeserializationFeature.ACCEPT_EMPTY_ARRAY_AS_NULL_OBJECT);
-                
+
                 com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto bookingRsp = null;
                 try {
                     if (validationResponse instanceof String) {
@@ -623,13 +626,18 @@ public class Go7Controller {
                         bookingRsp = mapper.convertValue(validationResponse,
                                 com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
                     }
-                } catch (Exception e) {}
-                
-                if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
+                } catch (Exception e) {
+                }
+
+                if (bookingRsp != null && bookingRsp.getAerocrs() != null
+                        && bookingRsp.getAerocrs().getBooking() != null) {
                     boolean hasTickets = false;
-                    if (bookingRsp.getAerocrs().getBooking().getPassengers() != null && bookingRsp.getAerocrs().getBooking().getPassengers().getPassenger() != null) {
-                        for (com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passenger p : bookingRsp.getAerocrs().getBooking().getPassengers().getPassenger()) {
-                            if (p.getETickets() != null && p.getETickets().getFlight() != null && !p.getETickets().getFlight().isEmpty()) {
+                    if (bookingRsp.getAerocrs().getBooking().getPassengers() != null
+                            && bookingRsp.getAerocrs().getBooking().getPassengers().getPassenger() != null) {
+                        for (com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passenger p : bookingRsp
+                                .getAerocrs().getBooking().getPassengers().getPassenger()) {
+                            if (p.getETickets() != null && p.getETickets().getFlight() != null
+                                    && !p.getETickets().getFlight().isEmpty()) {
                                 hasTickets = true;
                                 break;
                             }
@@ -640,7 +648,8 @@ public class Go7Controller {
                         errorRsp.setAirlineCode("G7");
                         errorRsp.setSource("G7-API");
                         com.airlines.GO7API.error.ErrorRsp.Error error = new com.airlines.GO7API.error.ErrorRsp.Error();
-                        error.setError("Cannot perform UnpaidCancel. Booking is ticketed and can not be canceled from this interface at the moment, please consult airline.");
+                        error.setError(
+                                "Cannot perform UnpaidCancel. Booking is ticketed and can not be canceled from this interface at the moment, please consult airline.");
                         error.setCode("400");
                         errorRsp.getErrorList().add(error);
                         return new ResponseEntity<>(errorRsp, HttpStatus.BAD_REQUEST);
@@ -648,7 +657,8 @@ public class Go7Controller {
 
                     // Additional Check: Balance/Paid Status
                     if (bookingRsp.getAerocrs().getBooking().getBalanceInformation() != null) {
-                        double outstanding = bookingRsp.getAerocrs().getBooking().getBalanceInformation().getPnrOutstandingPayment();
+                        double outstanding = bookingRsp.getAerocrs().getBooking().getBalanceInformation()
+                                .getPnrOutstandingPayment();
                         if (outstanding <= 0) {
                             com.airlines.GO7API.error.ErrorRsp errorRsp = new com.airlines.GO7API.error.ErrorRsp();
                             errorRsp.setAirlineCode("G7");
@@ -664,7 +674,7 @@ public class Go7Controller {
                     // Additional Check: Status
                     String status = bookingRsp.getAerocrs().getBooking().getStatus();
                     if ("OK".equalsIgnoreCase(status) || "TICKETED".equalsIgnoreCase(status)) {
-                        // If it's OK but not caught by hasTickets, we still might want to be cautious, 
+                        // If it's OK but not caught by hasTickets, we still might want to be cautious,
                         // but usually hasTickets is the definitive check for 'Unpaid'.
                         // For now, let's stick to hasTickets and Balance.
                     }
@@ -680,7 +690,8 @@ public class Go7Controller {
                 return new ResponseEntity<>(cancelResponse, HttpStatus.BAD_REQUEST);
             }
 
-            // --- Post-call Validation: Handle provider-side failure without 'errors' array ---
+            // --- Post-call Validation: Handle provider-side failure without 'errors' array
+            // ---
             try {
                 ObjectMapper tempMapper = new ObjectMapper();
                 com.fasterxml.jackson.databind.JsonNode root = tempMapper.valueToTree(cancelResponse);
@@ -1111,37 +1122,68 @@ public class Go7Controller {
 
                         if (bookingIdForTicket != null) {
                             System.out.println("Calling Internal OrderTicket for BookingID: " + bookingIdForTicket);
-                            // 3. Execute OrderTicket
                             com.airlines.GO7API.request.ChangePaymentReq orderTicketReq = com.airlines.GO7API.request.ChangePaymentReq
                                     .mapToOrderTicketReq(bookingIdForTicket);
                             Object ticketResponse = orderTicketReq.unmarshal();
                             System.out.println("OrderTicket (Seat) executed. Response: " + ticketResponse);
-
-                            // 4. Refresh Booking (GetBooking) to populate tickets in response
-                            System.out.println("Refreshing Booking after Payment/Ticket...");
-                            com.airlines.GO7API.request.OrderRetrieveReq refreshBookingReq = SeatAvailabilityReq
-                                    .mapToGetBookingReq(bookingConfirmation);
-                            Object refreshResponse = refreshBookingReq.unmarshal();
-
-                            if (!(refreshResponse instanceof com.airlines.GO7API.error.ErrorRsp)) {
-                                if (refreshResponse instanceof String) {
-                                    bookingRsp = mapper.readValue((String) refreshResponse,
-                                            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
-                                } else {
-                                    bookingRsp = mapper.convertValue(refreshResponse,
-                                            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
-                                }
-                            }
                         }
                     } else {
-                        // Propagate Upstream Error (e.g. AeroCRS support team error)
                         System.out.println("Payment failed. Returning error response.");
                         return new ResponseEntity<>(paymentResponse, HttpStatus.BAD_REQUEST);
                     }
                 }
 
+                // ALWAYS Refresh Booking (GetBooking) after change to get updated PNR total and balance
+                System.out.println("Refreshing Booking after ChangeSeat to capture price updates...");
+                try {
+                    com.airlines.GO7API.request.OrderRetrieveReq refreshReq = SeatAvailabilityReq.mapToGetBookingReq(bookingConfirmation);
+                    Object refreshResp = refreshReq.unmarshal();
+                    if (!(refreshResp instanceof com.airlines.GO7API.error.ErrorRsp)) {
+                        if (refreshResp instanceof String) {
+                            bookingRsp = mapper.readValue((String) refreshResp, com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
+                        } else {
+                            bookingRsp = mapper.convertValue(refreshResp, com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error refreshing booking after ChangeSeat: " + e.getMessage());
+                }
+
+                // --- Real-time Price Fetching (Added to Controller) ---
+                java.util.Map<String, BigDecimal> actualSeatPrices = new java.util.HashMap<>();
+                if (changeSeatRsp != null && changeSeatRsp.getAerocrs() != null
+                        && changeSeatRsp.getAerocrs().getFlights() != null) {
+                    for (com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto.Flight f : changeSeatRsp.getAerocrs()
+                            .getFlights()) {
+                        if (f.getSeat() != null) {
+                            for (com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto.Seat s : f.getSeat()) {
+                                if (s.getSeat() != null
+                                        && (s.getFare() == null || s.getFare().compareTo(BigDecimal.ZERO) <= 0)) {
+                                    BigDecimal actualFare = fetchActualSeatFare(
+                                            bookingRsp.getAerocrs().getBooking().getBookingid(),
+                                            f.getFlightnumber(), f.getFlightdate(), f.getFromcode(), f.getTocode(),
+                                            s.getSeat(), f.getFlightClass());
+                                    if (actualFare != null) {
+                                        actualSeatPrices.put(s.getSeat(), actualFare);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // -----------------------------------------------------
+
+                // Load cached maps from DB to pass to mapper for cumulative response
+                java.util.Map<String, String> cachedSeats = null;
+                java.util.Map<String, String> cachedServices = null;
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOptForMaps = bookingService.getBookingByOrderId(orderId);
+                if (entityOptForMaps.isPresent()) {
+                    cachedSeats = entityOptForMaps.get().getPassengerSeats();
+                    cachedServices = entityOptForMaps.get().getPassengerServices();
+                }
+
                 com.airlines.GO7API.responseDto.ChangeSeatRspDto ndcResponse = com.airlines.GO7API.response.ChangeSeatResponse
-                        .generateResponse(changeSeatRsp, bookingRsp, changeSeatReqDto);
+                        .generateResponse(changeSeatRsp, bookingRsp, changeSeatReqDto, actualSeatPrices, cachedSeats, cachedServices);
 
                 // Cache the newly assigned seats into the BookingEntity so ChangePayment can
                 // use them
@@ -1154,7 +1196,8 @@ public class Go7Controller {
                                 if (srv.getServiceCode() != null && srv.getServiceCode().startsWith("SEAT")) {
                                     String seatNum = srv.getServiceCode().substring(4);
                                     if (item.getPassengerIds() != null && !item.getPassengerIds().isEmpty()) {
-                                        passengerSeats.put(item.getPassengerIds().get(0), seatNum);
+                                        BigDecimal price = item.getTotalPrice() != null ? item.getTotalPrice() : BigDecimal.ZERO;
+                                        passengerSeats.put(item.getPassengerIds().get(0), seatNum + "|" + price);
                                     }
                                 }
                             }
@@ -1346,38 +1389,76 @@ public class Go7Controller {
 
                         if (bookingIdForTicket != null) {
                             System.out.println("Calling Internal OrderTicket for BookingID: " + bookingIdForTicket);
-                            // 3. Execute OrderTicket
                             com.airlines.GO7API.request.ChangePaymentReq orderTicketReq = com.airlines.GO7API.request.ChangePaymentReq
                                     .mapToOrderTicketReq(bookingIdForTicket);
                             Object ticketResponse = orderTicketReq.unmarshal();
                             System.out.println("OrderTicket (Service) executed. Response: " + ticketResponse);
-
-                            // 4. Refresh Booking (GetBooking) to populate tickets in response
-                            System.out.println("Refreshing Booking after Payment/Ticket...");
-                            com.airlines.GO7API.request.OrderRetrieveReq refreshBookingReq = SeatAvailabilityReq
-                                    .mapToGetBookingReq(bookingConfirmation);
-                            Object refreshResponse = refreshBookingReq.unmarshal();
-
-                            if (!(refreshResponse instanceof com.airlines.GO7API.error.ErrorRsp)) {
-                                if (refreshResponse instanceof String) {
-                                    bookingRsp = mapper.readValue((String) refreshResponse,
-                                            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
-                                } else {
-                                    bookingRsp = mapper.convertValue(refreshResponse,
-                                            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
-                                }
-                            }
                         }
                     } else {
-                        // Propagate Upstream Error (e.g. AeroCRS support team error)
                         System.out.println("Payment failed. Returning error response.");
                         return new ResponseEntity<>(paymentResponse, HttpStatus.BAD_REQUEST);
                     }
                 }
 
+                // ALWAYS Refresh Booking (GetBooking) after change to get updated PNR total and balance
+                System.out.println("Refreshing Booking after ChangeService to capture price updates...");
+                try {
+                    com.airlines.GO7API.request.OrderRetrieveReq refreshReq = SeatAvailabilityReq.mapToGetBookingReq(bookingConfirmation);
+                    Object refreshResp = refreshReq.unmarshal();
+                    if (!(refreshResp instanceof com.airlines.GO7API.error.ErrorRsp)) {
+                        if (refreshResp instanceof String) {
+                            bookingRsp = mapper.readValue((String) refreshResp, com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
+                        } else {
+                            bookingRsp = mapper.convertValue(refreshResp, com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.class);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error refreshing booking after ChangeService: " + e.getMessage());
+                }
+
+                // --- Real-time Price Fetching (Added to Controller) ---
+                java.util.Map<String, BigDecimal> actualServicePrices = new java.util.HashMap<>();
+                if (changeServiceRsp != null && changeServiceRsp.getAerocrs() != null
+                        && changeServiceRsp.getAerocrs().getDetails() != null) {
+                    for (com.airlines.GO7API.responseGo7.ChangeServiceRspGo7Dto.Aerocrs.Detail detail : changeServiceRsp
+                            .getAerocrs().getDetails()) {
+                        if (detail.getAncillary() != null) {
+                            Object itemIdObj = detail.getAncillary().get("itemid");
+                            Object flightIdObj = detail.getAncillary().get("flightid");
+                            Object priceObj = detail.getAncillary().get("totalprice");
+                            BigDecimal currentPrice = BigDecimal.ZERO;
+                            if (priceObj != null) {
+                                try {
+                                    currentPrice = new BigDecimal(priceObj.toString());
+                                } catch (Exception e) {
+                                }
+                            }
+                            if (itemIdObj != null && flightIdObj != null
+                                    && currentPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                                BigDecimal actualFare = fetchActualServiceFare(
+                                        bookingRsp.getAerocrs().getBooking().getBookingid(),
+                                        Long.parseLong(flightIdObj.toString()), itemIdObj.toString());
+                                if (actualFare != null) {
+                                    actualServicePrices.put(itemIdObj.toString(), actualFare);
+                                }
+                            }
+                        }
+                    }
+                }
+                // -----------------------------------------------------
+
+                // Load cached maps from DB to pass to mapper for cumulative response
+                java.util.Map<String, String> cachedSeats = null;
+                java.util.Map<String, String> cachedServices = null;
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOptForMaps = bookingService.getBookingByOrderId(orderId);
+                if (entityOptForMaps.isPresent()) {
+                    cachedSeats = entityOptForMaps.get().getPassengerSeats();
+                    cachedServices = entityOptForMaps.get().getPassengerServices();
+                }
+
                 // 4. Generate Standard Response
                 com.airlines.GO7API.responseDto.ChangeServiceRspDto standardResponse = com.airlines.GO7API.response.ChangeServiceResponse
-                        .generateResponse(changeServiceRsp, bookingRsp, changeServiceReqDto);
+                        .generateResponse(changeServiceRsp, bookingRsp, changeServiceReqDto, actualServicePrices, cachedSeats, cachedServices);
 
                 // Cache the newly assigned services into the BookingEntity so ChangePayment can
                 // use them
@@ -1387,9 +1468,13 @@ public class Go7Controller {
                             .getOrderItems()) {
                         if (item.getOrderItemId() != null && item.getOrderItemId().contains("_SRV")) {
                             if (item.getServiceList() != null) {
-                                for (com.airlines.GO7API.responseDto.ChangeServiceRspDto.Service srv : item.getServiceList()) {
-                                    if (item.getPassengerIds() != null && !item.getPassengerIds().isEmpty()) {
-                                        passengerServices.put(item.getPassengerIds().get(0), srv.getServiceCode());
+                                for (com.airlines.GO7API.responseDto.ChangeServiceRspDto.Service srv : item
+                                        .getServiceList()) {
+                                    if (srv.getServiceCode() != null && !srv.getServiceCode().startsWith("SEAT")) {
+                                        if (item.getPassengerIds() != null && !item.getPassengerIds().isEmpty()) {
+                                            BigDecimal price = item.getTotalPrice() != null ? item.getTotalPrice() : BigDecimal.ZERO;
+                                            passengerServices.put(item.getPassengerIds().get(0), srv.getServiceCode() + "|" + price);
+                                        }
                                     }
                                 }
                             }
@@ -1556,7 +1641,8 @@ public class Go7Controller {
             AirshopRspGo7Dto response = flightSearchRequestDTO.unmarshal();
 
             if (response != null && response.getAerocrs() != null && response.getAerocrs().isSuccess()) {
-                com.airlines.GO7API.responseDto.OrderReshopRspDto reshopRspDto = orderReshopResponse.orderReshopMapper(response,
+                com.airlines.GO7API.responseDto.OrderReshopRspDto reshopRspDto = orderReshopResponse.orderReshopMapper(
+                        response,
                         airshopReqDto);
                 return new ResponseEntity<>(reshopRspDto, HttpStatus.OK);
             } else {
@@ -1574,9 +1660,9 @@ public class Go7Controller {
     public ResponseEntity<Object> fsOrderReshop(@RequestBody String requestBody) {
         try {
             JsonNode root = mapper.readTree(requestBody);
-            
+
             AirshopReqDto airshopReqDto = new AirshopReqDto();
-            
+
             // Populate ods
             java.util.List<AirshopReqDto.OD> ods = new java.util.ArrayList<>();
             JsonNode odsNode = root.path("ods");
@@ -1592,22 +1678,25 @@ public class Go7Controller {
                 }
             }
             airshopReqDto.setOds(ods);
-            
+
             // Populate passengers
             int adults = 0, children = 0, infants = 0;
             JsonNode paxList = root.path("paxList");
             if (paxList.isArray()) {
                 for (JsonNode pax : paxList) {
                     String ptc = pax.path("ptc").asText("");
-                    if ("ADT".equalsIgnoreCase(ptc)) adults++;
-                    else if ("CHD".equalsIgnoreCase(ptc)) children++;
-                    else if ("INF".equalsIgnoreCase(ptc)) infants++;
+                    if ("ADT".equalsIgnoreCase(ptc))
+                        adults++;
+                    else if ("CHD".equalsIgnoreCase(ptc))
+                        children++;
+                    else if ("INF".equalsIgnoreCase(ptc))
+                        infants++;
                 }
             }
             airshopReqDto.setAdults(adults > 0 ? adults : 1); // Default to 1 ADT if none found
             airshopReqDto.setChildren(children);
             airshopReqDto.setInfants(infants);
-            
+
             airshopReqDto.setTripType(ods.size() > 1 ? "return" : "oneway");
             if (ods.size() > 1) {
                 airshopReqDto.setReturnDate(ods.get(1).getDate());
@@ -1617,9 +1706,10 @@ public class Go7Controller {
             System.out.println("DEBUG: Executing Airshop search for FSOrderReshop");
             AirshopReq flightSearchRequestDTO = AirshopReq.mapToFlightSearchRequestDTO(airshopReqDto);
             AirshopRspGo7Dto response = flightSearchRequestDTO.unmarshal();
-            
+
             if (response != null && response.getAerocrs() != null && response.getAerocrs().isSuccess()) {
-                com.airlines.GO7API.responseDto.OrderReshopRspDto reshopRspDto = orderReshopResponse.orderReshopMapper(response, airshopReqDto);
+                com.airlines.GO7API.responseDto.OrderReshopRspDto reshopRspDto = orderReshopResponse
+                        .orderReshopMapper(response, airshopReqDto);
                 return new ResponseEntity<>(reshopRspDto, HttpStatus.OK);
             } else {
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
@@ -1630,5 +1720,99 @@ public class Go7Controller {
             return new ResponseEntity<>("Error occurred during FSOrderReshop request: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private BigDecimal fetchActualSeatFare(Long bookingId, String flightNumber, String flightDate,
+            String fromCode, String toCode, String seatNumber, String classCode) {
+        try {
+            com.airlines.GO7API.request.SeatAvailabilityReq req = new com.airlines.GO7API.request.SeatAvailabilityReq();
+            com.airlines.GO7API.request.SeatAvailabilityReq.Aerocrs aerocrs = new com.airlines.GO7API.request.SeatAvailabilityReq.Aerocrs();
+            com.airlines.GO7API.request.SeatAvailabilityReq.Parms parms = new com.airlines.GO7API.request.SeatAvailabilityReq.Parms();
+
+            parms.setBookingId(bookingId);
+            parms.setCompanyCode("API");
+            parms.setFlightNumber(flightNumber);
+            parms.setFlightDate(flightDate);
+            parms.setFromCode(fromCode);
+            parms.setToCode(toCode);
+
+            aerocrs.setParms(parms);
+            req.setAerocrs(aerocrs);
+            req.setSeatAvailabilityUrl("https://api.aerocrs.com/v5/getSeatMapFare");
+
+            String responseJson = req.makeApiCall();
+            if (responseJson != null) {
+                com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto go7Rsp = mapper.readValue(responseJson,
+                        com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.class);
+
+                if (go7Rsp != null && go7Rsp.getAerocrs() != null && go7Rsp.getAerocrs().getSeatMapFare() != null) {
+                    java.util.Map<String, com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.SeatClass> classes = go7Rsp
+                            .getAerocrs().getSeatMapFare().getClasses();
+
+                    String cleanClass = (classCode != null && classCode.contains("/")) ? classCode.split("/")[0]
+                            : classCode;
+
+                    if (classes != null && classes.containsKey(cleanClass)) {
+                        java.util.List<com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.PaidSeatRow> rows = classes
+                                .get(cleanClass).getPaidSeats();
+                        if (rows != null) {
+                            for (com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.PaidSeatRow row : rows) {
+                                if (row.getSeats() != null && row.getSeats().containsKey(seatNumber)) {
+                                    if (row.getSeatFare() != null) {
+                                        return BigDecimal.valueOf(row.getSeatFare());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching actual seat fare for seat " + seatNumber + ": " + e.getMessage());
+        }
+        return null;
+    }
+
+    private BigDecimal fetchActualServiceFare(Long bookingId, Long flightId, String itemId) {
+        try {
+            com.airlines.GO7API.request.ServiceListReq req = new com.airlines.GO7API.request.ServiceListReq();
+            com.airlines.GO7API.request.ServiceListReq.Aerocrs aerocrs = new com.airlines.GO7API.request.ServiceListReq.Aerocrs();
+            com.airlines.GO7API.request.ServiceListReq.Parms parms = new com.airlines.GO7API.request.ServiceListReq.Parms();
+
+            parms.setBookingId(bookingId);
+            parms.setFlightId(flightId);
+            parms.setCurrency("USD");
+
+            aerocrs.setParms(parms);
+            req.setAerocrs(aerocrs);
+            req.setServiceListUrl("https://api.aerocrs.com/v5/getAncillaries");
+
+            String responseJson = req.makeApiCall();
+            if (responseJson != null) {
+                com.airlines.GO7API.responseGo7.ServiceListRspGo7Dto go7Rsp = mapper.readValue(responseJson,
+                        com.airlines.GO7API.responseGo7.ServiceListRspGo7Dto.class);
+
+                if (go7Rsp != null && go7Rsp.getAerocrs() != null && go7Rsp.getAerocrs().getAncillaries() != null) {
+                    java.util.List<com.airlines.GO7API.responseGo7.ServiceListRspGo7Dto.Ancillary> ancillaries = go7Rsp
+                            .getAerocrs().getAncillaries().getAncillary();
+                    if (ancillaries != null) {
+                        for (com.airlines.GO7API.responseGo7.ServiceListRspGo7Dto.Ancillary anc : ancillaries) {
+                            if (anc.getItems() != null) {
+                                for (com.airlines.GO7API.responseGo7.ServiceListRspGo7Dto.Item item : anc.getItems()) {
+                                    if (itemId.equals(item.getItemid())) {
+                                        if (item.getFare() != null && !item.getFare().isEmpty()) {
+                                            return new BigDecimal(item.getFare());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching actual service fare for item " + itemId + ": " + e.getMessage());
+        }
+        return null;
     }
 }

@@ -757,14 +757,12 @@ public class OrderRetrieveResponse {
         }
         if (passengerServices != null) {
             for (java.util.Map.Entry<String, String> entry : passengerServices.entrySet()) {
-                combinedSrvMap.put(entry.getKey() + "_SRV", entry.getValue());
+                                        combinedSrvMap.put(entry.getKey() + "_SRV", entry.getValue());
             }
         }
 
         if (!combinedSrvMap.isEmpty() && flightList != null && !flightList.isEmpty()) {
-            OrderRetrieveRspGo7Dto.Flight f0 = flightList.get(0);
-
-            // First, figure out how much the flights cost vs the total booking price
+            // Calculate distributed price as fallback
             BigDecimal totalAirItemsPrice = BigDecimal.ZERO;
             for (OrderRetrieveRspDto.OrderItemDTO o : orderItems) {
                 if (o.getTotalPrice() != null) {
@@ -780,111 +778,81 @@ public class OrderRetrieveResponse {
             } else if (booking.getTotalprice() != null) {
                 try {
                     bookingTotal = new BigDecimal(booking.getTotalprice());
-                } catch (Exception e) {
-                }
+                } catch (Exception e) {}
             }
 
             BigDecimal secondaryTotal = bookingTotal.subtract(totalAirItemsPrice);
-            if (secondaryTotal.compareTo(BigDecimal.ZERO) < 0) {
-                secondaryTotal = BigDecimal.ZERO;
-            }
+            if (secondaryTotal.compareTo(BigDecimal.ZERO) < 0) secondaryTotal = BigDecimal.ZERO;
 
-            // Distribute secondaryTotal as evenly as possible across all secondary items
             BigDecimal distributedItemPrice = BigDecimal.ZERO;
             if (secondaryTotal.compareTo(BigDecimal.ZERO) > 0) {
-                distributedItemPrice = secondaryTotal.divide(new BigDecimal(combinedSrvMap.size()), 2,
-                        java.math.RoundingMode.HALF_UP);
+                distributedItemPrice = secondaryTotal.divide(new BigDecimal(combinedSrvMap.size()), 2, java.math.RoundingMode.HALF_UP);
             }
 
             for (java.util.Map.Entry<String, String> paxSecondary : combinedSrvMap.entrySet()) {
                 String rawKey = paxSecondary.getKey();
-                String assignedValue = paxSecondary.getValue();
-
+                String rawValue = paxSecondary.getValue();
+                
                 boolean isSeat = rawKey.endsWith("_SEAT");
                 String assignedPaxId = rawKey.substring(0, rawKey.lastIndexOf("_"));
+                
+                String itemCode = rawValue;
+                BigDecimal itemPrice = distributedItemPrice;
+                
+                if (rawValue != null && rawValue.contains("|")) {
+                    String[] parts = rawValue.split("\\|");
+                    itemCode = parts[0];
+                    try {
+                        BigDecimal storedPrice = new BigDecimal(parts[1]);
+                        if (storedPrice.compareTo(BigDecimal.ZERO) > 0) itemPrice = storedPrice;
+                    } catch (Exception e) {}
+                }
 
-                OrderRetrieveRspDto.OrderItemDTO secondaryItem = new OrderRetrieveRspDto.OrderItemDTO();
-                secondaryItem.setOrderItemId(response.getResponseId() + "_SRV" + itemIdx++);
+                OrderRetrieveRspDto.OrderItemDTO srvItem = new OrderRetrieveRspDto.OrderItemDTO();
+                srvItem.setOrderItemId(response.getOrderId() + "_SRV" + itemIdx++);
 
-                String seatPtc = "ADT";
-                for (OrderRetrieveRspDto.PaxDetailDTO pax : paxList) {
-                    if (pax.getPaxId().equals(assignedPaxId)) {
-                        seatPtc = pax.getPtc();
+                String ptc = "ADT";
+                for (OrderRetrieveRspDto.PaxDetailDTO p : response.getPaxDetailList()) {
+                    if (p.getPaxId().equals(assignedPaxId)) {
+                        ptc = p.getPtc();
                         break;
                     }
                 }
-                secondaryItem.setPtc(seatPtc);
-                secondaryItem.setPassengerIds(Arrays.asList(assignedPaxId));
 
-                // Try to override itemPrice if it's a seat and we can find the exact fare in
-                // Go7 Response
-                BigDecimal specificItemPrice = distributedItemPrice;
-                if (isSeat && f0.getSeat() != null) {
-                    for (OrderRetrieveRspGo7Dto.Seat s : f0.getSeat()) {
-                        if (assignedValue.equals(s.getSeat()) && s.getFare() != null
-                                && s.getFare().compareTo(BigDecimal.ZERO) > 0) {
-                            specificItemPrice = s.getFare();
-                            break;
-                        }
-                    }
-                }
+                srvItem.setPtc(ptc);
+                srvItem.setPassengerIds(java.util.Arrays.asList(assignedPaxId));
+                srvItem.setTotalPrice(itemPrice);
+                srvItem.setTotalFare(new OrderRetrieveRspDto.OrderItemDTO.TotalFare(itemPrice, currency));
+                srvItem.setBaseFare(new OrderRetrieveRspDto.OrderItemDTO.BaseFare(itemPrice, currency));
 
-                secondaryItem.setTotalPrice(specificItemPrice.setScale(2, java.math.RoundingMode.HALF_UP));
+                List<OrderRetrieveRspDto.Service> srvList = new ArrayList<>();
+                OrderRetrieveRspDto.Service srv = new OrderRetrieveRspDto.Service();
 
-                OrderRetrieveRspDto.OrderItemDTO.BaseFare bf = new OrderRetrieveRspDto.OrderItemDTO.BaseFare();
-                bf.setAmount(specificItemPrice.setScale(2, java.math.RoundingMode.HALF_UP));
-                bf.setCurrency(currency);
-                secondaryItem.setBaseFare(bf);
-
-                OrderRetrieveRspDto.OrderItemDTO.TotalTax tt = new OrderRetrieveRspDto.OrderItemDTO.TotalTax();
-                tt.setAmount(BigDecimal.ZERO.setScale(2, java.math.RoundingMode.HALF_UP));
-                tt.setCurrency(currency);
-                secondaryItem.setTotalTax(tt);
-
-                OrderRetrieveRspDto.OrderItemDTO.TotalFare tf = new OrderRetrieveRspDto.OrderItemDTO.TotalFare();
-                tf.setAmount(specificItemPrice.setScale(2, java.math.RoundingMode.HALF_UP));
-                tf.setCurrency(currency);
-                secondaryItem.setTotalFare(tf);
-
-                List<OrderRetrieveRspDto.Service> secondaryServices = new ArrayList<>();
-                OrderRetrieveRspDto.Service mappedSrv = new OrderRetrieveRspDto.Service();
-
-                if (!isSeat) {
-                    String srvIdVal = assignedValue;
-                    if (srvIdVal != null && srvIdVal.startsWith("SRV_")) {
-                        srvIdVal = srvIdVal.substring(4);
-                    }
-                    mappedSrv.setServiceId(srvIdVal);
-                    mappedSrv.setServiceStatus("CONFIRMED");
-                    mappedSrv.setServiceCode("SRV");
-                    mappedSrv.setServiceName("Ancillary Service");
-                } else {
-                    mappedSrv.setServiceId("S1_" + assignedPaxId);
-                    mappedSrv.setServiceStatus("CONFIRMED");
-                    mappedSrv.setServiceCode("SEAT" + assignedValue);
-                    mappedSrv.setServiceName("Specific Seat Request");
-                    mappedSrv.setSegmentId("S1");
-
-                    if (assignedValue != null && assignedValue.length() > 0) {
-                        String col = assignedValue.substring(assignedValue.length() - 1);
-                        String rowStr = assignedValue.substring(0, assignedValue.length() - 1);
-                        mappedSrv.setColumn(col);
+                if (isSeat) {
+                    srv.setServiceId("SEG1_" + assignedPaxId);
+                    srv.setServiceStatus("CONFIRMED");
+                    srv.setServiceCode("SEAT" + itemCode);
+                    srv.setServiceName("Specific Seat Request");
+                    srv.setSegmentId("SEG1");
+                    
+                    if (itemCode != null && itemCode.length() > 0) {
+                        String col = itemCode.substring(itemCode.length() - 1);
+                        String rowStr = itemCode.substring(0, itemCode.length() - 1);
+                        srv.setColumn(col);
                         try {
-                            mappedSrv.setRow(new java.math.BigInteger(rowStr));
-                        } catch (Exception e) {
-                        }
+                            srv.setRow(new java.math.BigInteger(rowStr));
+                        } catch (Exception e) {}
                     }
-
-                    List<OrderRetrieveRspDto.Service.SeatCharacteristic> chars = new ArrayList<>();
-                    chars.add(new OrderRetrieveRspDto.Service.SeatCharacteristic("CH", "Chargeable Seat"));
-                    chars.add(new OrderRetrieveRspDto.Service.SeatCharacteristic("W", "Window seat"));
-                    mappedSrv.setSeatCharacteristics(chars);
+                } else {
+                    srv.setServiceId(itemCode);
+                    srv.setServiceStatus("CONFIRMED");
+                    srv.setServiceCode("SRV");
+                    srv.setServiceName("Ancillary Service");
                 }
 
-                secondaryServices.add(mappedSrv);
-                secondaryItem.setServiceList(secondaryServices);
-
-                orderItems.add(secondaryItem);
+                srvList.add(srv);
+                srvItem.setServiceList(srvList);
+                orderItems.add(srvItem);
             }
         }
 

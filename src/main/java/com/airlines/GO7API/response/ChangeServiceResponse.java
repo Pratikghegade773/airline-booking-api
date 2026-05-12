@@ -10,12 +10,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
+
 import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,7 +19,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class ChangeServiceResponse {
 
     public static ChangeServiceRspDto generateResponse(ChangeServiceRspGo7Dto changeServiceRsp,
-            OrderRetrieveRspGo7Dto bookingRsp, com.airlines.GO7API.requestDto.ChangeServiceReqDto requestDto) {
+            OrderRetrieveRspGo7Dto bookingRsp, com.airlines.GO7API.requestDto.ChangeServiceReqDto requestDto,
+            Map<String, BigDecimal> actualPrices,
+            Map<String, String> passengerSeatsMap,
+            Map<String, String> passengerServicesMap) {
         ChangeServiceRspDto response = new ChangeServiceRspDto();
 
         if (bookingRsp == null || bookingRsp.getAerocrs() == null || bookingRsp.getAerocrs().getBooking() == null) {
@@ -34,8 +33,9 @@ public class ChangeServiceResponse {
 
         // 1. Top Level Fields
         response.setResponseId("R" + java.util.UUID.randomUUID().toString().substring(0, 15).toUpperCase());
-        response.setStatusCode(changeServiceRsp != null && changeServiceRsp.getAerocrs() != null
-                && changeServiceRsp.getAerocrs().isSuccess() ? "OPENED" : "FAILED");
+        // The order itself is still OPENED/HOLD if we have a valid booking refresh
+        response.setStatusCode(booking != null ? "OPENED" : "FAILED");
+
 
         // Initialize total order price - will be summed from order items
         BigDecimal totalOrderPrice = BigDecimal.ZERO;
@@ -576,7 +576,8 @@ public class ChangeServiceResponse {
                 if (f.getInvpricingwithouttax() != null) {
                     try {
                         fBase = new BigDecimal(f.getInvpricingwithouttax());
-                    } catch (Exception e) {}
+                    } catch (Exception e) {
+                    }
                 }
                 if (f.getTotaltaxes() > 0) {
                     totalTax = totalTax.add(BigDecimal.valueOf(f.getTotaltaxes()));
@@ -584,19 +585,32 @@ public class ChangeServiceResponse {
                 sumFlightPrice = sumFlightPrice.add(fBase).add(BigDecimal.valueOf(f.getTotaltaxes()));
             }
         }
-        
+
         BigDecimal invPricingBasis = BigDecimal.ZERO;
         if (flightList != null && !flightList.isEmpty()) {
             for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
                 if (f.getInvpricing() != null) {
                     try {
                         invPricingBasis = invPricingBasis.add(new BigDecimal(f.getInvpricing()));
-                    } catch (Exception e) {}
+                    } catch (Exception e) {
+                    }
                 }
             }
         }
-        
+
         BigDecimal airItemPrice = (invPricingBasis.compareTo(BigDecimal.ZERO) > 0) ? invPricingBasis : sumFlightPrice;
+
+        // Calculate pnrTotal from booking response (Moved up for use in price
+        // detection)
+        BigDecimal pnrTotal = BigDecimal.ZERO;
+        if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
+            pnrTotal = booking.getBalanceInformation().getPnrTotal();
+        } else if (booking.getTotalprice() != null) {
+            try {
+                pnrTotal = new BigDecimal(booking.getTotalprice());
+            } catch (Exception e) {
+            }
+        }
 
         // 3. Payment Amount for Services (Strictly from request if provided)
         BigDecimal paymentSrvAmount = BigDecimal.ZERO;
@@ -606,27 +620,18 @@ public class ChangeServiceResponse {
             paymentSrvAmount = actualSrvPrice;
         }
 
-        // Calculate pnrTotal from booking response
-        BigDecimal pnrTotal = BigDecimal.ZERO;
-        if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
-            pnrTotal = booking.getBalanceInformation().getPnrTotal();
-        } else if (booking.getTotalprice() != null) {
-            try {
-                pnrTotal = new BigDecimal(booking.getTotalprice());
-            } catch (Exception e) {}
-        }
-
-
         // If actualSrvPrice (from Go7) is 0:
         if (actualSrvPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            // Priority 1: Infer from PNR total difference (Ground Truth of what Go7 added to the booking)
+            // Priority 1: Infer from PNR total difference (Ground Truth of what Go7 added
+            // to the booking)
             if (pnrTotal.compareTo(airItemPrice) > 0) {
                 actualSrvPrice = pnrTotal.subtract(airItemPrice);
-            } 
-            // Priority 2: If no PNR diff, use specific payment block amount provided by user
+            }
+            // Priority 2: If no PNR diff, use specific payment block amount provided by
+            // user
             else if (isPaymentProvided && paymentSrvAmount.compareTo(BigDecimal.ZERO) > 0) {
                 actualSrvPrice = paymentSrvAmount;
-            } 
+            }
             // Priority 3: Default
             else {
                 actualSrvPrice = paymentSrvAmount;
@@ -708,6 +713,7 @@ public class ChangeServiceResponse {
 
         boolean detailsProvided = false;
         int srvIdx = 2; // Starting index for services
+        Set<String> processedSrvKeys = new HashSet<>();
 
         if (changeServiceRsp != null && changeServiceRsp.getAerocrs() != null
                 && changeServiceRsp.getAerocrs().getDetails() != null) {
@@ -729,7 +735,29 @@ public class ChangeServiceResponse {
                     }
 
                     if (srvPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                        // Try to use prices provided by Controller
+                        Object itemIdObj = detail.getAncillary().get("itemid");
+                        if (itemIdObj != null && actualPrices != null && actualPrices.containsKey(itemIdObj.toString())) {
+                            srvPrice = actualPrices.get(itemIdObj.toString());
+                        }
+                    }
+
+                    if (srvPrice.compareTo(BigDecimal.ZERO) <= 0) {
                         srvPrice = actualSrvPrice;
+                    }
+                    
+                    // Final fallback: Try to lookup cached price if srvPrice is still 0
+                    if (srvPrice.compareTo(BigDecimal.ZERO) == 0 && passengerServicesMap != null) {
+                        String assignedPid = rawPaxIds.isEmpty() ? "T1" : rawPaxIds.get(0);
+                        String rawCached = passengerServicesMap.get(assignedPid);
+                        if (rawCached != null && rawCached.contains("|")) {
+                            String[] parts = rawCached.split("\\|");
+                            // We don't have a direct code match easily here, but we can check if it's the right pid
+                            try {
+                                BigDecimal storedPrice = new BigDecimal(parts[1]);
+                                if (storedPrice.compareTo(BigDecimal.ZERO) > 0) srvPrice = storedPrice;
+                            } catch (Exception e) {}
+                        }
                     }
 
                     String srvCurrency = response.getCurrency();
@@ -773,6 +801,7 @@ public class ChangeServiceResponse {
                     srvItem.setServiceList(srvList);
                     orderItems.add(srvItem);
                     totalSrvPrice = totalSrvPrice.add(srvPrice);
+                    processedSrvKeys.add((rawPaxIds.isEmpty() ? "T1" : rawPaxIds.get(0)) + "_" + srvCode);
                 }
             }
         }
@@ -797,7 +826,14 @@ public class ChangeServiceResponse {
 
                     String srvCurrency = response.getCurrency();
 
-                    srvItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(pricePerSrv, srvCurrency));
+                    BigDecimal srvPrice = pricePerSrv;
+                    if (srvPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                        // Use controller prices for fallback items
+                        if (actualPrices != null && actualPrices.containsKey(srvRef)) {
+                            srvPrice = actualPrices.get(srvRef);
+                        }
+                    }
+                    srvItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(srvPrice, srvCurrency));
                     srvItem.setTotalTax(new ChangeServiceRspDto.OrderItemsDTO.TotalTax(BigDecimal.ZERO, srvCurrency));
                     srvItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(pricePerSrv, srvCurrency));
                     srvItem.setTotalPrice(pricePerSrv);
@@ -815,7 +851,118 @@ public class ChangeServiceResponse {
                     srvItem.setServiceList(srvList);
                     orderItems.add(srvItem);
                     totalSrvPrice = totalSrvPrice.add(pricePerSrv);
+                    processedSrvKeys.add(safePid + "_" + srvRef);
                 }
+            }
+        }
+
+        // Calculate remaining balance for cached items to match PNR total
+        BigDecimal currentSecondaryPrice = totalSrvPrice;
+        BigDecimal totalSecondaryNeeded = pnrTotal.subtract(airItemPrice);
+        BigDecimal leftoverPrice = totalSecondaryNeeded.subtract(currentSecondaryPrice);
+        if (leftoverPrice.compareTo(BigDecimal.ZERO) < 0) leftoverPrice = BigDecimal.ZERO;
+
+        int cachedCount = 0;
+        if (passengerServicesMap != null) {
+            for (Map.Entry<String, String> entry : passengerServicesMap.entrySet()) {
+                if (!processedSrvKeys.contains(entry.getKey() + "_" + entry.getValue())) cachedCount++;
+            }
+        }
+        if (passengerSeatsMap != null) {
+            cachedCount += passengerSeatsMap.size();
+        }
+        if (passengerServicesMap != null) {
+            for (Map.Entry<String, String> entry : passengerServicesMap.entrySet()) {
+                String srvCode = entry.getValue();
+                if (srvCode != null && srvCode.contains("|")) {
+                    srvCode = srvCode.split("\\|")[0];
+                }
+                if (!processedSrvKeys.contains(entry.getKey() + "_" + srvCode)) cachedCount++;
+            }
+        }
+
+        BigDecimal distributedCachedPrice = BigDecimal.ZERO;
+        if (cachedCount > 0 && leftoverPrice.compareTo(BigDecimal.ZERO) > 0) {
+            distributedCachedPrice = leftoverPrice.divide(new BigDecimal(cachedCount), 2, java.math.RoundingMode.HALF_UP);
+        }
+
+        // Add OTHER existing services from map that were not in changeServiceRsp
+        if (passengerServicesMap != null) {
+            for (Map.Entry<String, String> entry : passengerServicesMap.entrySet()) {
+                String pId = entry.getKey();
+                String rawValue = entry.getValue();
+                String srvCode = rawValue;
+                BigDecimal srvPrice = distributedCachedPrice;
+
+                if (rawValue != null && rawValue.contains("|")) {
+                    String[] parts = rawValue.split("\\|");
+                    srvCode = parts[0];
+                    try {
+                        BigDecimal storedPrice = new BigDecimal(parts[1]);
+                        if (storedPrice.compareTo(BigDecimal.ZERO) > 0) srvPrice = storedPrice;
+                    } catch (Exception e) {}
+                }
+
+                if (!processedSrvKeys.contains(pId + "_" + srvCode)) {
+                    ChangeServiceRspDto.OrderItemsDTO srvItem = new ChangeServiceRspDto.OrderItemsDTO();
+                    srvItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
+                    srvItem.setPassengerIds(Arrays.asList(pId));
+                    
+                    srvItem.setTotalPrice(srvPrice);
+                    srvItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(srvPrice, response.getCurrency()));
+                    srvItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(srvPrice, response.getCurrency()));
+
+                    List<ChangeServiceRspDto.Service> srvListList = new ArrayList<>();
+                    ChangeServiceRspDto.Service srv = new ChangeServiceRspDto.Service();
+                    srv.setServiceId(srvCode);
+                    srv.setServiceStatus("CONFIRMED");
+                    srv.setServiceCode(srvCode);
+                    srv.setServiceName("Ancillary Service");
+                    srvListList.add(srv);
+                    srvItem.setServiceList(srvListList);
+                    
+                    orderItems.add(srvItem);
+                    totalSrvPrice = totalSrvPrice.add(srvPrice);
+                }
+            }
+        }
+
+        // Add ALL existing seats from map
+        if (passengerSeatsMap != null) {
+            for (Map.Entry<String, String> entry : passengerSeatsMap.entrySet()) {
+                String pId = entry.getKey();
+                String rawValue = entry.getValue();
+                String seatNum = rawValue;
+                BigDecimal seatPrice = distributedCachedPrice;
+
+                if (rawValue != null && rawValue.contains("|")) {
+                    String[] parts = rawValue.split("\\|");
+                    seatNum = parts[0];
+                    try {
+                        BigDecimal storedPrice = new BigDecimal(parts[1]);
+                        if (storedPrice.compareTo(BigDecimal.ZERO) > 0) seatPrice = storedPrice;
+                    } catch (Exception e) {}
+                }
+                
+                ChangeServiceRspDto.OrderItemsDTO seatItem = new ChangeServiceRspDto.OrderItemsDTO();
+                seatItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
+                seatItem.setPassengerIds(Arrays.asList(pId));
+                
+                seatItem.setTotalPrice(seatPrice);
+                seatItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(seatPrice, response.getCurrency()));
+                seatItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(seatPrice, response.getCurrency()));
+
+                List<ChangeServiceRspDto.Service> seatServicesList = new ArrayList<>();
+                ChangeServiceRspDto.Service seatSrv = new ChangeServiceRspDto.Service();
+                seatSrv.setServiceId("SEG1_" + pId);
+                seatSrv.setServiceStatus("CONFIRMED");
+                seatSrv.setServiceCode("SEAT" + seatNum);
+                seatSrv.setServiceName("Specific Seat Request");
+                seatServicesList.add(seatSrv);
+                seatItem.setServiceList(seatServicesList);
+                
+                orderItems.add(seatItem);
+                totalSrvPrice = totalSrvPrice.add(seatPrice);
             }
         }
 

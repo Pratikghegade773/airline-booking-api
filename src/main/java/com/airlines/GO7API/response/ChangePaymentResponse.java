@@ -67,7 +67,7 @@ public class ChangePaymentResponse {
         response.setPaymentTimeLimit(booking.getPnrttl());
         response.setTicketingTimeLimit(booking.getPnrttl());
 
-        response.setStatusCode(go7Response.getAerocrs().isSuccess() ? "702" : "REJECTED");
+        response.setStatusCode(go7Response.getAerocrs().isSuccess() ? "OPENED" : "REJECTED");
         String validatingCarrier = "G7";
         response.setValidatingCarrier(validatingCarrier);
 
@@ -708,12 +708,22 @@ public class ChangePaymentResponse {
                 secondaryItem.setPtc(seatPtc);
                 secondaryItem.setPassengerIds(Arrays.asList(assignedPaxId));
 
+                String itemCode = assignedValue;
+                BigDecimal itemPrice = BigDecimal.ZERO;
+                
+                if (assignedValue != null && assignedValue.contains("|")) {
+                    String[] parts = assignedValue.split("\\|");
+                    itemCode = parts[0];
+                    try {
+                        itemPrice = new BigDecimal(parts[1]);
+                    } catch (Exception e) {}
+                }
+
                 // Fare info can't be purely extracted from Go7 response, check if specific seat
                 // is present and use provided payment
-                BigDecimal itemPrice = BigDecimal.ZERO;
-                if (isSeat && f.getSeat() != null) {
+                if (isSeat && f.getSeat() != null && itemPrice.compareTo(BigDecimal.ZERO) == 0) {
                     for (ChangePaymentRspGo7Dto.Seat s : f.getSeat()) {
-                        if (assignedValue.equals(s.getSeat()) && s.getFare() != null) {
+                        if (itemCode.equals(s.getSeat()) && s.getFare() != null) {
                             itemPrice = s.getFare();
                             break;
                         }
@@ -723,8 +733,10 @@ public class ChangePaymentResponse {
                 // Fallback: Infer price from PNR total difference if seat/service price is not explicitly stated
                 if (itemPrice.compareTo(BigDecimal.ZERO) == 0 && pnrTotal.compareTo(airItemPrice) > 0) {
                     BigDecimal diff = pnrTotal.subtract(airItemPrice);
-                    if (combinedMap.size() > 0) {
-                        itemPrice = diff.divide(new BigDecimal(combinedMap.size()), 2, java.math.RoundingMode.HALF_UP);
+                    // Filter out items that already have a price from the cache to avoid diluting the distribution
+                    long unpaidCount = combinedMap.values().stream().filter(v -> !v.contains("|") || new BigDecimal(v.split("\\|")[1]).compareTo(BigDecimal.ZERO) == 0).count();
+                    if (unpaidCount > 0) {
+                        itemPrice = diff.divide(new BigDecimal(unpaidCount), 2, java.math.RoundingMode.HALF_UP);
                     }
                 }
 
@@ -740,7 +752,7 @@ public class ChangePaymentResponse {
                 ChangePaymentRspDto.Service mappedSrv = new ChangePaymentRspDto.Service();
 
                 if (!isSeat) { // isService
-                    String srvIdVal = assignedValue;
+                    String srvIdVal = itemCode;
                     if (srvIdVal != null && srvIdVal.startsWith("SRV_")) {
                         srvIdVal = srvIdVal.substring(4);
                     }
@@ -751,14 +763,14 @@ public class ChangePaymentResponse {
                 } else { // isSeat
                     mappedSrv.setServiceId(segmentId + "_" + assignedPaxId);
                     mappedSrv.setServiceStatus("PENDING");
-                    mappedSrv.setServiceCode("SEAT" + assignedValue);
+                    mappedSrv.setServiceCode("SEAT" + itemCode);
                     mappedSrv.setServiceName("Specific Seat Request");
                     mappedSrv.setSegmentId(segmentId);
 
                     // Parse Row/Col
-                    if (assignedValue != null && assignedValue.length() > 0) {
-                        String col = assignedValue.substring(assignedValue.length() - 1);
-                        String rowStr = assignedValue.substring(0, assignedValue.length() - 1);
+                    if (itemCode != null && itemCode.length() > 0) {
+                        String col = itemCode.substring(itemCode.length() - 1);
+                        String rowStr = itemCode.substring(0, itemCode.length() - 1);
                         mappedSrv.setColumn(col);
                         try {
                             mappedSrv.setRow(new java.math.BigInteger(rowStr));
@@ -828,19 +840,18 @@ public class ChangePaymentResponse {
         }
 
         if (secondaryCharges.compareTo(BigDecimal.ZERO) > 0 && !secondaryOrderItems.isEmpty()) {
-            ChangePaymentRspDto.PaymentsDTO paySeat = new ChangePaymentRspDto.PaymentsDTO();
-            paySeat.setType(pType);
-            paySeat.setStatusCode("SUCCESSFUL");
-            paySeat.setAmount(secondaryCharges.setScale(2, java.math.RoundingMode.HALF_UP));
-            paySeat.setCurrency(booking.getCurrency());
-
-            List<String> secItemIds = new ArrayList<>();
             for (ChangePaymentRspDto.OrderItemsDTO secItem : secondaryOrderItems) {
-                secItemIds.add(secItem.getOrderItemId());
-            }
-            paySeat.setOrderItem(secItemIds);
+                ChangePaymentRspDto.PaymentsDTO payAncillary = new ChangePaymentRspDto.PaymentsDTO();
+                payAncillary.setType(pType);
+                payAncillary.setStatusCode("SUCCESSFUL");
 
-            payments.add(paySeat);
+                // Individual item price
+                BigDecimal itemAmount = (secItem.getTotalPrice() != null) ? secItem.getTotalPrice() : secondaryCharges;
+                payAncillary.setAmount(itemAmount.setScale(2, java.math.RoundingMode.HALF_UP));
+                payAncillary.setCurrency(booking.getCurrency());
+                payAncillary.setOrderItem(Arrays.asList(secItem.getOrderItemId()));
+                payments.add(payAncillary);
+            }
         }
 
         if (payments.isEmpty()) {

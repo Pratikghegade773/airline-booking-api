@@ -19,7 +19,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class ChangeSeatResponse {
 
     public static ChangeSeatRspDto generateResponse(ChangeSeatRspGo7Dto changeSeatRsp,
-            OrderRetrieveRspGo7Dto bookingRsp, com.airlines.GO7API.requestDto.ChangeSeatReqDto requestDto) {
+            OrderRetrieveRspGo7Dto bookingRsp, com.airlines.GO7API.requestDto.ChangeSeatReqDto requestDto,
+            Map<String, BigDecimal> actualPrices,
+            Map<String, String> passengerSeatsMap,
+            Map<String, String> passengerServicesMap) {
         ChangeSeatRspDto response = new ChangeSeatRspDto();
 
         if (bookingRsp == null || bookingRsp.getAerocrs() == null || bookingRsp.getAerocrs().getBooking() == null) {
@@ -33,7 +36,9 @@ public class ChangeSeatResponse {
         // - keeping static/random for now as no upstream ID maps directly
         response.setResponseId("R" + java.util.UUID.randomUUID().toString().substring(0, 15).toUpperCase());
 
-        response.setStatusCode(changeSeatRsp.getAerocrs().isSuccess() ? "OPENED" : "FAILED");
+        // The order itself is still OPENED/HOLD if we have a valid booking refresh
+        response.setStatusCode(booking != null ? "OPENED" : "FAILED");
+        
 
         // Dynamic Carrier Code
         String carrierCode = "G7"; // Default
@@ -606,17 +611,9 @@ public class ChangeSeatResponse {
         }
 
         BigDecimal airItemPrice = (invPricingBasis.compareTo(BigDecimal.ZERO) > 0) ? invPricingBasis : sumFlightPrice;
-        // Do not zero out totalTax
 
-        // 3. Payment Amount for Seats (Strictly from request if provided)
-        BigDecimal paymentSeatAmount = BigDecimal.ZERO;
-        if (isPaymentProvided && requestDto.getPaymentInformation().getAmount() != null) {
-            paymentSeatAmount = requestDto.getPaymentInformation().getAmount();
-        } else {
-            paymentSeatAmount = seatCharges;
-        }
-
-        // Calculate pnrTotal from booking response
+        // Calculate pnrTotal from booking response (Moved up for use in price
+        // detection)
         BigDecimal pnrTotal = BigDecimal.ZERO;
         if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
             pnrTotal = booking.getBalanceInformation().getPnrTotal();
@@ -627,18 +624,51 @@ public class ChangeSeatResponse {
             }
         }
 
+        // Do not zero out totalTax
+
+        // 3. Payment Amount for Seats (Strictly from request if provided)
+        BigDecimal paymentSeatAmount = BigDecimal.ZERO;
+        if (isPaymentProvided && requestDto.getPaymentInformation().getAmount() != null) {
+            paymentSeatAmount = requestDto.getPaymentInformation().getAmount();
+        } else {
+            paymentSeatAmount = seatCharges;
+        }
+
         // 3. Logic to detect seat charges - If Go7 response lacks fares, check PNR
-        // balance or payment block
+        // balance
         if (seatCharges.compareTo(BigDecimal.ZERO) <= 0) {
             if (pnrTotal.compareTo(airItemPrice) > 0) {
                 seatCharges = pnrTotal.subtract(airItemPrice);
             } else {
-                seatCharges = paymentSeatAmount;
+                // If still 0, try to use prices provided by Controller
+                if (changeSeatRsp != null && changeSeatRsp.getAerocrs() != null
+                        && changeSeatRsp.getAerocrs().getFlights() != null) {
+                    BigDecimal totalFetched = BigDecimal.ZERO;
+                    for (com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto.Flight f : changeSeatRsp.getAerocrs()
+                            .getFlights()) {
+                        if (f.getSeat() != null) {
+                            for (com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto.Seat s : f.getSeat()) {
+                                if (s.getSeat() != null && actualPrices != null && actualPrices.containsKey(s.getSeat())) {
+                                    BigDecimal actualFare = actualPrices.get(s.getSeat());
+                                    s.setFare(actualFare);
+                                    totalFetched = totalFetched.add(actualFare);
+                                }
+                            }
+                        }
+                    }
+                    if (totalFetched.compareTo(BigDecimal.ZERO) > 0) {
+                        seatCharges = totalFetched;
+                    } else {
+                        seatCharges = paymentSeatAmount;
+                    }
+                } else {
+                    seatCharges = paymentSeatAmount;
+                }
             }
         }
 
-
-        // If seatCharges (from Go7) is 0, calculate it from pnrTotal, otherwise fallback to payment amount
+        // If seatCharges (from Go7) is 0, calculate it from pnrTotal, otherwise
+        // fallback to payment amount
 
         airItemPrice = airItemPrice.setScale(2, java.math.RoundingMode.HALF_UP);
 
@@ -719,8 +749,13 @@ public class ChangeSeatResponse {
         airItem.setServiceList(flightServices);
         orderItems.add(airItem);
         totalOrderPrice = totalOrderPrice.add(airItemPrice); // Add corrected air price
+        // 6b. Secondary Items (Cumulative: Seats & Services)
+        int srvIdx = 1;
+        
+        // Track what we already added from changeSeatRsp to avoid duplicates
+        Set<String> processedSeatKeys = new HashSet<>();
+
         if (changeSeatRsp.getAerocrs() != null && changeSeatRsp.getAerocrs().getFlights() != null) {
-            int srvIdx = flightServices.size() + 1; // Start after flight services or 1
             for (ChangeSeatRspGo7Dto.Flight f : changeSeatRsp.getAerocrs().getFlights()) {
                 if (f.getSeat() != null) {
                     String flightKey = (f.getFlightnumber() != null ? f.getFlightnumber() : "") + "_"
@@ -728,7 +763,6 @@ public class ChangeSeatResponse {
                             + (f.getTocode() != null ? f.getTocode() : "");
                     String segmentId = flightSegmentMap.getOrDefault(flightKey, "SEG1");
 
-                    // 1. Calculate total number of seats to distribute fallback price
                     int totalSeats = f.getSeat().size();
                     BigDecimal distributedSeatPrice = BigDecimal.ZERO;
                     if (totalSeats > 0 && seatCharges.compareTo(BigDecimal.ZERO) > 0) {
@@ -743,13 +777,11 @@ public class ChangeSeatResponse {
 
                         String assignedPaxId = "T1";
                         String seatPtc = "ADT";
-
                         if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
                             int paxIdx = seatCounter % booking.getPassengers().getPassenger().size();
                             assignedPaxId = "T" + (paxIdx + 1);
                             seatPtc = mapPaxType(booking.getPassengers().getPassenger().get(paxIdx).getPaxtype());
                         }
-
                         seatCounter++;
 
                         seatItem.setPtc(seatPtc);
@@ -757,7 +789,32 @@ public class ChangeSeatResponse {
 
                         BigDecimal seatPrice = s.getFare() != null && s.getFare().compareTo(BigDecimal.ZERO) > 0
                                 ? s.getFare()
-                                : distributedSeatPrice; // Use divided charge if individual fare missing
+                                : BigDecimal.ZERO;
+                        
+                        if (seatPrice.compareTo(BigDecimal.ZERO) <= 0 && actualPrices != null && s.getSeat() != null) {
+                            if (actualPrices.containsKey(s.getSeat())) {
+                                seatPrice = actualPrices.get(s.getSeat());
+                            }
+                        }
+
+                        if (seatPrice.compareTo(BigDecimal.ZERO) <= 0) {
+                            seatPrice = distributedSeatPrice;
+                        }
+                        
+                        // Try to lookup cached price if seatPrice is still 0
+                        if (seatPrice.compareTo(BigDecimal.ZERO) == 0 && passengerSeatsMap != null) {
+                            String rawCached = passengerSeatsMap.get(assignedPaxId);
+                            if (rawCached != null && rawCached.contains("|")) {
+                                String[] parts = rawCached.split("\\|");
+                                if (parts[0].equals(s.getSeat())) {
+                                    try {
+                                        BigDecimal storedPrice = new BigDecimal(parts[1]);
+                                        if (storedPrice.compareTo(BigDecimal.ZERO) > 0) seatPrice = storedPrice;
+                                    } catch (Exception e) {}
+                                }
+                            }
+                        }
+                        
                         String currency = s.getCurrency() != null ? s.getCurrency() : response.getCurrency();
 
                         seatItem.setBaseFare(new ChangeSeatRspDto.OrderItemsDTO.BaseFare(seatPrice, currency));
@@ -765,44 +822,142 @@ public class ChangeSeatResponse {
                         seatItem.setTotalFare(new ChangeSeatRspDto.OrderItemsDTO.TotalFare(seatPrice, currency));
                         seatItem.setTotalPrice(seatPrice);
 
-                        List<ChangeSeatRspDto.Service> seatServices = new ArrayList<>();
+                        List<ChangeSeatRspDto.Service> seatServicesList = new ArrayList<>();
                         ChangeSeatRspDto.Service seatSrv = new ChangeSeatRspDto.Service();
-
                         seatSrv.setServiceId(segmentId + "_" + assignedPaxId);
                         seatSrv.setServiceStatus(s.isStatus() ? "CONFIRMED" : "PENDING");
                         seatSrv.setServiceCode("SEAT" + (s.getSeat() != null ? s.getSeat() : ""));
                         seatSrv.setServiceName("Specific Seat Request");
                         seatSrv.setSegmentId(segmentId);
 
-                        // Parse Row/Col
                         String seatNum = s.getSeat();
                         if (seatNum != null && seatNum.length() > 0) {
                             String col = seatNum.substring(seatNum.length() - 1);
                             String rowStr = seatNum.substring(0, seatNum.length() - 1);
                             seatSrv.setColumn(col);
-                            try {
-                                seatSrv.setRow(new java.math.BigInteger(rowStr));
-                            } catch (Exception e) {
-                            }
+                            try { seatSrv.setRow(new java.math.BigInteger(rowStr)); } catch (Exception e) {}
                         }
 
                         List<ChangeSeatRspDto.Service.SeatCharacteristic> chars = new ArrayList<>();
                         chars.add(new ChangeSeatRspDto.Service.SeatCharacteristic("CH", "Chargeable Seat"));
-                        chars.add(new ChangeSeatRspDto.Service.SeatCharacteristic("W", "Window seat"));
-                        chars.add(new ChangeSeatRspDto.Service.SeatCharacteristic("FC",
-                                "Front of cabin class/compartment"));
-                        chars.add(new ChangeSeatRspDto.Service.SeatCharacteristic("N", "No smoking seat"));
                         seatSrv.setSeatCharacteristics(chars);
 
-                        seatServices.add(seatSrv);
-                        seatItem.setServiceList(seatServices);
+                        seatServicesList.add(seatSrv);
+                        seatItem.setServiceList(seatServicesList);
 
                         orderItems.add(seatItem);
                         totalOrderPrice = totalOrderPrice.add(seatPrice);
+                        processedSeatKeys.add(assignedPaxId + "_" + (s.getSeat() != null ? s.getSeat() : ""));
                     }
                 }
             }
         }
+
+        // Calculate remaining balance for cached items to match PNR total
+        BigDecimal currentSecondaryPrice = totalOrderPrice.subtract(airItemPrice);
+        BigDecimal totalSecondaryNeeded = pnrTotal.subtract(airItemPrice);
+        BigDecimal leftoverPrice = totalSecondaryNeeded.subtract(currentSecondaryPrice);
+        if (leftoverPrice.compareTo(BigDecimal.ZERO) < 0) leftoverPrice = BigDecimal.ZERO;
+
+        int cachedCount = 0;
+        if (passengerSeatsMap != null) {
+            for (Map.Entry<String, String> entry : passengerSeatsMap.entrySet()) {
+                String seatNum = entry.getValue();
+                if (seatNum != null && seatNum.contains("|")) {
+                    seatNum = seatNum.split("\\|")[0];
+                }
+                if (!processedSeatKeys.contains(entry.getKey() + "_" + seatNum)) cachedCount++;
+            }
+        }
+        if (passengerServicesMap != null) {
+            cachedCount += passengerServicesMap.size();
+        }
+
+        BigDecimal distributedCachedPrice = BigDecimal.ZERO;
+        if (cachedCount > 0 && leftoverPrice.compareTo(BigDecimal.ZERO) > 0) {
+            distributedCachedPrice = leftoverPrice.divide(new BigDecimal(cachedCount), 2, java.math.RoundingMode.HALF_UP);
+        }
+
+        // Add OTHER existing seats from map that were not in changeSeatRsp
+        if (passengerSeatsMap != null) {
+            for (Map.Entry<String, String> entry : passengerSeatsMap.entrySet()) {
+                String pId = entry.getKey();
+                String rawValue = entry.getValue();
+                String seatNum = rawValue;
+                BigDecimal seatPrice = distributedCachedPrice;
+
+                if (rawValue != null && rawValue.contains("|")) {
+                    String[] parts = rawValue.split("\\|");
+                    seatNum = parts[0];
+                    try {
+                        BigDecimal storedPrice = new BigDecimal(parts[1]);
+                        if (storedPrice.compareTo(BigDecimal.ZERO) > 0) seatPrice = storedPrice;
+                    } catch (Exception e) {}
+                }
+
+                if (!processedSeatKeys.contains(pId + "_" + seatNum)) {
+                    ChangeSeatRspDto.OrderItemsDTO seatItem = new ChangeSeatRspDto.OrderItemsDTO();
+                    seatItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
+                    seatItem.setPassengerIds(Arrays.asList(pId));
+                    
+                    seatItem.setTotalPrice(seatPrice);
+                    seatItem.setBaseFare(new ChangeSeatRspDto.OrderItemsDTO.BaseFare(seatPrice, response.getCurrency()));
+                    seatItem.setTotalFare(new ChangeSeatRspDto.OrderItemsDTO.TotalFare(seatPrice, response.getCurrency()));
+
+                    List<ChangeSeatRspDto.Service> seatServicesList = new ArrayList<>();
+                    ChangeSeatRspDto.Service seatSrv = new ChangeSeatRspDto.Service();
+                    seatSrv.setServiceId("SEG1_" + pId);
+                    seatSrv.setServiceStatus("CONFIRMED");
+                    seatSrv.setServiceCode("SEAT" + seatNum);
+                    seatSrv.setServiceName("Specific Seat Request");
+                    seatServicesList.add(seatSrv);
+                    seatItem.setServiceList(seatServicesList);
+                    
+                    orderItems.add(seatItem);
+                    totalOrderPrice = totalOrderPrice.add(seatPrice);
+                }
+            }
+        }
+
+        // Add ALL existing services from map
+        if (passengerServicesMap != null) {
+            for (Map.Entry<String, String> entry : passengerServicesMap.entrySet()) {
+                String pId = entry.getKey();
+                String rawValue = entry.getValue();
+                String srvCode = rawValue;
+                BigDecimal srvPrice = distributedCachedPrice;
+
+                if (rawValue != null && rawValue.contains("|")) {
+                    String[] parts = rawValue.split("\\|");
+                    srvCode = parts[0];
+                    try {
+                        BigDecimal storedPrice = new BigDecimal(parts[1]);
+                        if (storedPrice.compareTo(BigDecimal.ZERO) > 0) srvPrice = storedPrice;
+                    } catch (Exception e) {}
+                }
+                
+                ChangeSeatRspDto.OrderItemsDTO srvItem = new ChangeSeatRspDto.OrderItemsDTO();
+                srvItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
+                srvItem.setPassengerIds(Arrays.asList(pId));
+                
+                srvItem.setTotalPrice(srvPrice);
+                srvItem.setBaseFare(new ChangeSeatRspDto.OrderItemsDTO.BaseFare(srvPrice, response.getCurrency()));
+                srvItem.setTotalFare(new ChangeSeatRspDto.OrderItemsDTO.TotalFare(srvPrice, response.getCurrency()));
+
+                List<ChangeSeatRspDto.Service> srvList = new ArrayList<>();
+                ChangeSeatRspDto.Service srv = new ChangeSeatRspDto.Service();
+                srv.setServiceId(srvCode);
+                srv.setServiceStatus("CONFIRMED");
+                srv.setServiceCode(srvCode);
+                srv.setServiceName("Ancillary Service");
+                srvList.add(srv);
+                srvItem.setServiceList(srvList);
+                
+                orderItems.add(srvItem);
+                totalOrderPrice = totalOrderPrice.add(srvPrice);
+            }
+        }
+
         response.setOrderItems(orderItems);
         response.setTotalOrderPrice(totalOrderPrice.setScale(2, java.math.RoundingMode.HALF_UP));
 
@@ -907,6 +1062,58 @@ public class ChangeSeatResponse {
 
     private static String formatCurrentDate() {
         return LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMMyyyy", Locale.ENGLISH));
+    }
+
+    private static BigDecimal fetchActualSeatFare(Long bookingId, String flightNumber, String flightDate,
+            String fromCode, String toCode, String seatNumber, String classCode) {
+        try {
+            com.airlines.GO7API.request.SeatAvailabilityReq req = new com.airlines.GO7API.request.SeatAvailabilityReq();
+            com.airlines.GO7API.request.SeatAvailabilityReq.Aerocrs aerocrs = new com.airlines.GO7API.request.SeatAvailabilityReq.Aerocrs();
+            com.airlines.GO7API.request.SeatAvailabilityReq.Parms parms = new com.airlines.GO7API.request.SeatAvailabilityReq.Parms();
+
+            parms.setBookingId(bookingId);
+            parms.setCompanyCode("API");
+            parms.setFlightNumber(flightNumber);
+            parms.setFlightDate(flightDate);
+            parms.setFromCode(fromCode);
+            parms.setToCode(toCode);
+
+            aerocrs.setParms(parms);
+            req.setAerocrs(aerocrs);
+            req.setSeatAvailabilityUrl("https://api.aerocrs.com/v5/getSeatMapFare");
+
+            String responseJson = req.makeApiCall();
+            if (responseJson != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto go7Rsp = mapper.readValue(responseJson,
+                        com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.class);
+
+                if (go7Rsp != null && go7Rsp.getAerocrs() != null && go7Rsp.getAerocrs().getSeatMapFare() != null) {
+                    Map<String, com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.SeatClass> classes = go7Rsp
+                            .getAerocrs().getSeatMapFare().getClasses();
+
+                    String cleanClass = (classCode != null && classCode.contains("/")) ? classCode.split("/")[0]
+                            : classCode;
+
+                    if (classes != null && classes.containsKey(cleanClass)) {
+                        List<com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.PaidSeatRow> rows = classes
+                                .get(cleanClass).getPaidSeats();
+                        if (rows != null) {
+                            for (com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.PaidSeatRow row : rows) {
+                                if (row.getSeats() != null && row.getSeats().containsKey(seatNumber)) {
+                                    if (row.getSeatFare() != null) {
+                                        return BigDecimal.valueOf(row.getSeatFare());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error fetching actual seat fare for seat " + seatNumber + ": " + e.getMessage());
+        }
+        return null;
     }
 
     private static void addScaledTaxItem(List<ChangeSeatRspDto.OrderItemsDTO.Tax> list, String code, double amount,
