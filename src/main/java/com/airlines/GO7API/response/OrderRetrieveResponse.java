@@ -62,7 +62,7 @@ public class OrderRetrieveResponse {
 
         response.setPaymentTimeLimit(formatDateTime(booking.getPnrttl()));
 
-        response.setStatusCode(go7Response.getAerocrs().isSuccess() ? "702" : "REJECTED");
+        response.setStatusCode(go7Response.getAerocrs().isSuccess() ? "OPENED" : "REJECTED");
         response.setValidatingCarrier(carrierCode);
 
         // 2. Booking References
@@ -786,7 +786,11 @@ public class OrderRetrieveResponse {
 
             BigDecimal distributedItemPrice = BigDecimal.ZERO;
             if (secondaryTotal.compareTo(BigDecimal.ZERO) > 0) {
-                distributedItemPrice = secondaryTotal.divide(new BigDecimal(combinedSrvMap.size()), 2, java.math.RoundingMode.HALF_UP);
+                // Filter out items that already have a price from the cache
+                long unpaidCount = combinedSrvMap.values().stream().filter(v -> !v.contains("|") || new BigDecimal(v.split("\\|")[1]).compareTo(BigDecimal.ZERO) == 0).count();
+                if (unpaidCount > 0) {
+                    distributedItemPrice = secondaryTotal.divide(new BigDecimal(unpaidCount), 2, java.math.RoundingMode.HALF_UP);
+                }
             }
 
             for (java.util.Map.Entry<String, String> paxSecondary : combinedSrvMap.entrySet()) {
@@ -866,6 +870,26 @@ public class OrderRetrieveResponse {
             }
         }
         response.setTotalOrderPrice(aggregatedTotal.setScale(2, java.math.RoundingMode.HALF_UP));
+        
+        // 7. Separate Payments (Added per user request to match ChangePayment structure)
+        List<OrderRetrieveRspDto.PaymentsDTO> payments = new ArrayList<>();
+        boolean isPaid = false;
+        if (booking.getBalanceInformation() != null) {
+            isPaid = booking.getBalanceInformation().getPnrOutstandingPayment() <= 0;
+        }
+
+        for (OrderRetrieveRspDto.OrderItemDTO o : orderItems) {
+            if (o.getTotalPrice() != null && o.getTotalPrice().compareTo(BigDecimal.ZERO) > 0) {
+                OrderRetrieveRspDto.PaymentsDTO payItem = new OrderRetrieveRspDto.PaymentsDTO();
+                payItem.setType("CC");
+                payItem.setStatusCode(isPaid ? "SUCCESSFUL" : "PENDING");
+                payItem.setAmount(o.getTotalPrice().setScale(2, java.math.RoundingMode.HALF_UP));
+                payItem.setCurrency(response.getCurrency());
+                payItem.setOrderItem(Arrays.asList(o.getOrderItemId()));
+                payments.add(payItem);
+            }
+        }
+        response.setPayments(payments);
 
         return response;
     }
