@@ -1098,8 +1098,26 @@ public class Go7Controller {
             }
 
             if (changeSeatRsp != null) {
+                // Determine if at least one seat was successfully assigned
+                boolean anySeatSuccessful = false;
+                if (changeSeatRsp.getAerocrs() != null && changeSeatRsp.getAerocrs().getFlights() != null) {
+                    for (com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto.Flight f : changeSeatRsp.getAerocrs().getFlights()) {
+                        if (f.getSeat() != null) {
+                            for (com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto.Seat s : f.getSeat()) {
+                                if (Boolean.TRUE.equals(s.isStatus())) {
+                                    anySeatSuccessful = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (anySeatSuccessful) break;
+                    }
+                }
+
                 // Conditional Payment & Ticketing Logic
-                if (changeSeatReqDto.getPaymentInformation() != null) {
+                if (anySeatSuccessful && changeSeatReqDto.getPaymentInformation() != null 
+                    && changeSeatReqDto.getPaymentInformation().getCardNumber() != null 
+                    && !changeSeatReqDto.getPaymentInformation().getCardNumber().isEmpty()) {
                     System.out.println("Processing Payment for Seat Change...");
 
                     // 1. Create ChangePaymentReqDto from SeatReq
@@ -1377,7 +1395,20 @@ public class Go7Controller {
                 }
 
                 // 2. Conditional Payment & Ticketing Logic
-                if (changeServiceReqDto.getPaymentInformation() != null) {
+                // Determine if at least one service was successfully added
+                boolean anyServiceSuccessful = false;
+                if (changeServiceRsp != null && changeServiceRsp.getAerocrs() != null && changeServiceRsp.getAerocrs().getDetails() != null) {
+                    for (com.airlines.GO7API.responseGo7.ChangeServiceRspGo7Dto.Aerocrs.Detail d : changeServiceRsp.getAerocrs().getDetails()) {
+                        if (d.isSuccess()) {
+                            anyServiceSuccessful = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (anyServiceSuccessful && changeServiceReqDto.getPaymentInformation() != null 
+                    && changeServiceReqDto.getPaymentInformation().getCardNumber() != null 
+                    && !changeServiceReqDto.getPaymentInformation().getCardNumber().isEmpty()) {
                     System.out.println("Processing Payment for Service Change...");
 
                     // 1. Create ChangePaymentReqDto from ServiceReq
