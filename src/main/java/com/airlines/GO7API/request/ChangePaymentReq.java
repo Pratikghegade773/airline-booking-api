@@ -121,12 +121,19 @@ public class ChangePaymentReq {
     // GetBooking Mapping (For ChangePayment Flow)
     // --------------------------------------------------------------------------------------------
     public static ChangePaymentReq mapToGetBookingReq(String bookingConfirmation) {
+        return mapToGetBookingReq(bookingConfirmation, null);
+    }
+
+    public static ChangePaymentReq mapToGetBookingReq(String bookingConfirmation, String lastName) {
         ChangePaymentReq request = new ChangePaymentReq();
         Aerocrs aerocrs = new Aerocrs();
         Map<String, Object> parms = new LinkedHashMap<>();
 
         if (bookingConfirmation != null) {
             parms.put("bookingconfirmation", bookingConfirmation);
+        }
+        if (lastName != null && !lastName.isEmpty()) {
+            parms.put("passengerlastname", lastName);
         }
 
         aerocrs.setParms(parms);

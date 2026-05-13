@@ -232,6 +232,12 @@ public class Go7Controller {
                                     entityToSave.setOrderId(orderId);
                                 }
                                 entityToSave.setTotalOrderPrice(ndcResponse.getTotalOrderPrice());
+                                
+                                // Capture primary passenger last name
+                                if (orderCreateReqDto.getPassengers() != null && !orderCreateReqDto.getPassengers().isEmpty()) {
+                                    entityToSave.setPrimaryPassengerLastName(orderCreateReqDto.getPassengers().get(0).getLastName());
+                                }
+                                
                                 bookingService.saveBooking(entityToSave);
                             }
                         } catch (Exception e) {
@@ -287,8 +293,16 @@ public class Go7Controller {
             // included
             if (changePaymentReqDto.getOrderId() != null && !changePaymentReqDto.getOrderId().isEmpty()) {
                 String bookingConfirmationPre = changePaymentReqDto.getOrderId();
+                String lastNamePre = null;
+                
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOptPre = bookingService.getBookingByOrderId(changePaymentReqDto.getOrderId());
+                if (entityOptPre.isPresent()) {
+                    bookingConfirmationPre = entityOptPre.get().getBookingConfirmation();
+                    lastNamePre = entityOptPre.get().getPrimaryPassengerLastName();
+                }
+
                 com.airlines.GO7API.request.ChangePaymentReq getBookingReqPre = com.airlines.GO7API.request.ChangePaymentReq
-                        .mapToGetBookingReq(bookingConfirmationPre);
+                        .mapToGetBookingReq(bookingConfirmationPre, lastNamePre);
                 Object preResponse = getBookingReqPre.unmarshal();
 
                 if (!(preResponse instanceof com.airlines.GO7API.error.ErrorRsp)) {
@@ -443,9 +457,20 @@ public class Go7Controller {
 
             System.out.println("ChangePayment successful. Calling GetBooking for ID: " + bookingConfirmation);
 
-            // Use ChangePaymentReq's method
+            // Use ChangePaymentReq's method with cached last name and confirmation if available
+            String finalLastName = null;
+            if (changePaymentReqDto.getOrderId() != null) {
+                java.util.Optional<com.airlines.GO7API.entity.BookingEntity> entityOpt = bookingService.getBookingByOrderId(changePaymentReqDto.getOrderId());
+                if (entityOpt.isPresent()) {
+                    if (bookingConfirmation == null || bookingConfirmation.equals(changePaymentReqDto.getOrderId())) {
+                        bookingConfirmation = entityOpt.get().getBookingConfirmation();
+                    }
+                    finalLastName = entityOpt.get().getPrimaryPassengerLastName();
+                }
+            }
+            
             com.airlines.GO7API.request.ChangePaymentReq getBookingReq = com.airlines.GO7API.request.ChangePaymentReq
-                    .mapToGetBookingReq(bookingConfirmation);
+                    .mapToGetBookingReq(bookingConfirmation, finalLastName);
             Object finalResponse = getBookingReq.unmarshal();
 
             System.out.println("GetBooking executed. Response: " + finalResponse);
@@ -578,6 +603,21 @@ public class Go7Controller {
             com.airlines.GO7API.responseDto.OrderRetrieveRspDto ndcResponse = com.airlines.GO7API.response.OrderRetrieveResponse
                     .generateResponse(go7Response, orderRetrieveReqDto, passengerSeats, passengerServices,
                             dbTotalOrderPrice);
+
+            // SYNC: Update database with any new info from OrderRetrieve (including last name if missing)
+            if (bookingEntity != null && go7Response != null && go7Response.getAerocrs() != null && go7Response.getAerocrs().getBooking() != null) {
+                boolean changed = false;
+                if (bookingEntity.getPrimaryPassengerLastName() == null || bookingEntity.getPrimaryPassengerLastName().isEmpty()) {
+                    com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passengers pList = go7Response.getAerocrs().getBooking().getPassengers();
+                    if (pList != null && pList.getPassenger() != null && !pList.getPassenger().isEmpty()) {
+                        bookingEntity.setPrimaryPassengerLastName(pList.getPassenger().get(0).getLastname());
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    bookingService.saveBooking(bookingEntity);
+                }
+            }
 
             return new ResponseEntity<>(ndcResponse, HttpStatus.OK);
 
@@ -1219,6 +1259,17 @@ public class Go7Controller {
                             }
 
                             entity.setPassengerSeats(existingSeats);
+                            
+                            // SYNC: Capture last name if missing
+                            if (entity.getPrimaryPassengerLastName() == null || entity.getPrimaryPassengerLastName().isEmpty()) {
+                                if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
+                                    com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passengers pList = bookingRsp.getAerocrs().getBooking().getPassengers();
+                                    if (pList != null && pList.getPassenger() != null && !pList.getPassenger().isEmpty()) {
+                                        entity.setPrimaryPassengerLastName(pList.getPassenger().get(0).getLastname());
+                                    }
+                                }
+                            }
+
                             if (ndcResponse.getTotalOrderPrice() != null) {
                                 entity.setTotalOrderPrice(ndcResponse.getTotalOrderPrice());
                             }
@@ -1496,6 +1547,17 @@ public class Go7Controller {
                             }
 
                             entity.setPassengerServices(existingServices);
+                            
+                            // SYNC: Capture last name if missing
+                            if (entity.getPrimaryPassengerLastName() == null || entity.getPrimaryPassengerLastName().isEmpty()) {
+                                if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
+                                    com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passengers pList = bookingRsp.getAerocrs().getBooking().getPassengers();
+                                    if (pList != null && pList.getPassenger() != null && !pList.getPassenger().isEmpty()) {
+                                        entity.setPrimaryPassengerLastName(pList.getPassenger().get(0).getLastname());
+                                    }
+                                }
+                            }
+
                             if (standardResponse.getTotalOrderPrice() != null) {
                                 entity.setTotalOrderPrice(standardResponse.getTotalOrderPrice());
                             }

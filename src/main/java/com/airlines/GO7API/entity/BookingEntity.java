@@ -28,4 +28,8 @@ public class BookingEntity {
     // Cache exact total order price to overcome Go7 stripping ancillaries from
     // totals
     private java.math.BigDecimal totalOrderPrice;
+
+    // Store primary passenger last name to support GetBooking calls without NDC
+    // context
+    private String primaryPassengerLastName;
 }
