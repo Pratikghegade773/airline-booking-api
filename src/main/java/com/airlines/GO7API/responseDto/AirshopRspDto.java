@@ -1,4 +1,4 @@
-package com.airlines.GO7API.responseDto;
+package com.airlines.go7api.responsedto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;

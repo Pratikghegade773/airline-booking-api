@@ -1,4 +1,4 @@
-package com.airlines.GO7API.responseGo7;
+package com.airlines.go7api.responsego7;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -24,6 +24,7 @@ public class ServiceListRspGo7Dto {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Aerocrs {
         private boolean success;
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Ancillaries ancillaries;
     }
 

@@ -1,9 +1,9 @@
-package com.airlines.GO7API.request;
+package com.airlines.go7api.request;
 
-import com.airlines.GO7API.requestDto.AirshopReqDto;
-import com.airlines.GO7API.responseDto.AirshopRspDto;
-import com.airlines.GO7API.error.ErrorRsp;
-import com.airlines.GO7API.responseGo7.AirshopRspGo7Dto;
+import com.airlines.go7api.requestdto.AirshopReqDto;
+import com.airlines.go7api.responsedto.AirshopRspDto;
+import com.airlines.go7api.error.ErrorRsp;
+import com.airlines.go7api.responsego7.AirshopRspGo7Dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;

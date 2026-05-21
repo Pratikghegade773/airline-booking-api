@@ -1,9 +1,9 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.requestDto.ServiceListReqDto;
-import com.airlines.GO7API.responseGo7.ServiceListRspGo7Dto;
-import com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto;
-import com.airlines.GO7API.responseDto.ServiceListRspDto;
+import com.airlines.go7api.requestdto.ServiceListReqDto;
+import com.airlines.go7api.responsego7.ServiceListRspGo7Dto;
+import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
+import com.airlines.go7api.responsedto.ServiceListRspDto;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;

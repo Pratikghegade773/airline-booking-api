@@ -1,8 +1,8 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.requestDto.UnpaidCancelReqDto;
-import com.airlines.GO7API.responseDto.UnpaidCancelRspDto;
-import com.airlines.GO7API.responseGo7.UnpaidCancelRspGo7Dto;
+import com.airlines.go7api.requestdto.UnpaidCancelReqDto;
+import com.airlines.go7api.responsedto.UnpaidCancelRspDto;
+import com.airlines.go7api.responsego7.UnpaidCancelRspGo7Dto;
 
 import java.math.BigDecimal;
 import java.time.Duration;

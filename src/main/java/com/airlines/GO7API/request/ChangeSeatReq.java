@@ -1,7 +1,7 @@
-package com.airlines.GO7API.request;
+package com.airlines.go7api.request;
 
-import com.airlines.GO7API.requestDto.ChangeSeatReqDto;
-import com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto;
+import com.airlines.go7api.requestdto.ChangeSeatReqDto;
+import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
@@ -60,10 +60,10 @@ public class ChangeSeatReq {
         parms.setCompanycode("API");
 
         // 2. Booking ID & Flight Retrieval
-        com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight firstBookingFlight = null;
+        com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight firstBookingFlight = null;
 
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
                     .getBooking();
 
             parms.setBookingid(booking.getBookingid());
@@ -146,11 +146,11 @@ public class ChangeSeatReq {
             // Check for errors
             com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(response);
             if (root.has("errors")) {
-                com.airlines.GO7API.error.ErrorRsp errorRsp = new com.airlines.GO7API.error.ErrorRsp();
+                com.airlines.go7api.error.ErrorRsp errorRsp = new com.airlines.go7api.error.ErrorRsp();
                 com.fasterxml.jackson.databind.JsonNode errorsArray = root.path("errors");
                 if (errorsArray.isArray()) {
                     for (com.fasterxml.jackson.databind.JsonNode errorNode : errorsArray) {
-                        com.airlines.GO7API.error.ErrorRsp.Error tempError = new com.airlines.GO7API.error.ErrorRsp.Error();
+                        com.airlines.go7api.error.ErrorRsp.Error tempError = new com.airlines.go7api.error.ErrorRsp.Error();
                         tempError.setError(errorNode.path("message").asText());
                         tempError.setCode(errorNode.path("code").asText());
                         errorRsp.getErrorList().add(tempError);
@@ -161,7 +161,7 @@ public class ChangeSeatReq {
                 return response;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            // Exception ignored or handled by fallback
             return null;
         }
     }

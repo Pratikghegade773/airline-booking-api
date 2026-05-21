@@ -1,7 +1,7 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.responseDto.SeatAvailabilityRspDto;
-import com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto;
+import com.airlines.go7api.responsedto.SeatAvailabilityRspDto;
+import com.airlines.go7api.responsego7.SeatAvailabilityRspGo7Dto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 public class SeatAvailabilityResponse {
 
     public static SeatAvailabilityRspDto mapToSeatAvailabilityRspDto(SeatAvailabilityRspGo7Dto go7Rsp, String orderId,
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto bookingRsp) {
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
         SeatAvailabilityRspDto rsp = new SeatAvailabilityRspDto();
 
         if (go7Rsp == null || go7Rsp.getAerocrs() == null || !go7Rsp.getAerocrs().isSuccess()
@@ -40,13 +40,13 @@ public class SeatAvailabilityResponse {
         String apiOwner = "G7"; // Default
 
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
                     .getBooking();
 
             // Extract Carrier from first flight if available
             if (booking.getItems() != null && booking.getItems().getFlight() != null
                     && !booking.getItems().getFlight().isEmpty()) {
-                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight flight = booking.getItems().getFlight()
+                com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight flight = booking.getItems().getFlight()
                         .get(0);
                 if (flight.getAirlineICAOcode() != null) {
                     validatingCarrier = flight.getAirlineICAOcode();
@@ -80,13 +80,13 @@ public class SeatAvailabilityResponse {
         List<String> givenNames = new ArrayList<>();
 
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
                     .getBooking();
 
             // Segments
             if (booking.getItems() != null && booking.getItems().getFlight() != null) {
                 int segCount = 1;
-                for (com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight flight : booking.getItems()
+                for (com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight flight : booking.getItems()
                         .getFlight()) {
                     // Generating IDs as S1, S2 etc to match typical pattern, or extracting if
                     // available.
@@ -102,7 +102,7 @@ public class SeatAvailabilityResponse {
             if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
                 int paxCount = 1;
                 List<String> adtRefs = new ArrayList<>();
-                for (com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passenger pax : booking.getPassengers()
+                for (com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Passenger pax : booking.getPassengers()
                         .getPassenger()) {
                     
                     String rawTitle = pax.getPaxtitle() != null ? pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";

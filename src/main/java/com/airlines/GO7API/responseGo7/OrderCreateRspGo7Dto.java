@@ -1,4 +1,4 @@
-package com.airlines.GO7API.responseGo7;
+package com.airlines.go7api.responsego7;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -22,6 +22,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Details {
         private List<String> detail;
     }
@@ -29,6 +30,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Aerocrs {
         private boolean success;
         private Booking booking;
@@ -38,7 +40,9 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Booking {
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Items items;
         private int adults;
         private int child;
@@ -58,8 +62,11 @@ public class OrderCreateRspGo7Dto {
         private String source;
         private String linktoticket;
         private String linktobooking;
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Flights flights;
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Passengers passengers;
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Remarks remarks;
         private List<Object> vouchers;
         @JsonProperty("Balanceinformation")
@@ -72,6 +79,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Items {
         private List<Flight> flight;
     }
@@ -79,6 +87,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Flights {
         private List<Flight> flight;
     }
@@ -86,6 +95,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Flight {
         private String airline;
         private int airlineid;
@@ -153,6 +163,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Taxes {
         @JsonProperty("Ground_handling")
         private double groundHandling;
@@ -167,6 +178,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Passengers {
         private List<Passenger> passenger;
     }
@@ -220,6 +232,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Remarks {
         private List<Remark> remark;
     }
@@ -227,6 +240,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class Remark {
         private String text;
     }
@@ -234,6 +248,7 @@ public class OrderCreateRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public static class BalanceInformation {
         @JsonProperty("PNRoutstandingpayment")
         private double pnrOutstandingPayment;

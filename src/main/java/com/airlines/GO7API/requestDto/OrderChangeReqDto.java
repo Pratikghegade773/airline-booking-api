@@ -1,5 +1,6 @@
-package com.airlines.GO7API.requestDto;
+package com.airlines.go7api.requestdto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +12,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class OrderChangeReqDto {
     private String owner;
     private String responseId;

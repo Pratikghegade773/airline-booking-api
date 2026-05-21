@@ -1,5 +1,6 @@
-package com.airlines.GO7API.requestDto;
+package com.airlines.go7api.requestdto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class OfferPriceReqDto {
     private String countryCode;
     private String apiKey;
@@ -19,6 +21,8 @@ public class OfferPriceReqDto {
 
     private String agencyId;
     private String agentId;
+    private String agencyName;
+
     private int httpResponseCode;
     private List<Offer> offers;
     private String cardType;

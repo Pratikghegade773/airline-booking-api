@@ -1,8 +1,8 @@
-package com.airlines.GO7API.request;
+package com.airlines.go7api.request;
 
-import com.airlines.GO7API.error.ErrorRsp;
-import com.airlines.GO7API.requestDto.ChangePaymentReqDto;
-import com.airlines.GO7API.util.RSADecryptor;
+import com.airlines.go7api.error.ErrorRsp;
+import com.airlines.go7api.requestdto.ChangePaymentReqDto;
+import com.airlines.go7api.util.RSADecryptor;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;

@@ -1,7 +1,7 @@
-package com.airlines.GO7API.request;
+package com.airlines.go7api.request;
 
-import com.airlines.GO7API.error.ErrorRsp;
-import com.airlines.GO7API.requestDto.OrderReshopReqDto;
+import com.airlines.go7api.error.ErrorRsp;
+import com.airlines.go7api.requestdto.OrderReshopReqDto;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -161,7 +161,7 @@ public class OrderReshopReq {
 
         java.util.Map<String, Object> p = this.aerocrs.parms;
         if (p.containsKey("bookingconfirmation") || p.containsKey("bookingid")) {
-            urlWithParams.append(first ? "?" : "&").append("bookingconfirmation=")
+            urlWithParams.append("?").append("bookingconfirmation=")
                     .append(p.get("bookingconfirmation") != null ? p.get("bookingconfirmation") : p.get("bookingid"));
             first = false;
         }

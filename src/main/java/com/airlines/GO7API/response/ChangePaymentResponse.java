@@ -1,8 +1,8 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.requestDto.ChangePaymentReqDto;
-import com.airlines.GO7API.responseDto.ChangePaymentRspDto;
-import com.airlines.GO7API.responseGo7.ChangePaymentRspGo7Dto;
+import com.airlines.go7api.requestdto.ChangePaymentReqDto;
+import com.airlines.go7api.responsedto.ChangePaymentRspDto;
+import com.airlines.go7api.responsego7.ChangePaymentRspGo7Dto;
 
 import java.math.BigDecimal;
 import java.time.Duration;

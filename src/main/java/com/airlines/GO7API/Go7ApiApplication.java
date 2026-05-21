@@ -1,8 +1,9 @@
-package com.airlines.GO7API;
+package com.airlines.go7api;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+@SuppressWarnings("java:S120")
 @SpringBootApplication
 public class Go7ApiApplication {
 

@@ -1,8 +1,8 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.responseDto.ChangeSeatRspDto;
-import com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto;
-import com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto;
+import com.airlines.go7api.responsedto.ChangeSeatRspDto;
+import com.airlines.go7api.responsego7.ChangeSeatRspGo7Dto;
+import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -19,7 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class ChangeSeatResponse {
 
     public static ChangeSeatRspDto generateResponse(ChangeSeatRspGo7Dto changeSeatRsp,
-            OrderRetrieveRspGo7Dto bookingRsp, com.airlines.GO7API.requestDto.ChangeSeatReqDto requestDto,
+            OrderRetrieveRspGo7Dto bookingRsp, com.airlines.go7api.requestdto.ChangeSeatReqDto requestDto,
             Map<String, BigDecimal> actualPrices,
             Map<String, String> passengerSeatsMap,
             Map<String, String> passengerServicesMap) {
@@ -249,9 +249,9 @@ public class ChangeSeatResponse {
         // 4. Passenger Details & Seat Mapping Logic
         Map<String, List<String>> paxToRequestedSeats = new HashMap<>(); // PAX1 -> ["41D", "42D"]
         if (requestDto != null && requestDto.getOffers() != null) {
-            for (com.airlines.GO7API.requestDto.ChangeSeatReqDto.Offer offer : requestDto.getOffers()) {
+            for (com.airlines.go7api.requestdto.ChangeSeatReqDto.Offer offer : requestDto.getOffers()) {
                 if (offer.getOfferItems() != null) {
-                    for (com.airlines.GO7API.requestDto.ChangeSeatReqDto.Offer.OfferItemDto item : offer
+                    for (com.airlines.go7api.requestdto.ChangeSeatReqDto.Offer.OfferItemDto item : offer
                             .getOfferItems()) {
                         if (item.getPaxRefs() != null && item.getRow() != null && item.getColumn() != null) {
                             String seatCoord = item.getRow().toString() + item.getColumn();
@@ -644,10 +644,10 @@ public class ChangeSeatResponse {
                 if (changeSeatRsp != null && changeSeatRsp.getAerocrs() != null
                         && changeSeatRsp.getAerocrs().getFlights() != null) {
                     BigDecimal totalFetched = BigDecimal.ZERO;
-                    for (com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto.Flight f : changeSeatRsp.getAerocrs()
+                    for (com.airlines.go7api.responsego7.ChangeSeatRspGo7Dto.Flight f : changeSeatRsp.getAerocrs()
                             .getFlights()) {
                         if (f.getSeat() != null) {
-                            for (com.airlines.GO7API.responseGo7.ChangeSeatRspGo7Dto.Seat s : f.getSeat()) {
+                            for (com.airlines.go7api.responsego7.ChangeSeatRspGo7Dto.Seat s : f.getSeat()) {
                                 if (s.getSeat() != null && actualPrices != null && actualPrices.containsKey(s.getSeat())) {
                                     BigDecimal actualFare = actualPrices.get(s.getSeat());
                                     s.setFare(actualFare);
@@ -743,7 +743,6 @@ public class ChangeSeatResponse {
                     srv.setServiceStatus("CONFIRMED");
                     flightServices.add(srv);
                 }
-                break; // usually just one segment in these examples
             }
         }
         airItem.setServiceList(flightServices);
@@ -1067,9 +1066,9 @@ public class ChangeSeatResponse {
     private static BigDecimal fetchActualSeatFare(Long bookingId, String flightNumber, String flightDate,
             String fromCode, String toCode, String seatNumber, String classCode) {
         try {
-            com.airlines.GO7API.request.SeatAvailabilityReq req = new com.airlines.GO7API.request.SeatAvailabilityReq();
-            com.airlines.GO7API.request.SeatAvailabilityReq.Aerocrs aerocrs = new com.airlines.GO7API.request.SeatAvailabilityReq.Aerocrs();
-            com.airlines.GO7API.request.SeatAvailabilityReq.Parms parms = new com.airlines.GO7API.request.SeatAvailabilityReq.Parms();
+            com.airlines.go7api.request.SeatAvailabilityReq req = new com.airlines.go7api.request.SeatAvailabilityReq();
+            com.airlines.go7api.request.SeatAvailabilityReq.Aerocrs aerocrs = new com.airlines.go7api.request.SeatAvailabilityReq.Aerocrs();
+            com.airlines.go7api.request.SeatAvailabilityReq.Parms parms = new com.airlines.go7api.request.SeatAvailabilityReq.Parms();
 
             parms.setBookingId(bookingId);
             parms.setCompanyCode("API");
@@ -1085,21 +1084,21 @@ public class ChangeSeatResponse {
             String responseJson = req.makeApiCall();
             if (responseJson != null) {
                 ObjectMapper mapper = new ObjectMapper();
-                com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto go7Rsp = mapper.readValue(responseJson,
-                        com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.class);
+                com.airlines.go7api.responsego7.SeatAvailabilityRspGo7Dto go7Rsp = mapper.readValue(responseJson,
+                        com.airlines.go7api.responsego7.SeatAvailabilityRspGo7Dto.class);
 
                 if (go7Rsp != null && go7Rsp.getAerocrs() != null && go7Rsp.getAerocrs().getSeatMapFare() != null) {
-                    Map<String, com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.SeatClass> classes = go7Rsp
+                    Map<String, com.airlines.go7api.responsego7.SeatAvailabilityRspGo7Dto.SeatClass> classes = go7Rsp
                             .getAerocrs().getSeatMapFare().getClasses();
 
                     String cleanClass = (classCode != null && classCode.contains("/")) ? classCode.split("/")[0]
                             : classCode;
 
                     if (classes != null && classes.containsKey(cleanClass)) {
-                        List<com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.PaidSeatRow> rows = classes
+                        List<com.airlines.go7api.responsego7.SeatAvailabilityRspGo7Dto.PaidSeatRow> rows = classes
                                 .get(cleanClass).getPaidSeats();
                         if (rows != null) {
-                            for (com.airlines.GO7API.responseGo7.SeatAvailabilityRspGo7Dto.PaidSeatRow row : rows) {
+                            for (com.airlines.go7api.responsego7.SeatAvailabilityRspGo7Dto.PaidSeatRow row : rows) {
                                 if (row.getSeats() != null && row.getSeats().containsKey(seatNumber)) {
                                     if (row.getSeatFare() != null) {
                                         return BigDecimal.valueOf(row.getSeatFare());

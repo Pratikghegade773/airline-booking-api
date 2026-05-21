@@ -1,7 +1,7 @@
-package com.airlines.GO7API.request;
+package com.airlines.go7api.request;
 
-import com.airlines.GO7API.error.ErrorRsp;
-import com.airlines.GO7API.requestDto.OrderChangeReqDto;
+import com.airlines.go7api.error.ErrorRsp;
+import com.airlines.go7api.requestdto.OrderChangeReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;

@@ -1,8 +1,8 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.requestDto.OrderCreateReqDto;
-import com.airlines.GO7API.responseDto.OrderCreateRspDto;
-import com.airlines.GO7API.responseGo7.OrderCreateRspGo7Dto;
+import com.airlines.go7api.requestdto.OrderCreateReqDto;
+import com.airlines.go7api.responsedto.OrderCreateRspDto;
+import com.airlines.go7api.responsego7.OrderCreateRspGo7Dto;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

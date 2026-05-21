@@ -1,9 +1,9 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.requestDto.AirshopReqDto;
-import com.airlines.GO7API.responseDto.AirshopRspDto;
-import com.airlines.GO7API.responseDto.AirshopRspDto.Offer;
-import com.airlines.GO7API.responseGo7.AirshopRspGo7Dto;
+import com.airlines.go7api.requestdto.AirshopReqDto;
+import com.airlines.go7api.responsedto.AirshopRspDto;
+import com.airlines.go7api.responsedto.AirshopRspDto.Offer;
+import com.airlines.go7api.responsego7.AirshopRspGo7Dto;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -37,7 +37,7 @@ public class AirshopResponse {
                 airportMap.put(airport.get("code"), airport.get("name"));
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            // Exception ignored or handled by fallback
         }
     }
 
@@ -58,10 +58,8 @@ public class AirshopResponse {
         if (!response.getAerocrs().getFlights().getFlight().isEmpty()) {
             AirshopRspGo7Dto.Flight firstFlight = response.getAerocrs().getFlights().getFlight().get(0);
             if (firstFlight.getClasses() != null && !firstFlight.getClasses().isEmpty()) {
-                for (AirshopRspGo7Dto.FlightClass fc : firstFlight.getClasses().values()) {
-                    responseId = String.valueOf(fc.getFareid());
-                    break;
-                }
+                AirshopRspGo7Dto.FlightClass fc = firstFlight.getClasses().values().iterator().next();
+                responseId = String.valueOf(fc.getFareid());
             }
         }
         airshopRspDto.setResponseId(responseId);
@@ -181,13 +179,13 @@ public class AirshopResponse {
                     String std = flight.getStd();
                     if (std != null && std.contains(" ")) {
                         String[] parts = std.split(" ");
-                        od.setDepartureDate(parts[0].replace("/", "-")); // Normalize to YYYY-MM-DD
+                        od.setDepartureDate(formatDate(parts[0])); // Format to ddMMMyyyy (e.g. 25May2026)
                         od.setDepartureTime(parts[1].substring(0, 5)); // HH:mm
                     }
                     String sta = flight.getSta();
                     if (sta != null && sta.contains(" ")) {
                         String[] parts = sta.split(" ");
-                        od.setArrivalDate(parts[0].replace("/", "-"));
+                        od.setArrivalDate(formatDate(parts[0])); // Format to ddMMMyyyy (e.g. 25May2026)
                         od.setArrivalTime(parts[1].substring(0, 5));
                     }
 
@@ -345,7 +343,7 @@ public class AirshopResponse {
 
                 String text = hbService.getText();
                 if (text != null) {
-                    java.util.regex.Pattern p = java.util.regex.Pattern.compile("(\\d+)\\s*(KG|kg|Kg)");
+                    java.util.regex.Pattern p = java.util.regex.Pattern.compile("(\\d{1,10})\\s{0,10}(KG|kg|Kg)");
                     java.util.regex.Matcher m = p.matcher(text);
                     if (m.find()) {
                         Offer.OfferItemDto.BaggageAllowance.Weight hbWeight = new Offer.OfferItemDto.BaggageAllowance.Weight();
@@ -496,9 +494,17 @@ public class AirshopResponse {
         return list;
     }
 
-    // End of Helper methods
-    public void dummy() {
-        // Just to have a method structure to match replacement end line if needed, but
-        // I am inserting before }
+    private static String formatDate(String dateStr) {
+        if (dateStr == null)
+            return null;
+        try {
+            java.time.format.DateTimeFormatter inputFormatter = dateStr.contains("/") 
+                    ? java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd")
+                    : java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            java.time.LocalDate date = java.time.LocalDate.parse(dateStr, inputFormatter);
+            return date.format(java.time.format.DateTimeFormatter.ofPattern("ddMMMyyyy", java.util.Locale.ENGLISH));
+        } catch (Exception e) {
+            return dateStr;
+        }
     }
 }

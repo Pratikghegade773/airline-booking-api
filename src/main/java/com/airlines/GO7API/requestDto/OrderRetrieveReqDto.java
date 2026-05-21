@@ -1,10 +1,12 @@
-package com.airlines.GO7API.requestDto;
+package com.airlines.go7api.requestdto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class OrderRetrieveReqDto {
     private String countryCode;
     private String apiUrl;
@@ -19,5 +21,7 @@ public class OrderRetrieveReqDto {
     private String ticketNumber;
     private String agencyId;
     private String agentId;
+    private String agencyName;
 
 }
+

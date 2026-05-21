@@ -1,7 +1,7 @@
-package com.airlines.GO7API.service;
+package com.airlines.go7api.service;
 
-import com.airlines.GO7API.entity.BookingEntity;
-import com.airlines.GO7API.repository.BookingRepository;
+import com.airlines.go7api.entity.BookingEntity;
+import com.airlines.go7api.repository.BookingRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -10,8 +10,12 @@ import java.util.Optional;
 @Service
 public class BookingService {
 
+    private final BookingRepository bookingRepository;
+
     @Autowired
-    private BookingRepository bookingRepository;
+    public BookingService(BookingRepository bookingRepository) {
+        this.bookingRepository = bookingRepository;
+    }
 
     public void saveBooking(String pnr, String bookingConfirmation, String orderId) {
         if (pnr == null || pnr.isEmpty())

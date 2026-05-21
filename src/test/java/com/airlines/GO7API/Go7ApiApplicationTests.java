@@ -1,4 +1,4 @@
-package com.airlines.GO7API;
+package com.airlines.go7api;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

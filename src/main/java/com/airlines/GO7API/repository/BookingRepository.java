@@ -1,6 +1,6 @@
-package com.airlines.GO7API.repository;
+package com.airlines.go7api.repository;
 
-import com.airlines.GO7API.entity.BookingEntity;
+import com.airlines.go7api.entity.BookingEntity;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 

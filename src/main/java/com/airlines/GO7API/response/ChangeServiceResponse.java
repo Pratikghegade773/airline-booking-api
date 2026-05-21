@@ -1,8 +1,8 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.responseDto.ChangeServiceRspDto;
-import com.airlines.GO7API.responseGo7.ChangeServiceRspGo7Dto;
-import com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto;
+import com.airlines.go7api.responsedto.ChangeServiceRspDto;
+import com.airlines.go7api.responsego7.ChangeServiceRspGo7Dto;
+import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -19,7 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class ChangeServiceResponse {
 
     public static ChangeServiceRspDto generateResponse(ChangeServiceRspGo7Dto changeServiceRsp,
-            OrderRetrieveRspGo7Dto bookingRsp, com.airlines.GO7API.requestDto.ChangeServiceReqDto requestDto,
+            OrderRetrieveRspGo7Dto bookingRsp, com.airlines.go7api.requestdto.ChangeServiceReqDto requestDto,
             Map<String, BigDecimal> actualPrices,
             Map<String, String> passengerSeatsMap,
             Map<String, String> passengerServicesMap) {
@@ -232,9 +232,9 @@ public class ChangeServiceResponse {
         // 4. Passenger Details & Service Mapping Logic (Mirroring ChangeSeat)
         Map<String, List<String>> paxToRequestedServices = new HashMap<>(); // PAX1 -> ["SRV123", "SRV456"]
         if (requestDto != null && requestDto.getOffers() != null) {
-            for (com.airlines.GO7API.requestDto.ChangeServiceReqDto.Offer offer : requestDto.getOffers()) {
+            for (com.airlines.go7api.requestdto.ChangeServiceReqDto.Offer offer : requestDto.getOffers()) {
                 if (offer.getOfferItems() != null) {
-                    for (com.airlines.GO7API.requestDto.ChangeServiceReqDto.Offer.OfferItemDto item : offer
+                    for (com.airlines.go7api.requestdto.ChangeServiceReqDto.Offer.OfferItemDto item : offer
                             .getOfferItems()) {
                         if (item.getPaxRefs() != null && item.getOfferItemId() != null) {
                             for (String paxRef : item.getPaxRefs()) {
@@ -466,10 +466,10 @@ public class ChangeServiceResponse {
 
                         if (requestDto.getOffers() != null && !requestDto.getOffers().isEmpty()) {
                             List<String> srvRefs = new ArrayList<>();
-                            for (com.airlines.GO7API.requestDto.ChangeServiceReqDto.Offer offer : requestDto
+                            for (com.airlines.go7api.requestdto.ChangeServiceReqDto.Offer offer : requestDto
                                     .getOffers()) {
                                 if (offer.getOfferItems() != null) {
-                                    for (com.airlines.GO7API.requestDto.ChangeServiceReqDto.Offer.OfferItemDto item : offer
+                                    for (com.airlines.go7api.requestdto.ChangeServiceReqDto.Offer.OfferItemDto item : offer
                                             .getOfferItems()) {
                                         if (item.getOfferItemId() != null) {
                                             srvRefs.add(item.getOfferItemId());

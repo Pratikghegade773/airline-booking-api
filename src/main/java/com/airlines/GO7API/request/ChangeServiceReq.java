@@ -1,6 +1,6 @@
-package com.airlines.GO7API.request;
+package com.airlines.go7api.request;
 
-import com.airlines.GO7API.requestDto.ChangeServiceReqDto;
+import com.airlines.go7api.requestdto.ChangeServiceReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -76,7 +76,7 @@ public class ChangeServiceReq {
     }
 
     public static ChangeServiceReq mapToChangeServiceReq(ChangeServiceReqDto dto,
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto bookingRsp) {
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
         ChangeServiceReq request = new ChangeServiceReq();
         Aerocrs aerocrs = new Aerocrs();
         Parms parms = new Parms();
@@ -97,7 +97,7 @@ public class ChangeServiceReq {
                                     && bookingRsp.getAerocrs() != null
                                     && bookingRsp.getAerocrs().getBooking() != null
                                     && bookingRsp.getAerocrs().getBooking().getPassengers() != null) {
-                                List<com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Passenger> passengers = bookingRsp
+                                List<com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Passenger> passengers = bookingRsp
                                         .getAerocrs().getBooking().getPassengers().getPassenger();
                                 for (String paxRef : item.getPaxRefs()) {
                                     try {
@@ -124,7 +124,7 @@ public class ChangeServiceReq {
                                     && bookingRsp.getAerocrs() != null
                                     && bookingRsp.getAerocrs().getBooking() != null
                                     && bookingRsp.getAerocrs().getBooking().getFlights() != null) {
-                                List<com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight> flights = bookingRsp
+                                List<com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight> flights = bookingRsp
                                         .getAerocrs().getBooking().getFlights().getFlight();
                                 for (String segRef : item.getSpecialServices().getSegId()) {
                                     try {
@@ -185,12 +185,12 @@ public class ChangeServiceReq {
         try {
             JsonNode root = objectMapper.readTree(response);
             if (root.has("errors")) {
-                com.airlines.GO7API.error.ErrorRsp errorRsp = new com.airlines.GO7API.error.ErrorRsp();
+                com.airlines.go7api.error.ErrorRsp errorRsp = new com.airlines.go7api.error.ErrorRsp();
                 errorRsp.setErrorList(new java.util.ArrayList<>());
                 JsonNode errorsArray = root.path("errors");
                 if (errorsArray.isArray()) {
                     for (JsonNode errorNode : errorsArray) {
-                        com.airlines.GO7API.error.ErrorRsp.Error tempError = new com.airlines.GO7API.error.ErrorRsp.Error();
+                        com.airlines.go7api.error.ErrorRsp.Error tempError = new com.airlines.go7api.error.ErrorRsp.Error();
                         tempError.setError(errorNode.path("message").asText());
                         tempError.setCode(errorNode.path("code").asText());
                         errorRsp.getErrorList().add(tempError);

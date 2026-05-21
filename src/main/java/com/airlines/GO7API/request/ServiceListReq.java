@@ -1,7 +1,7 @@
-package com.airlines.GO7API.request;
+package com.airlines.go7api.request;
 
-import com.airlines.GO7API.error.ErrorRsp;
-import com.airlines.GO7API.requestDto.ServiceListReqDto;
+import com.airlines.go7api.error.ErrorRsp;
+import com.airlines.go7api.requestdto.ServiceListReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -106,7 +106,7 @@ public class ServiceListReq {
     }
 
     public static ServiceListReq mapToServiceListRequestDTO(ServiceListReqDto dto,
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto bookingRsp) {
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
         ServiceListReq req = new ServiceListReq();
         req.setApiKey(dto.getApiKey());
 
@@ -121,7 +121,7 @@ public class ServiceListReq {
 
         // Map from Booking Response
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
                     .getBooking();
 
             // 1. Booking ID
@@ -141,12 +141,12 @@ public class ServiceListReq {
             // 3. Flight ID (Take first flight)
             if (booking.getFlights() != null && booking.getFlights().getFlight() != null
                     && !booking.getFlights().getFlight().isEmpty()) {
-                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight firstFlight = booking.getFlights()
+                com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight firstFlight = booking.getFlights()
                         .getFlight().get(0);
                 parms.setFlightId((long) firstFlight.getFlightid());
             } else if (booking.getItems() != null && booking.getItems().getFlight() != null
                     && !booking.getItems().getFlight().isEmpty()) {
-                com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight firstFlight = booking.getItems()
+                com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight firstFlight = booking.getItems()
                         .getFlight().get(0);
                 parms.setFlightId((long) firstFlight.getFlightid());
             }
@@ -157,13 +157,13 @@ public class ServiceListReq {
         return req;
     }
 
-    public static com.airlines.GO7API.request.OrderRetrieveReq mapToGetBookingReq(String bookingConfirmation) {
-        com.airlines.GO7API.request.OrderRetrieveReq req = new com.airlines.GO7API.request.OrderRetrieveReq();
+    public static com.airlines.go7api.request.OrderRetrieveReq mapToGetBookingReq(String bookingConfirmation) {
+        com.airlines.go7api.request.OrderRetrieveReq req = new com.airlines.go7api.request.OrderRetrieveReq();
         req.setApiKey("8d123dcd262ad942852233f81e649089"); // Default or constant if not passed
         req.setOrderRetrieveUrl("https://api.aerocrs.com/v5/getBooking");
 
-        com.airlines.GO7API.request.OrderRetrieveReq.Aerocrs aerocrs = new com.airlines.GO7API.request.OrderRetrieveReq.Aerocrs();
-        com.airlines.GO7API.request.OrderRetrieveReq.Parms parms = new com.airlines.GO7API.request.OrderRetrieveReq.Parms();
+        com.airlines.go7api.request.OrderRetrieveReq.Aerocrs aerocrs = new com.airlines.go7api.request.OrderRetrieveReq.Aerocrs();
+        com.airlines.go7api.request.OrderRetrieveReq.Parms parms = new com.airlines.go7api.request.OrderRetrieveReq.Parms();
         parms.setBookingConfirmation(bookingConfirmation);
 
         aerocrs.setParms(parms);

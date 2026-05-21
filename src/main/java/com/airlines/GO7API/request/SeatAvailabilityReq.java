@@ -1,7 +1,7 @@
-package com.airlines.GO7API.request;
+package com.airlines.go7api.request;
 
-import com.airlines.GO7API.error.ErrorRsp;
-import com.airlines.GO7API.requestDto.SeatAvailabilityReqDto;
+import com.airlines.go7api.error.ErrorRsp;
+import com.airlines.go7api.requestdto.SeatAvailabilityReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -139,7 +139,7 @@ public class SeatAvailabilityReq {
     }
 
     public static SeatAvailabilityReq mapToSeatAvailabilityRequestDTO(SeatAvailabilityReqDto dto,
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto bookingRsp) {
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
         SeatAvailabilityReq req = new SeatAvailabilityReq();
         req.setApiKey(dto.getApiKey());
 
@@ -169,11 +169,11 @@ public class SeatAvailabilityReq {
 
         // 3. Map Flight Params from Booking Response (Preferred)
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
                     .getBooking();
 
             // Extract First Flight Details
-            com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto.Flight firstFlight = null;
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight firstFlight = null;
             if (booking.getFlights() != null && booking.getFlights().getFlight() != null
                     && !booking.getFlights().getFlight().isEmpty()) {
                 firstFlight = booking.getFlights().getFlight().get(0);
@@ -195,13 +195,13 @@ public class SeatAvailabilityReq {
         return req;
     }
 
-    public static com.airlines.GO7API.request.OrderRetrieveReq mapToGetBookingReq(String bookingConfirmation) {
-        com.airlines.GO7API.request.OrderRetrieveReq req = new com.airlines.GO7API.request.OrderRetrieveReq();
+    public static com.airlines.go7api.request.OrderRetrieveReq mapToGetBookingReq(String bookingConfirmation) {
+        com.airlines.go7api.request.OrderRetrieveReq req = new com.airlines.go7api.request.OrderRetrieveReq();
         req.setApiKey("8d123dcd262ad942852233f81e649089");
         req.setOrderRetrieveUrl("https://api.aerocrs.com/v5/getBooking");
 
-        com.airlines.GO7API.request.OrderRetrieveReq.Aerocrs aerocrs = new com.airlines.GO7API.request.OrderRetrieveReq.Aerocrs();
-        com.airlines.GO7API.request.OrderRetrieveReq.Parms parms = new com.airlines.GO7API.request.OrderRetrieveReq.Parms();
+        com.airlines.go7api.request.OrderRetrieveReq.Aerocrs aerocrs = new com.airlines.go7api.request.OrderRetrieveReq.Aerocrs();
+        com.airlines.go7api.request.OrderRetrieveReq.Parms parms = new com.airlines.go7api.request.OrderRetrieveReq.Parms();
         parms.setBookingConfirmation(bookingConfirmation);
 
         aerocrs.setParms(parms);

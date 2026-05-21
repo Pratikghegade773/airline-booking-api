@@ -1,4 +1,4 @@
-package com.airlines.GO7API.error;
+package com.airlines.go7api.error;
 
 import lombok.*;
 

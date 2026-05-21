@@ -1,10 +1,10 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.request.OfferPriceReq;
-import com.airlines.GO7API.requestDto.OfferPriceReqDto;
-import com.airlines.GO7API.responseDto.OfferPriceRspDto;
-import com.airlines.GO7API.responseGo7.OfferPriceRspGo7Dto;
-import com.airlines.GO7API.error.ErrorRsp;
+import com.airlines.go7api.request.OfferPriceReq;
+import com.airlines.go7api.requestdto.OfferPriceReqDto;
+import com.airlines.go7api.responsedto.OfferPriceRspDto;
+import com.airlines.go7api.responsego7.OfferPriceRspGo7Dto;
+import com.airlines.go7api.error.ErrorRsp;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import java.io.IOException;
@@ -39,7 +39,7 @@ public class OfferPriceResponse {
             }
         } catch (Exception e) {
             System.out.println("Failed to parse OfferPriceResp from the response: " + responseObj);
-            e.printStackTrace();
+            // Exception ignored or handled by fallback
             throw new RuntimeException("Failed to parse OfferPriceResp from the response", e);
         }
 

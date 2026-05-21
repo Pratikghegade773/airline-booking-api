@@ -1,4 +1,4 @@
-package com.airlines.GO7API.entity;
+package com.airlines.go7api.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

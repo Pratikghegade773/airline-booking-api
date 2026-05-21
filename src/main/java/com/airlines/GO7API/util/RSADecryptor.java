@@ -1,4 +1,4 @@
-package com.airlines.GO7API.util;
+package com.airlines.go7api.util;
 
 import javax.crypto.Cipher;
 import java.security.KeyFactory;
@@ -17,11 +17,23 @@ public class RSADecryptor {
     public String decrypt(String encryptedData) throws Exception {
         byte[] encryptedBytes = Base64.getDecoder().decode(encryptedData);
 
-        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding"); // Adjust padding as needed
-        cipher.init(Cipher.DECRYPT_MODE, privateKey);
-
-        byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
-        return new String(decryptedBytes);
+        try {
+            Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding"); // Secure padding scheme
+            cipher.init(Cipher.DECRYPT_MODE, privateKey);
+            return new String(cipher.doFinal(encryptedBytes));
+        } catch (Exception e) {
+            System.out.println("OAEP decryption failed, trying PKCS1Padding fallback: " + e.getMessage());
+            try {
+                Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
+                cipher.init(Cipher.DECRYPT_MODE, privateKey);
+                return new String(cipher.doFinal(encryptedBytes));
+            } catch (Exception ex) {
+                System.out.println("PKCS1Padding decryption failed, trying raw RSA fallback: " + ex.getMessage());
+                Cipher cipher = Cipher.getInstance("RSA");
+                cipher.init(Cipher.DECRYPT_MODE, privateKey);
+                return new String(cipher.doFinal(encryptedBytes));
+            }
+        }
     }
 
     private PrivateKey loadRSAPrivateKey(String privateKeyString) throws Exception {

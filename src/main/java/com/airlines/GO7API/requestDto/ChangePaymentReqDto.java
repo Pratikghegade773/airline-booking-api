@@ -1,5 +1,6 @@
-package com.airlines.GO7API.requestDto;
+package com.airlines.go7api.requestdto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -10,6 +11,7 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ChangePaymentReqDto {
 
     private String countryCode;
@@ -19,6 +21,8 @@ public class ChangePaymentReqDto {
     public String distributorOrgId;
     private String agencyId;
     private String agentId;
+    private String agencyName;
+
 
     private int httpResponseCode;
     private String orderId;

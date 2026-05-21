@@ -1,4 +1,4 @@
-package com.airlines.GO7API.responseGo7;
+package com.airlines.go7api.responsego7;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -45,6 +45,7 @@ public class OrderRetrieveRspGo7Dto {
     @AllArgsConstructor
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Booking {
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Items items;
         private int adults;
         private int child;
@@ -64,8 +65,11 @@ public class OrderRetrieveRspGo7Dto {
         private String source;
         private String linktoticket;
         private String linktobooking;
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Flights flights;
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Passengers passengers;
+        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
         private Remarks remarks;
         private List<Object> vouchers;
         @JsonProperty("Balanceinformation")

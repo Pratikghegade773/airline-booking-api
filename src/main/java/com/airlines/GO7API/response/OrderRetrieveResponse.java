@@ -1,8 +1,8 @@
-package com.airlines.GO7API.response;
+package com.airlines.go7api.response;
 
-import com.airlines.GO7API.requestDto.OrderRetrieveReqDto;
-import com.airlines.GO7API.responseDto.OrderRetrieveRspDto;
-import com.airlines.GO7API.responseGo7.OrderRetrieveRspGo7Dto;
+import com.airlines.go7api.requestdto.OrderRetrieveReqDto;
+import com.airlines.go7api.responsedto.OrderRetrieveRspDto;
+import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 
 import java.math.BigDecimal;
 import java.time.Duration;
