@@ -1,5 +1,7 @@
 package com.airlines.go7api.responsego7;
 
+import com.airlines.go7api.responsego7.common.*;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -8,9 +10,12 @@ import lombok.AllArgsConstructor;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SeatAvailabilityRspGo7Dto {
 
     @JsonProperty("aerocrs")
@@ -19,17 +24,7 @@ public class SeatAvailabilityRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class Aerocrs {
-        @JsonProperty("success")
-        private boolean success;
-
-        @JsonProperty("seatmapfare")
-        private SeatMapFare seatMapFare;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SeatMapFare {
         @JsonProperty("actype")
         private String actype;
@@ -44,6 +39,7 @@ public class SeatAvailabilityRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SeatClass {
         @JsonProperty("cabinclass")
         private String cabinClass;
@@ -55,6 +51,7 @@ public class SeatAvailabilityRspGo7Dto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class PaidSeatRow {
         @JsonProperty("rownumber")
         private Integer rowNumber;

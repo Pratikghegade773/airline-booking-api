@@ -20,7 +20,7 @@ import javax.xml.datatype.DatatypeConfigurationException;
 import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class SeatAvailabilityReq {
+public class SeatAvailabilityReq extends BaseGo7Req {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -169,11 +169,11 @@ public class SeatAvailabilityReq {
 
         // 3. Map Flight Params from Booking Response (Preferred)
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
+            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs()
                     .getBooking();
 
             // Extract First Flight Details
-            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight firstFlight = null;
+            com.airlines.go7api.responsego7.common.Flight firstFlight = null;
             if (booking.getFlights() != null && booking.getFlights().getFlight() != null
                     && !booking.getFlights().getFlight().isEmpty()) {
                 firstFlight = booking.getFlights().getFlight().get(0);
@@ -209,66 +209,13 @@ public class SeatAvailabilityReq {
         return req;
     }
 
-    public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
-        String response = makeApiCall();
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-        try {
-            JsonNode root = objectMapper.readTree(response);
-
-            if (root.has("errors")) {
-                ErrorRsp errorRsp = new ErrorRsp();
-                JsonNode errorsArray = root.path("errors");
-
-                if (errorsArray.isArray()) {
-                    for (JsonNode errorNode : errorsArray) {
-                        String errorMessage = errorNode.path("message").asText();
-                        String code = errorNode.path("code").asText();
-
-                        ErrorRsp.Error tempError = new ErrorRsp.Error();
-                        tempError.setError(errorMessage);
-                        tempError.setCode(code);
-                        errorRsp.getErrorList().add(tempError);
-                    }
-                }
-                return errorRsp;
-            } else {
-                return objectMapper.readValue(response, Object.class);
-            }
-        } catch (Exception e) {
-            System.out.println("Error parsing SeatAvailability response: " + e.getMessage());
-            return response;
-        }
+    @Override
+    protected String getApiUrl() {
+        return seatAvailabilityUrl != null ? seatAvailabilityUrl : "";
     }
 
-    public String makeApiCall() throws IOException {
-        String baseUrl = seatAvailabilityUrl;
-        String jsonBody = new ObjectMapper()
-                .enable(SerializationFeature.INDENT_OUTPUT)
-                .writeValueAsString(this);
-
-        HttpHeaders headers = new HttpHeaders();
-        // Standard headers matching OrderCancel/OrderRetrieve
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated SeatAvailability Request is:\n" + jsonBody);
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(baseUrl, HttpMethod.POST, entity, String.class);
-            System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-            System.out.println("SeatAvailability Response: " + response.getBody());
-            return response.getBody();
-
-        } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
-            return e.getResponseBodyAsString();
-        }
+    @Override
+    protected String getRequestName() {
+        return "SeatAvailability";
     }
 }
