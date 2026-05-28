@@ -1,8 +1,6 @@
 package com.airlines.go7api.request;
 
 import com.airlines.go7api.error.ErrorRsp;
-import com.airlines.go7api.requestdto.OrderReshopReqDto;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -22,7 +20,7 @@ import java.io.IOException;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class OrderReshopReq {
+public class OrderReshopReq extends BaseGo7Req {
 
     @JsonProperty("aerocrs")
     public Aerocrs aerocrs;
@@ -114,91 +112,13 @@ public class OrderReshopReq {
         return req;
     }
 
-    public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
-        String response = makeApiCall();
-        if (response == null || response.trim().isEmpty()) {
-            System.out.println("DEBUG: Response is NULL or EMPTY");
-            return response;
-        }
-
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-        try {
-            JsonNode root = objectMapper.readTree(response);
-            if (root.has("errors")) {
-                ErrorRsp errorRsp = new ErrorRsp();
-                JsonNode errorsArray = root.path("errors");
-                if (errorsArray.isArray()) {
-                    for (JsonNode errorNode : errorsArray) {
-                        ErrorRsp.Error tempError = new ErrorRsp.Error();
-                        tempError.setError(errorNode.path("message").asText());
-                        tempError.setCode(errorNode.path("code").asText());
-                        errorRsp.getErrorList().add(tempError);
-                    }
-                }
-                return errorRsp;
-            } else {
-                return objectMapper.readValue(response, Object.class);
-            }
-        } catch (Exception e) {
-            System.out.println("Error parsing OrderReshop response: " + e.getMessage());
-            return response;
-        }
+    @Override
+    protected String getApiUrl() {
+        return reshopUrl != null ? reshopUrl : "";
     }
 
-    public String makeApiCall() throws IOException {
-        String baseUrl = reshopUrl;
-
-        if (this.aerocrs == null || this.aerocrs.parms == null) {
-            System.out.println("DEBUG: aerocrs or parms is NULL in makeApiCall");
-            return null;
-        }
-
-        // Add query parameters as per user sample URL
-        StringBuilder urlWithParams = new StringBuilder(baseUrl);
-        boolean first = true;
-
-        java.util.Map<String, Object> p = this.aerocrs.parms;
-        if (p.containsKey("bookingconfirmation") || p.containsKey("bookingid")) {
-            urlWithParams.append("?").append("bookingconfirmation=")
-                    .append(p.get("bookingconfirmation") != null ? p.get("bookingconfirmation") : p.get("bookingid"));
-            first = false;
-        }
-        if (p.containsKey("currency")) {
-            urlWithParams.append(first ? "?" : "&").append("currency=").append(p.get("currency"));
-            first = false;
-        }
-        if (p.containsKey("action")) {
-            urlWithParams.append(first ? "?" : "&").append("action=").append(p.get("action"));
-            first = false;
-        }
-
-        String finalUrl = urlWithParams.toString();
-        ObjectMapper mapper = new ObjectMapper()
-                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
-                .enable(SerializationFeature.INDENT_OUTPUT);
-        String jsonBody = mapper.writeValueAsString(this);
-
-        System.out.println("Generated OrderReshop Request URL: " + finalUrl);
-        System.out.println("Generated OrderReshop Request Body:\n" + jsonBody);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        RestTemplate restTemplate = new RestTemplate();
-
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(finalUrl, HttpMethod.POST, entity, String.class);
-            System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-            System.out.println("OrderReshop Response: " + response.getBody());
-            return response.getBody();
-        } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
-            return e.getResponseBodyAsString();
-        }
+    @Override
+    protected String getRequestName() {
+        return "OrderReshop";
     }
 }

@@ -1,20 +1,21 @@
 package com.airlines.go7api.response;
 
+import com.airlines.go7api.responsego7.common.*;
+
+import com.airlines.go7api.responsedto.common.*;
+
 import com.airlines.go7api.requestdto.UnpaidCancelReqDto;
 import com.airlines.go7api.responsedto.UnpaidCancelRspDto;
 import com.airlines.go7api.responsego7.UnpaidCancelRspGo7Dto;
 
 import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.stream.Collectors;
+
 
 public class UnpaidCancelResponse {
 
@@ -26,7 +27,7 @@ public class UnpaidCancelResponse {
             return response;
         }
 
-        UnpaidCancelRspGo7Dto.Booking booking = go7Response.getAerocrs().getBooking();
+        Booking booking = go7Response.getAerocrs().getBooking();
 
         // 1. Top Level Fields
         // response.setResponseId("P" + UUID.randomUUID().toString().substring(0,
@@ -37,20 +38,7 @@ public class UnpaidCancelResponse {
 
         response.setApiOwner("G7");
 
-        // Pricing (Removed)
-        // if (booking.getBalanceInformation() != null) {
-        // response.setTotalOrderPrice(booking.getBalanceInformation().getPnrTotal());
-        // } else if (booking.getTotalprice() != null) {
-        // try {
-        // response.setTotalOrderPrice(new BigDecimal(booking.getTotalprice()));
-        // } catch (NumberFormatException e) {
-        // response.setTotalOrderPrice(BigDecimal.ZERO);
-        // }
-        // }
-
-        // response.setCurrency(booking.getCurrency() != null ? booking.getCurrency() :
-        // "USD"); // Removed
-
+        
         // response.setPaymentTimeLimit(formatDateTime(booking.getPnrttl())); // Removed
 
         response.setStatusCode(go7Response.getAerocrs().isSuccess() ? "X" : "REJECTED");
@@ -58,39 +46,23 @@ public class UnpaidCancelResponse {
         response.setValidatingCarrier(validatingCarrier);
 
         // 2. Booking References
-        List<UnpaidCancelRspDto.BookingReference> refs = new ArrayList<>();
-        UnpaidCancelRspDto.BookingReference ref1 = new UnpaidCancelRspDto.BookingReference();
+        List<BookingReferences> refs = new ArrayList<>();
+        BookingReferences ref1 = new BookingReferences();
         ref1.setId(booking.getPnrref());
         ref1.setOtherId("F1");
         refs.add(ref1);
 
-        UnpaidCancelRspDto.BookingReference ref2 = new UnpaidCancelRspDto.BookingReference();
+        BookingReferences ref2 = new BookingReferences();
         ref2.setId(booking.getPnrref());
         ref2.setAirlineId("G7");
         refs.add(ref2);
 
         response.setBookingReferences(refs);
 
-        // Remarks (Removed as per request)
-        // if (booking.getRemarks() != null && booking.getRemarks().getRemark() != null)
-        // {
-        // List<String> remarkTexts = booking.getRemarks().getRemark().stream()
-        // .map(UnpaidCancelRspGo7Dto.Remark::getText)
-        // .filter(text -> text != null && !text.startsWith("Service Contact details"))
-        // .collect(Collectors.toList());
-        // response.setRemarks(remarkTexts);
-        // }
-
-        // 3. ODs (Removed)
-        // List<UnpaidCancelRspDto.OD> ods = new ArrayList<>();
-        // List<UnpaidCancelRspDto.PriceClass> priceClasses = new ArrayList<>();
-        // ... (skipping ods logic)
-        // response.setOds(ods); // Removed
-        // response.setPriceClassList(priceClasses); // Removed
-
+        
         // 4. Pax Details
-        List<UnpaidCancelRspDto.PaxDetailDTO> paxList = new ArrayList<>();
-        List<UnpaidCancelRspGo7Dto.Passenger> go7PaxList = null;
+        List<PaxDetailDTO> paxList = new ArrayList<>();
+        List<Passenger> go7PaxList = null;
 
         if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
             go7PaxList = booking.getPassengers().getPassenger();
@@ -98,16 +70,16 @@ public class UnpaidCancelResponse {
 
         if (go7PaxList != null) {
             int paxCounter = 1;
-            List<UnpaidCancelRspDto.PaxDetailDTO> adtList = new ArrayList<>();
-            for (UnpaidCancelRspGo7Dto.Passenger go7Pax : go7PaxList) {
+            List<PaxDetailDTO> adtList = new ArrayList<>();
+            for (Passenger go7Pax : go7PaxList) {
                 // Only requested fields: ptc, paxId, gender, title, givenName, surname,
                 // birthDate, phones, emails
-                UnpaidCancelRspDto.PaxDetailDTO pax = new UnpaidCancelRspDto.PaxDetailDTO();
+                PaxDetailDTO pax = new PaxDetailDTO();
 
                 String rawTitle = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
                 boolean isInfantByTitle = rawTitle.contains("INF");
 
-                String assignedPtc = mapPaxType(go7Pax.getPaxtype());
+                String assignedPtc = OrderMappingUtil.mapPaxType(go7Pax.getPaxtype());
                 if (isInfantByTitle) {
                     assignedPtc = "INF";
                 }
@@ -115,7 +87,7 @@ public class UnpaidCancelResponse {
                 String paxId;
                 if ("INF".equals(assignedPtc)) {
                     if (!adtList.isEmpty()) {
-                        UnpaidCancelRspDto.PaxDetailDTO parent = adtList.get(adtList.size() - 1);
+                        PaxDetailDTO parent = adtList.get(adtList.size() - 1);
                         paxId = parent.getPaxId() + ".1";
                         // Using try-catch just in case UnpaidCancel DTO doesn't have infantRef yet
                         try {
@@ -159,24 +131,24 @@ public class UnpaidCancelResponse {
                     pax.setGender("MALE");
                 }
 
-                pax.setBirthDate(formatDate(go7Pax.getDob()));
+                pax.setBirthDate(OrderMappingUtil.formatDate(go7Pax.getDob()));
                 // pax.setLanguage("English"); // Removed
 
                 if (go7Pax.getContact() != null) {
-                    UnpaidCancelRspDto.PhoneDTO phone = new UnpaidCancelRspDto.PhoneDTO();
+                    PaxDetailDTO.PhoneDTO phone = new PaxDetailDTO.PhoneDTO();
                     phone.setPhoneNumber(go7Pax.getContact());
                     phone.setType("Operational");
                     phone.setLabel("Mobile");
-                    List<UnpaidCancelRspDto.PhoneDTO> phones = new ArrayList<>();
+                    List<PaxDetailDTO.PhoneDTO> phones = new ArrayList<>();
                     phones.add(phone);
                     pax.setPhones(phones);
                 }
 
                 if (go7Pax.getEmail() != null) {
-                    UnpaidCancelRspDto.EmailDTO email = new UnpaidCancelRspDto.EmailDTO();
+                    PaxDetailDTO.EmailDTO email = new PaxDetailDTO.EmailDTO();
                     email.setEmailAddress(go7Pax.getEmail().toUpperCase());
                     email.setType("Operational");
-                    List<UnpaidCancelRspDto.EmailDTO> emails = new ArrayList<>();
+                    List<PaxDetailDTO.EmailDTO> emails = new ArrayList<>();
                     emails.add(email);
                     pax.setEmails(emails);
                 }
@@ -196,90 +168,23 @@ public class UnpaidCancelResponse {
         return response;
     }
 
-    private static String mapPaxType(String go7Type) {
-        if ("ADULT".equalsIgnoreCase(go7Type))
-            return "ADT";
-        if ("CHILD".equalsIgnoreCase(go7Type))
-            return "CNN";
-        if ("INFANT".equalsIgnoreCase(go7Type))
-            return "INF";
-        return "ADT";
-    }
+    
 
-    private static String calculateJourneyTime(String depDate, String depTime, String arrDate, String arrTime) {
-        if (depDate == null || depTime == null || arrDate == null || arrTime == null) {
-            return "PT0H0M";
-        }
-        try {
-            DateTimeFormatter dateFormatter;
-            if (depDate.contains("/")) {
-                dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
-            } else {
-                dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-            }
+    
 
-            LocalDateTime dep = LocalDateTime.parse(depDate + " " + depTime, dateFormatter);
-            LocalDateTime arr = LocalDateTime.parse(arrDate + " " + arrTime, dateFormatter);
+    
 
-            if (arr.isBefore(dep)) {
-                arr = arr.plusDays(1);
-            }
+    
 
-            Duration duration = Duration.between(dep, arr);
-            long hours = duration.toHours();
-            long minutes = duration.toMinutesPart();
-
-            return String.format("PT%dH%dM", hours, minutes);
-
-        } catch (Exception e) {
-            return "PT0H0M";
-        }
-    }
-
-    private static String formatDate(String dateStr) {
-        if (dateStr == null) {
-            return null;
-        }
-        try {
-            DateTimeFormatter inputFormatter;
-            if (dateStr.contains("/")) {
-                inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd");
-            } else {
-                inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            }
-            LocalDate date = LocalDate.parse(dateStr, inputFormatter);
-            return date.format(DateTimeFormatter.ofPattern("ddMMMyyyy", Locale.ENGLISH));
-        } catch (Exception e) {
-            return dateStr;
-        }
-    }
-
-    private static String adjustDateByDays(String dateStr, int days) {
-        if (dateStr == null)
-            return null;
-        try {
-            DateTimeFormatter inputFormatter;
-            if (dateStr.contains("/")) {
-                inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd");
-            } else {
-                inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            }
-            LocalDate date = LocalDate.parse(dateStr, inputFormatter);
-            return date.plusDays(days).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        } catch (Exception e) {
-            return dateStr;
-        }
-    }
-
-    private static UnpaidCancelRspDto.OrderItemDTO createOrderItem(String responseId, int itemIndex, String ptc,
-            List<String> paxIds, List<UnpaidCancelRspGo7Dto.Flight> flights, String currency) {
-        UnpaidCancelRspDto.OrderItemDTO item = new UnpaidCancelRspDto.OrderItemDTO();
+    private static OrderItemsDTO createOrderItem(String responseId, int itemIndex, String ptc,
+            List<String> paxIds, List<Flight> flights, String currency) {
+        OrderItemsDTO item = new OrderItemsDTO();
         item.setOrderItemId(responseId + "_AIR-" + itemIndex);
         item.setPtc(ptc);
 
         String mainClassName = "Economy";
         if (flights != null && !flights.isEmpty()) {
-            UnpaidCancelRspGo7Dto.Flight f = flights.get(0);
+            Flight f = flights.get(0);
             if (f.getFlightClass() != null) {
                 String[] parts = f.getFlightClass().split("/");
                 if (parts.length > 1) {
@@ -298,10 +203,10 @@ public class UnpaidCancelResponse {
         BigDecimal unitBase = BigDecimal.ZERO;
         BigDecimal unitTax = BigDecimal.ZERO;
 
-        List<UnpaidCancelRspDto.OrderItemDTO.Taxes> taxList = new ArrayList<>();
+        List<OrderItemsDTO.Tax> taxList = new ArrayList<>();
 
         if (flights != null) {
-            for (UnpaidCancelRspGo7Dto.Flight f : flights) {
+            for (Flight f : flights) {
                 // Base Fare
                 String fareStr = null;
                 boolean isAdt = "ADT".equals(ptc);
@@ -343,28 +248,28 @@ public class UnpaidCancelResponse {
 
         // Taxes Breakdown (Apply Count Multiplier)
         if (flights != null) {
-            for (UnpaidCancelRspGo7Dto.Flight f : flights) {
+            for (Flight f : flights) {
                 if (f.getTaxes() != null) {
                     addTaxToList(taxList, "Ground_handling", f.getTaxes().getGroundHandling() * count, currency);
                     addTaxToList(taxList, "Security", f.getTaxes().getSecurity() * count, currency);
                     addTaxToList(taxList, "Fuel", f.getTaxes().getFuel() * count, currency);
-                    addTaxToList(taxList, "tax_4", f.getTaxes().getTax_4() * count, currency);
+                    addTaxToList(taxList, "tax_4", f.getTaxes().getTax4() * count, currency);
                 }
             }
         }
         item.setTaxes(taxList);
 
-        UnpaidCancelRspDto.OrderItemDTO.TotalTax totalTaxObj = new UnpaidCancelRspDto.OrderItemDTO.TotalTax();
+        OrderItemsDTO.TotalTax totalTaxObj = new OrderItemsDTO.TotalTax();
         totalTaxObj.setAmount(totalTaxAmount);
         totalTaxObj.setCurrency(currency);
         item.setTotalTax(totalTaxObj);
 
-        UnpaidCancelRspDto.OrderItemDTO.BaseFare baseFareObj = new UnpaidCancelRspDto.OrderItemDTO.BaseFare();
+        OrderItemsDTO.BaseFare baseFareObj = new OrderItemsDTO.BaseFare();
         baseFareObj.setAmount(totalBase);
         baseFareObj.setCurrency(currency);
         item.setBaseFare(baseFareObj);
 
-        UnpaidCancelRspDto.OrderItemDTO.TotalFare totalFareObj = new UnpaidCancelRspDto.OrderItemDTO.TotalFare();
+        OrderItemsDTO.TotalFare totalFareObj = new OrderItemsDTO.TotalFare();
         totalFareObj.setAmount(totalPrice);
         totalFareObj.setCurrency(currency);
         item.setTotalFare(totalFareObj);
@@ -372,11 +277,11 @@ public class UnpaidCancelResponse {
         return item;
     }
 
-    private static void addTaxToList(List<UnpaidCancelRspDto.OrderItemDTO.Taxes> list, String description,
+    private static void addTaxToList(List<OrderItemsDTO.Tax> list, String description,
             double amount, String currency) {
         if (amount <= 0.001)
             return;
-        UnpaidCancelRspDto.OrderItemDTO.Taxes t = new UnpaidCancelRspDto.OrderItemDTO.Taxes();
+        OrderItemsDTO.Tax t = new OrderItemsDTO.Tax();
         t.setCode("TAX");
         t.setDescription(description);
         t.setAmount(BigDecimal.valueOf(amount));
@@ -404,7 +309,7 @@ public class UnpaidCancelResponse {
         } catch (Exception e) {
             // Fallback: try just date parsing if no time
             try {
-                return formatDate(dateTimeStr);
+                return OrderMappingUtil.formatDate(dateTimeStr);
             } catch (Exception ex) {
                 return dateTimeStr; // Return raw if all fails
             }

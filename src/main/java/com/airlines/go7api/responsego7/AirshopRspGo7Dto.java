@@ -1,84 +1,30 @@
 package com.airlines.go7api.responsego7;
 
+import com.airlines.go7api.responsego7.common.*;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
 import java.util.Map;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
+
 public class AirshopRspGo7Dto {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Aerocrs {
-        private boolean success;
-        private Flights flights;
-    }
+    
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Flights {
-        private int count;
-        private List<Flight> flight;
-    }
+    
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Flight {
-        private String airlineDesignator;
-        private String airlineICAOcode;
-        private String airlineName;
-        private String aircraftType;
-        private String aircraftTypeIataCode;
-        private String fltnum;
-        private String fromcode;
-        private String tocode;
-        private String via;
-        @JsonProperty("STD")
-        private String std;
-        @JsonProperty("STA")
-        private String sta;
-        @JsonProperty("STDinUTC")
-        private String stdInUtc;
-        @JsonProperty("STAinUTC")
-        private String staInUtc;
-        private String airlineLogo;
-        @JsonProperty("CompanyChildAgeStart")
-        private int companyChildAgeStart;
-        @JsonProperty("CompanyChildAgeEnd")
-        private int companyChildAgeEnd;
-        @JsonProperty("companyINFchargeTAX")
-        private boolean companyInfChargeTax;
-        private String deeplink;
-        private String direction;
-        private int websiteDiscount;
-        private String flighttype;
-        private int minimumPassengersForBooking;
-        private long flightcode;
-
-        // Classes have dynamic keys (e.g., "Y/Flex Plus", "B")
-        private Map<String, FlightClass> classes;
-
-        private List<String> rules;
-        private String departureTerminal;
-        private String arrivalTerminal;
-    }
+    
 
     @Data
     @NoArgsConstructor

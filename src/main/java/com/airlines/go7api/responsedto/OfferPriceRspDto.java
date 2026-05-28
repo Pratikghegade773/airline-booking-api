@@ -1,5 +1,7 @@
 package com.airlines.go7api.responsedto;
 
+import com.airlines.go7api.responsedto.common.*;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -30,41 +32,6 @@ public class OfferPriceRspDto {
     private List<OfferItemDto> offerItems;
     private List<PriceClassList> priceClassList;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class OD {
-        private String classType;
-        private String cabinType;
-        private String fareBasisCode;
-        private String priceClassId;
-        private String segmentId;
-        private String negotiatedCode;
-        private String rbdCode;
-        private String odKey;
-        private String origin;
-        private String destination;
-        private String originAirportName;
-        private String destinationAirportName;
-        private String departureDate;
-        private String arrivalDate;
-        private String departureTime;
-        private String arrivalTime;
-        private String journeyTime;
-        private String equipment;
-        private String flightNumber;
-        private String marketingCarrierName;
-        private Object marketingCarrierCode;
-        private String marketingCarrierLogo;
-        private String operatingCarrierName;
-        private Object operatingCarrierCode;
-        private String operatingCarrierLogo;
-        private String arrivalTerminal;
-        private String departureTerminal;
-        private String operatingCarrierFlightNumber;
-        private int changeOfDay;
-    }
 
     @Data
     @NoArgsConstructor
@@ -85,7 +52,6 @@ public class OfferPriceRspDto {
         private List<String> givenName;
         private String currency;
 
-        // private List<PriceClassReference> priceClassReferences;
 
         @Data
         @NoArgsConstructor
@@ -136,7 +102,6 @@ public class OfferPriceRspDto {
             private String category;
             private String quantity;
             private List<Weight> weight;
-            // private List<Dimension> dimension;
             private List<DescriptionDTO> descriptions;
 
             @Data

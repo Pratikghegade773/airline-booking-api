@@ -4,6 +4,7 @@ import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.OrderChangeReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,7 +21,7 @@ import javax.xml.datatype.DatatypeConfigurationException;
 import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class OrderChangeReq {
+public class OrderChangeReq extends BaseGo7Req {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -175,81 +176,19 @@ public class OrderChangeReq {
         return req;
     }
 
-    public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
-        String response = makeApiCall();
-        if (response == null || response.trim().isEmpty()) {
-            return null;
-        }
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-        try {
-            JsonNode root = objectMapper.readTree(response);
-
-            if (root.has("errors")) {
-                ErrorRsp errorRsp = new ErrorRsp();
-                JsonNode errorsArray = root.path("errors");
-
-                if (errorsArray.isArray()) {
-                    for (JsonNode errorNode : errorsArray) {
-                        String errorMessage = errorNode.path("message").asText();
-                        String code = errorNode.path("code").asText();
-
-                        ErrorRsp.Error tempError = new ErrorRsp.Error();
-                        tempError.setError(errorMessage);
-                        tempError.setCode(code);
-                        errorRsp.getErrorList().add(tempError);
-                    }
-                }
-                return errorRsp;
-            } else {
-                return objectMapper.readValue(response, Object.class);
-            }
-        } catch (Exception e) {
-            System.out.println("Error parsing OrderChange response: " + e.getMessage());
-            return response;
-        }
-    }
-
-    public String makeApiCall() throws IOException {
-        String baseUrl = orderChangeUrl;
-
-        // Simplify URL: Only include bookingconfirmation
+    @Override
+    protected String getApiUrl() {
+        String baseUrl = orderChangeUrl != null ? orderChangeUrl : "";
         StringBuilder urlWithParams = new StringBuilder(baseUrl);
-        Parms p = this.aerocrs.getParms();
+        Parms p = this.aerocrs != null ? this.aerocrs.getParms() : null;
         if (p != null && p.getBookingConfirmation() != null) {
             urlWithParams.append("?bookingconfirmation=").append(p.getBookingConfirmation());
         }
+        return urlWithParams.toString();
+    }
 
-        String finalUrl = urlWithParams.toString();
-        String jsonBody = new ObjectMapper()
-                .enable(SerializationFeature.INDENT_OUTPUT)
-                .writeValueAsString(this);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated OrderChange Request URL: " + finalUrl);
-        System.out.println("Generated OrderChange Request Body:\n" + jsonBody);
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(finalUrl, HttpMethod.POST, entity, String.class);
-            System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-            System.out.println("OrderChange Response: " + response.getBody());
-            return response.getBody();
-
-        } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Status Code: " + e.getStatusCode());
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
-            return e.getResponseBodyAsString();
-        } catch (Exception e) {
-            System.out.println("General Error in makeApiCall: " + e.getMessage());
-            return null;
-        }
+    @Override
+    protected String getRequestName() {
+        return "OrderChange";
     }
 }

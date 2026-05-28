@@ -1,5 +1,7 @@
 package com.airlines.go7api.request;
 
+import com.airlines.go7api.requestdto.common.*;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,7 +27,7 @@ import java.time.format.DateTimeFormatter;
 
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class OrderCreateReq {
+public class OrderCreateReq extends BaseGo7Req {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -85,7 +87,7 @@ public class OrderCreateReq {
         int child = 0;
         int infant = 0;
         if (orderCreateRQ.getPassengers() != null) {
-            for (OrderCreateReqDto.Pax pax : orderCreateRQ.getPassengers()) {
+            for (PaxReqDto pax : orderCreateRQ.getPassengers()) {
                 String ptc = pax.getPtc();
                 if (ptc == null)
                     ptc = "ADT";
@@ -107,24 +109,12 @@ public class OrderCreateReq {
         parms.put("infant", infant);
         parms.put("bookflight", bookflightList);
 
-        // Passengers List (Only Names for OrderCreate? The original code didn't show
-        // full pax mapping for OrderCreate but kept it simple. Preserving original
-        // logic implies checking previous file content.
-        // Original file (Step 197/430) logic stopped at 'adults' calculation and
-        // skipped detailed pax mapping for OrderCreate?
-        // Wait, looking at Step 430... It had the pax count logic but I cut off reading
-        // at line 100.
-        // To be safe, I will only include what I saw or improve.
-        // OrderCreate usually requires names.
-        // Use the passengers list from DTO to populate "passenger" list in parms.
-
         List<Map<String, Object>> passengerList = new ArrayList<>();
         if (orderCreateRQ.getPassengers() != null) {
-            for (OrderCreateReqDto.Pax dtoPax : orderCreateRQ.getPassengers()) {
+            for (PaxReqDto dtoPax : orderCreateRQ.getPassengers()) {
                 Map<String, Object> p = new LinkedHashMap<>();
                 p.put("firstname", dtoPax.getFirstName());
                 p.put("lastname", dtoPax.getLastName());
-                // p.put("title", mapTitleToId(dtoPax.getTitle()));
                 p.put("title", mapTitleToId(dtoPax.getTitle()));
                 // Map gender to M/F
                 String gender = dtoPax.getGender();
@@ -212,7 +202,7 @@ public class OrderCreateReq {
         }
 
         if (requestDto.getPassengers() != null) {
-            for (OrderCreateReqDto.Pax dtoPax : requestDto.getPassengers()) {
+            for (PaxReqDto dtoPax : requestDto.getPassengers()) {
                 String ptc = dtoPax.getPtc(); // Assuming PTC is available or default to ADT
 
                 // Included Infants as they are required for "Passengers must match" check
@@ -269,7 +259,7 @@ public class OrderCreateReq {
                 }
 
                 if (dtoPax.getIdentityDocument() != null) {
-                    OrderCreateReqDto.Pax.IdentityDocument doc = dtoPax.getIdentityDocument();
+                    PaxReqDto.IdentityDocument doc = dtoPax.getIdentityDocument();
                     p.put("paxnationailty", doc.getCitizenshipCountryCode());
                     p.put("paxdoctype", doc.getIdentityDocumentType() != null ? doc.getIdentityDocumentType() : "PP");
                     p.put("paxdocnumber", doc.getIdentityDocumentNumber());
@@ -303,7 +293,7 @@ public class OrderCreateReq {
         parms.put("bookingid", bookingId);
 
         if (requestDto.getPaymentInformation() != null) {
-            OrderCreateReqDto.PaymentInformation payInfo = requestDto.getPaymentInformation();
+            PaymentInformationReqDto payInfo = requestDto.getPaymentInformation();
 
             // Cash / Manual
             if (payInfo.getAmount() != null) {
@@ -379,47 +369,13 @@ public class OrderCreateReq {
         return request;
     }
 
-    // --------------------------------------------------------------------------------------------
-    // Universal Unmarshal
-    // --------------------------------------------------------------------------------------------
-    public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
-        String response = makeApiCall();
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        try {
-            JsonNode root = objectMapper.readTree(response);
-
-            // Check for explicit "errors" field
-            if (root.has("errors")) {
-                ErrorRsp errorRsp = new ErrorRsp();
-                JsonNode errorsArray = root.path("errors");
-                if (errorsArray.isArray()) {
-                    for (JsonNode errorNode : errorsArray) {
-                        String errorMessage = errorNode.path("message").asText();
-                        String code = errorNode.path("code").asText();
-                        ErrorRsp.Error tempError = new ErrorRsp.Error();
-                        tempError.setError(errorMessage);
-                        tempError.setCode(code);
-                        errorRsp.getErrorList().add(tempError);
-                    }
-                }
-                return errorRsp;
-            } else {
-                // Return generic object or specific map
-                return objectMapper.readValue(response, Object.class);
-            }
-        } catch (Exception e) {
-            // Fallback for non-JSON or other errors
-            System.out.println("Error parsing response: " + e.getMessage());
-            return response;
-        }
+    @Override
+    protected String getApiUrl() {
+        return apiUrl != null ? apiUrl : "https://api.aerocrs.com/v5/createBooking";
     }
 
-    public String makeApiCall() throws IOException {
-        String jsonBody = new ObjectMapper()
-                .enable(SerializationFeature.INDENT_OUTPUT)
-                .writeValueAsString(this);
-
+    @Override
+    protected String getRequestName() {
         String logPrefix = "OrderCreate";
         if (apiUrl != null) {
             if (apiUrl.contains("confirmBooking")) {
@@ -432,25 +388,6 @@ public class OrderCreateReq {
                 logPrefix = "OrderTicket";
             }
         }
-
-        HttpHeaders headers = new HttpHeaders();
-        // Hardcoded Auth (or derived if passed)
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated " + logPrefix + " Request is:\n" + jsonBody);
-
-        RestTemplate restTemplate = new RestTemplate();
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(apiUrl, HttpMethod.POST, entity,
-                    String.class);
-            System.out.println(logPrefix + " Response: " + response.getBody());
-            return response.getBody();
-        } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
-            return e.getResponseBodyAsString();
-        }
+        return logPrefix;
     }
 }

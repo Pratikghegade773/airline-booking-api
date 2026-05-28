@@ -1,5 +1,9 @@
 package com.airlines.go7api.response;
 
+import com.airlines.go7api.responsego7.common.*;
+
+import com.airlines.go7api.responsedto.common.*;
+
 import com.airlines.go7api.requestdto.AirshopReqDto;
 import com.airlines.go7api.responsedto.AirshopRspDto;
 import com.airlines.go7api.responsedto.AirshopRspDto.Offer;
@@ -21,6 +25,7 @@ import java.io.InputStream;
 import org.springframework.stereotype.Service;
 
 @Service
+
 public class AirshopResponse {
 
     private Map<String, String> airportMap = new HashMap<>();
@@ -53,10 +58,9 @@ public class AirshopResponse {
 
         List<Offer> offers = new ArrayList<>();
 
-        // Logic to extract fareid for responseId
         String responseId = java.util.UUID.randomUUID().toString().toUpperCase();
         if (!response.getAerocrs().getFlights().getFlight().isEmpty()) {
-            AirshopRspGo7Dto.Flight firstFlight = response.getAerocrs().getFlights().getFlight().get(0);
+            Flight firstFlight = response.getAerocrs().getFlights().getFlight().get(0);
             if (firstFlight.getClasses() != null && !firstFlight.getClasses().isEmpty()) {
                 AirshopRspGo7Dto.FlightClass fc = firstFlight.getClasses().values().iterator().next();
                 responseId = String.valueOf(fc.getFareid());
@@ -64,11 +68,41 @@ public class AirshopResponse {
         }
         airshopRspDto.setResponseId(responseId);
         airshopRspDto.setApiOwner("G7");
-
         airshopRspDto.setRoundTripType("RT");
 
-        // Generate Passenger Refs
-        // Counts
+
+
+        int flightIndex = 0;
+        for (Flight flight : response.getAerocrs().getFlights().getFlight()) {
+            flightIndex++;
+            if (flight.getClasses() != null) {
+                for (Map.Entry<String, AirshopRspGo7Dto.FlightClass> entry : flight.getClasses().entrySet()) {
+                    AirshopRspGo7Dto.FlightClass flightClass = entry.getValue();
+                    String classKey = entry.getKey();
+
+                    Offer offer = mapToOffer(flight, flightClass, classKey, flightIndex, request);
+                    offers.add(offer);
+                }
+            }
+        }
+
+        airshopRspDto.setOffers(offers);
+        return airshopRspDto;
+    }
+
+    private String determineClassType(String classKey, String defaultClassName) {
+        if (classKey.contains("Y/Flex Plus")) {
+            return "Economy Flex Plus";
+        } else if (classKey.contains("Y/Basic")) {
+            return "Economy Basic";
+        } else if (classKey.contains("B")) {
+            return "Business";
+        } else {
+            return defaultClassName;
+        }
+    }
+
+    private Offer mapToOffer(Flight flight, AirshopRspGo7Dto.FlightClass flightClass, String classKey, int flightIndex, AirshopReqDto request) {
         int adults = 1;
         int children = 0;
         int infants = 0;
@@ -78,173 +112,136 @@ public class AirshopResponse {
             infants = request.getInfants();
         }
 
-        int flightIndex = 0;
-        for (AirshopRspGo7Dto.Flight flight : response.getAerocrs().getFlights().getFlight()) {
-            flightIndex++;
-            if (flight.getClasses() != null) {
-                for (Map.Entry<String, AirshopRspGo7Dto.FlightClass> entry : flight.getClasses().entrySet()) {
-                    AirshopRspGo7Dto.FlightClass flightClass = entry.getValue();
-                    String classKey = entry.getKey(); // e.g. "Y/Flex Plus" or "B"
+        Offer offer = new Offer();
+        
+        offer.setOfferId(generateOfferId(flight, flightClass, request));
 
-                    Offer offer = new Offer();
-                    // Generate ID with all required params (hyphen separated)
-                    StringBuilder idBuilder = new StringBuilder();
-                    idBuilder.append(flightClass.getFlightid());
-                    idBuilder.append("-").append(flightClass.getFareid());
-                    idBuilder.append("-").append(flight.getFromcode());
-                    idBuilder.append("-").append(flight.getTocode());
-                    idBuilder.append("-").append(
-                            (request != null && request.getTripType() != null
-                                    && (request.getTripType().equalsIgnoreCase("RT")
-                                            || request.getTripType().equalsIgnoreCase("RoundTrip")
-                                            || request.getTripType().equalsIgnoreCase("Return"))) ? "RT" : "OW");
-                    idBuilder.append("-").append(request != null ? request.getAdults() : 1);
-                    idBuilder.append("-").append(request != null ? request.getChildren() : 0);
-                    idBuilder.append("-").append(request != null ? request.getInfants() : 0);
-                    idBuilder.append("-").append(flightClass.getCurrency());
+        DateTimeFormatter ndcTimeFormat = DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", java.util.Locale.ENGLISH);
+        LocalDateTime now = LocalDateTime.now();
+        offer.setOfferExpiration(now.plusMinutes(20).format(ndcTimeFormat));
+        offer.setPaymentTimeLimit(now.plusDays(2).format(ndcTimeFormat));
+        offer.setTicketedByTimeLimit(now.plusDays(2).format(ndcTimeFormat));
 
-                    offer.setOfferId(idBuilder.toString());
+        offer.setValidatingCarrier("G7");
+        offer.setCurrency(flightClass.getCurrency());
+        offer.setClassType(determineClassType(classKey, flightClass.getClassName()));
+        offer.setCabinTypeCode(flightClass.getCabinClass());
 
-                    // Time Limits
-                    DateTimeFormatter ndcTimeFormat = DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss",
-                            java.util.Locale.ENGLISH);
-                    LocalDateTime now = LocalDateTime.now();
-                    offer.setOfferExpiration(now.plusMinutes(20).format(ndcTimeFormat));
-                    offer.setPaymentTimeLimit(now.plusDays(2).format(ndcTimeFormat));
-                    offer.setTicketedByTimeLimit(now.plusDays(2).format(ndcTimeFormat));
+        String segmentId = "SEG" + flightIndex;
+        offer.setOds(createODList(flight, flightClass, flightIndex, segmentId));
 
-                    offer.setValidatingCarrier("G7");
-                    offer.setCurrency(flightClass.getCurrency());
-                    if (classKey.contains("Y/Flex Plus")) {
-                        offer.setClassType("Economy Flex Plus");
-                    } else if (classKey.contains("Y/Basic")) {
-                        offer.setClassType("Economy Basic");
-                    } else if (classKey.contains("B")) {
-                        offer.setClassType("Business");
-                    } else {
-                        offer.setClassType(flightClass.getClassName());
-                    }
-                    offer.setCabinTypeCode(flightClass.getCabinClass());
+        BigDecimal grandTotal = BigDecimal.ZERO;
+        List<Offer.OfferItemDto> offerItems = new ArrayList<>();
+        int itemIdx = 1;
 
-                    // Price
-                    // Calculated as sum of OfferItems
-                    BigDecimal grandTotal = BigDecimal.ZERO;
+        if (adults > 0) {
+            List<String> adtRefs = new ArrayList<>();
+            for (int i = 1; i <= adults; i++) {
+                adtRefs.add("T" + i);
+            }
+            Offer.OfferItemDto adtItem = createOfferItem(offer.getOfferId(), itemIdx++, "ADT", adtRefs, flightClass, flightIndex, segmentId, "ADT");
+            offerItems.add(adtItem);
+            grandTotal = grandTotal.add(adtItem.getTotalPrice());
+        }
 
-                    // OD Mapping
-                    Offer.OD od = new Offer.OD();
-                    String segmentId = "SEG" + flightIndex;
+        if (children > 0) {
+            List<String> cnnRefs = new ArrayList<>();
+            for (int i = 1; i <= children; i++) {
+                int paxRefIdx = adults + i;
+                cnnRefs.add("T" + paxRefIdx);
+            }
+            Offer.OfferItemDto cnnItem = createOfferItem(offer.getOfferId(), itemIdx++, "CNN", cnnRefs, flightClass, flightIndex, segmentId, "CNN");
+            offerItems.add(cnnItem);
+            grandTotal = grandTotal.add(cnnItem.getTotalPrice());
+        }
 
-                    // Set odKey based on direction (Outbound=OD1, Inbound=OD2)
-                    String odKey = "OD1";
-                    if (flight.getDirection() != null && flight.getDirection().equalsIgnoreCase("inbound")) {
-                        odKey = "OD2";
-                    }
-                    od.setOdKey(odKey);
+        if (infants > 0) {
+            List<String> infRefs = new ArrayList<>();
+            for (int i = 1; i <= infants; i++) {
+                int parentRefIdx = (i <= adults) ? i : ((i - 1) % adults) + 1;
+                infRefs.add("T" + parentRefIdx + ".1");
+            }
+            Offer.OfferItemDto infItem = createOfferItem(offer.getOfferId(), itemIdx, "INF", infRefs, flightClass, flightIndex, segmentId, "INF");
+            offerItems.add(infItem);
+            grandTotal = grandTotal.add(infItem.getTotalPrice());
+        }
 
-                    od.setOrigin(flight.getFromcode());
-                    od.setDestination(flight.getTocode());
-                    od.setOriginAirportName(airportMap.getOrDefault(flight.getFromcode(), flight.getFromcode()));
-                    od.setDestinationAirportName(airportMap.getOrDefault(flight.getTocode(), flight.getTocode()));
-                    od.setFlightNumber(flight.getFltnum());
-                    od.setEquipment(flight.getAircraftType());
-                    od.setMarketingCarrierCode(flight.getAirlineDesignator());
-                    od.setMarketingCarrierName(flight.getAirlineName());
-                    // Set cabinType as cached from flightClass (requested by user)
-                    od.setCabinType(flightClass.getCabinClass());
-                    od.setSegmentId(segmentId);
-                    od.setPriceClassId("PC" + flightIndex);
+        offer.setOfferItems(offerItems);
+        offer.setTotalPrice(grandTotal);
 
-                    // RBD and FareBasiscode
-                    od.setRbdCode(null);
-                    od.setFareBasisCode(null);
+        return offer;
+    }
 
-                    // Map Terminals (keep empty if empty)
-                    od.setDepartureTerminal(flight.getDepartureTerminal());
-                    od.setArrivalTerminal(flight.getArrivalTerminal());
+    private String generateOfferId(Flight flight, AirshopRspGo7Dto.FlightClass flightClass, AirshopReqDto request) {
+        StringBuilder idBuilder = new StringBuilder();
+        idBuilder.append(flightClass.getFlightid());
+        idBuilder.append("-").append(flightClass.getFareid());
+        idBuilder.append("-").append(flight.getFromcode());
+        idBuilder.append("-").append(flight.getTocode());
+        idBuilder.append("-").append(
+                (request != null && request.getTripType() != null
+                        && (request.getTripType().equalsIgnoreCase("RT")
+                                || request.getTripType().equalsIgnoreCase("RoundTrip")
+                                || request.getTripType().equalsIgnoreCase("Return"))) ? "RT" : "OW");
+        idBuilder.append("-").append(request != null ? request.getAdults() : 1);
+        idBuilder.append("-").append(request != null ? request.getChildren() : 0);
+        idBuilder.append("-").append(request != null ? request.getInfants() : 0);
+        idBuilder.append("-").append(flightClass.getCurrency());
+        return idBuilder.toString();
+    }
 
-                    // Calculate Journey Time
-                    if (flight.getStd() != null && flight.getSta() != null) {
-                        try {
-                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss.SSS");
-                            LocalDateTime dep = LocalDateTime.parse(flight.getStd(), formatter);
-                            LocalDateTime arr = LocalDateTime.parse(flight.getSta(), formatter);
-                            Duration duration = Duration.between(dep, arr);
-                            od.setJourneyTime(duration.toString());
-                        } catch (Exception e) {
-                            // Leave null if parsing fails
-                        }
-                    }
+    private List<OD> createODList(Flight flight, AirshopRspGo7Dto.FlightClass flightClass, int flightIndex, String segmentId) {
+        OD od = new OD();
+        String odKey = "OD1";
+        if (flight.getDirection() != null && flight.getDirection().equalsIgnoreCase("inbound")) {
+            odKey = "OD2";
+        }
+        od.setOdKey(odKey);
 
-                    // Date/Time split (Assume standard format YYYY/MM/DD HH:mm:ss.SSS)
-                    String std = flight.getStd();
-                    if (std != null && std.contains(" ")) {
-                        String[] parts = std.split(" ");
-                        od.setDepartureDate(formatDate(parts[0])); // Format to ddMMMyyyy (e.g. 25May2026)
-                        od.setDepartureTime(parts[1].substring(0, 5)); // HH:mm
-                    }
-                    String sta = flight.getSta();
-                    if (sta != null && sta.contains(" ")) {
-                        String[] parts = sta.split(" ");
-                        od.setArrivalDate(formatDate(parts[0])); // Format to ddMMMyyyy (e.g. 25May2026)
-                        od.setArrivalTime(parts[1].substring(0, 5));
-                    }
+        od.setOrigin(flight.getFromcode());
+        od.setDestination(flight.getTocode());
+        od.setOriginAirportName(airportMap.getOrDefault(flight.getFromcode(), flight.getFromcode()));
+        od.setDestinationAirportName(airportMap.getOrDefault(flight.getTocode(), flight.getTocode()));
+        od.setFlightNumber(flight.getFltnum());
+        od.setEquipment(flight.getAircraftType());
+        od.setMarketingCarrierCode(flight.getAirlinedesignator());
+        od.setMarketingCarrierName(flight.getAirline());
+        od.setCabinType(flightClass.getCabinClass());
+        od.setSegmentId(segmentId);
+        od.setPriceClassId("PC" + flightIndex);
+        od.setRbdCode(null);
+        od.setFareBasisCode(null);
+        od.setDepartureTerminal(flight.getDepartureTerminal());
+        od.setArrivalTerminal(flight.getArrivalTerminal());
 
-                    List<Offer.OD> odList = new ArrayList<>();
-                    odList.add(od);
-                    offer.setOds(odList);
-
-                    // Offer Items
-                    List<Offer.OfferItemDto> offerItems = new ArrayList<>();
-                    int itemIdx = 1;
-
-                    // ADULTS
-                    if (adults > 0) {
-                        List<String> adtRefs = new ArrayList<>();
-                        for (int i = 1; i <= adults; i++) {
-                            adtRefs.add("T" + i);
-                        }
-                        Offer.OfferItemDto adtItem = createOfferItem(offer.getOfferId(), itemIdx++, "ADT", adtRefs,
-                                flightClass, flightIndex, segmentId, "ADT");
-                        offerItems.add(adtItem);
-                        grandTotal = grandTotal.add(adtItem.getTotalPrice());
-                    }
-
-                    // CHILDREN
-                    if (children > 0) {
-                        List<String> cnnRefs = new ArrayList<>();
-                        for (int i = 1; i <= children; i++) {
-                            int paxRefIdx = adults + i;
-                            cnnRefs.add("T" + paxRefIdx);
-                        }
-                        Offer.OfferItemDto cnnItem = createOfferItem(offer.getOfferId(), itemIdx++, "CNN", cnnRefs,
-                                flightClass, flightIndex, segmentId, "CNN");
-                        offerItems.add(cnnItem);
-                        grandTotal = grandTotal.add(cnnItem.getTotalPrice());
-                    }
-
-                    // INFANTS
-                    if (infants > 0) {
-                        List<String> infRefs = new ArrayList<>();
-                        for (int i = 1; i <= infants; i++) {
-                            // Associate with Adult i (wrap if needed, but usually i <= adults)
-                            int parentRefIdx = (i <= adults) ? i : ((i - 1) % adults) + 1;
-                            infRefs.add("T" + parentRefIdx + ".1");
-                        }
-                        Offer.OfferItemDto infItem = createOfferItem(offer.getOfferId(), itemIdx++, "INF", infRefs,
-                                flightClass, flightIndex, segmentId, "INF");
-                        offerItems.add(infItem);
-                        grandTotal = grandTotal.add(infItem.getTotalPrice());
-                    }
-                    offer.setOfferItems(offerItems);
-                    offer.setTotalPrice(grandTotal);
-
-                    offers.add(offer);
-                }
+        if (flight.getStd() != null && flight.getSta() != null) {
+            try {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss.SSS");
+                LocalDateTime dep = LocalDateTime.parse(flight.getStd(), formatter);
+                LocalDateTime arr = LocalDateTime.parse(flight.getSta(), formatter);
+                Duration duration = Duration.between(dep, arr);
+                od.setJourneyTime(duration.toString());
+            } catch (Exception e) {
+                // Leave null if parsing fails
             }
         }
 
-        airshopRspDto.setOffers(offers);
-        return airshopRspDto;
+        String std = flight.getStd();
+        if (std != null && std.contains(" ")) {
+            String[] parts = std.split(" ");
+            od.setDepartureDate(OrderMappingUtil.formatDate(parts[0]));
+            od.setDepartureTime(parts[1].substring(0, 5));
+        }
+        String sta = flight.getSta();
+        if (sta != null && sta.contains(" ")) {
+            String[] parts = sta.split(" ");
+            od.setArrivalDate(OrderMappingUtil.formatDate(parts[0]));
+            od.setArrivalTime(parts[1].substring(0, 5));
+        }
+
+        List<OD> odList = new ArrayList<>();
+        odList.add(od);
+        return odList;
     }
 
     private Offer.OfferItemDto createOfferItem(String offerId, int itemIndex, String ptc, List<String> paxRefs,
@@ -255,8 +252,6 @@ public class AirshopResponse {
         item.setPassengerRefs(paxRefs);
 
         int count = paxRefs.size();
-
-        // Price (Unit)
         BigDecimal unitTotal = BigDecimal.ZERO;
         BigDecimal unitTax = BigDecimal.ZERO;
 
@@ -271,31 +266,24 @@ public class AirshopResponse {
             try {
                 unitTotal = cFare != null ? new BigDecimal(cFare)
                         : new BigDecimal(flightClass.getFare().getAdultFare());
-                unitTax = new BigDecimal(flightClass.getFare().getTax()); // Assume same tax
+                unitTax = new BigDecimal(flightClass.getFare().getTax());
             } catch (Exception e) {
             }
         } else if ("INF".equals(type)) {
             String iFare = flightClass.getFare().getInfantFare();
             try {
                 unitTotal = iFare != null ? new BigDecimal(iFare) : BigDecimal.ZERO;
-                unitTax = BigDecimal.ZERO; // Assume 0 for safety for INF unless specified
+                unitTax = BigDecimal.ZERO;
             } catch (Exception e) {
             }
         }
 
-        // Calculate Totals
         BigDecimal total = unitTotal.multiply(new BigDecimal(count));
         BigDecimal tax = unitTax.multiply(new BigDecimal(count));
 
         item.setTotalPrice(total);
-
-        // Baggage
         item.setBaggageAllowances(getBaggage(flightClass, segmentId, paxRefs, type));
-
-        // Price Class
         item.setPriceClassReferences(getPriceClass(flightClass, flightIndex));
-
-        // Fare Detail (Pass count to multiply breakdown if needed)
         item.setFareDetail(getFareDetail(flightClass, total, tax, count));
 
         return item;
@@ -304,8 +292,6 @@ public class AirshopResponse {
     private List<Offer.OfferItemDto.BaggageAllowance> getBaggage(AirshopRspGo7Dto.FlightClass flightClass,
             String segmentId, List<String> paxRefs, String type) {
         List<Offer.OfferItemDto.BaggageAllowance> bagList = new ArrayList<>();
-
-        // 1. Checked-In Baggage
         Offer.OfferItemDto.BaggageAllowance checkedBag = new Offer.OfferItemDto.BaggageAllowance();
         checkedBag.setCategory("Checked-In");
         checkedBag.setSegmentrefId(java.util.Collections.singletonList(segmentId));
@@ -327,11 +313,6 @@ public class AirshopResponse {
         }
         bagList.add(checkedBag);
 
-        // 2. Hand Baggage (from Services) - Generally ADT/CNN only? Or INF too?
-        // Usually Infants don't have Hand Baggage unless stated.
-        // I will assume if INF has allowance in text, it's specific.
-        // For now, add it for all if present, or filtering for INF?
-        // Let's add it for all if service is active.
         if (flightClass.getServices() != null && flightClass.getServices().containsKey("HandBaggage")) {
             AirshopRspGo7Dto.Service hbService = flightClass.getServices().get("HandBaggage");
             if (hbService.isActive()) {
@@ -417,7 +398,6 @@ public class AirshopResponse {
         totalTaxObj.setCurrency(flightClass.getCurrency());
         price.setTotalTax(totalTaxObj);
 
-        // Tax Breakdown
         List<Offer.OfferItemDto.FareDetail.Price.Taxes> taxesList = new ArrayList<>();
         if (flightClass.getRawFareObject() != null &&
                 flightClass.getRawFareObject().getRackFare() != null &&
@@ -425,7 +405,6 @@ public class AirshopResponse {
 
             Map<String, String> breakdown = flightClass.getRawFareObject().getRackFare().getTaxBreakdown();
 
-            // 1. Calculate sum of breakdown taxes to determine scaling factor
             BigDecimal breakdownSum = BigDecimal.ZERO;
             for (String val : breakdown.values()) {
                 try {
@@ -436,7 +415,6 @@ public class AirshopResponse {
 
             BigDecimal scaleFactor = BigDecimal.ONE;
             if (breakdownSum.compareTo(BigDecimal.ZERO) > 0) {
-                // Calculate unit tax from the total 'tax' passed in (which is unitTax * count)
                 BigDecimal unitTax = tax.divide(new BigDecimal(count), 10, java.math.RoundingMode.HALF_UP);
                 scaleFactor = unitTax.divide(breakdownSum, 10, java.math.RoundingMode.HALF_UP);
             }
@@ -454,7 +432,6 @@ public class AirshopResponse {
                     rawUnitTax = BigDecimal.ZERO;
                 }
 
-                // Apply Scaling to get accurate Unit Tax
                 BigDecimal scaledUnitTax = rawUnitTax.multiply(scaleFactor).setScale(2, java.math.RoundingMode.HALF_UP);
                 BigDecimal totalTaxAmount = scaledUnitTax.multiply(new BigDecimal(count));
 
@@ -469,14 +446,11 @@ public class AirshopResponse {
                 }
 
                 taxesItem.setAmount(totalTaxAmount);
-                // Total field in Taxes DTO should be the same as amount (total for this
-                // category)
                 taxesItem.setTotal(totalTaxAmount);
 
                 taxesList.add(taxesItem);
             }
         } else if (tax.compareTo(BigDecimal.ZERO) > 0) {
-            // Fallback for missing breakdown
             Offer.OfferItemDto.FareDetail.Price.Taxes taxesItem = new Offer.OfferItemDto.FareDetail.Price.Taxes();
             taxesItem.setCode("TAX");
             taxesItem.setAmount(tax);
@@ -494,17 +468,5 @@ public class AirshopResponse {
         return list;
     }
 
-    private static String formatDate(String dateStr) {
-        if (dateStr == null)
-            return null;
-        try {
-            java.time.format.DateTimeFormatter inputFormatter = dateStr.contains("/") 
-                    ? java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd")
-                    : java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            java.time.LocalDate date = java.time.LocalDate.parse(dateStr, inputFormatter);
-            return date.format(java.time.format.DateTimeFormatter.ofPattern("ddMMMyyyy", java.util.Locale.ENGLISH));
-        } catch (Exception e) {
-            return dateStr;
-        }
-    }
+    
 }

@@ -1,12 +1,13 @@
 package com.airlines.go7api.responsedto;
 
+import com.airlines.go7api.responsedto.common.*;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 
 
@@ -52,60 +53,6 @@ public class ServiceListRspDto {
             private String description;
             private Service service;
 
-            @Data
-            @AllArgsConstructor
-            @NoArgsConstructor
-            @JsonInclude(JsonInclude.Include.NON_NULL)
-            public static class Service {
-                private String serviceId;
-                private ServiceDefinationRef serviceDefinationRef;
-
-                @Data
-                @AllArgsConstructor
-                @NoArgsConstructor
-                @JsonInclude(JsonInclude.Include.NON_NULL)
-                public static class ServiceDefinationRef {
-                    private String serviceDefId;
-                    private String name;
-                    private Encoding encoding;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_NULL)
-                    public static class Encoding {
-                        private String rfic;
-                        private String type;
-                        private String code;
-                        private String subCode;
-                    }
-
-                    private List<Description> descriptions;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_NULL)
-                    public static class Description {
-                        private String text;
-                        private String application;
-                    }
-
-                    private String settlement;
-                    private String validatingCarrier;
-                    private Detail detail;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_NULL)
-                    public static class Detail {
-                        private String couponType;
-                        private BigInteger maximumQuantity;
-                    }
-                }
-
-            }
         }
 
         @Data
@@ -127,59 +74,6 @@ public class ServiceListRspDto {
             private String description;
             private Service service;
 
-            @Data
-            @AllArgsConstructor
-            @NoArgsConstructor
-            @JsonInclude(JsonInclude.Include.NON_NULL)
-            public static class Service {
-                private String serviceId;
-                private ServiceDefinationRef serviceDefinationRef;
-
-                @Data
-                @AllArgsConstructor
-                @NoArgsConstructor
-                @JsonInclude(JsonInclude.Include.NON_NULL)
-                public static class ServiceDefinationRef {
-                    private String serviceDefId;
-                    private String name;
-                    private Encoding encoding;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_NULL)
-                    public static class Encoding {
-                        private String rfic;
-                        private String type;
-                        private String code;
-                        private String subCode;
-                    }
-
-                    private List<Description> descriptions;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_NULL)
-                    public static class Description {
-                        private String text;
-                        private String application;
-                    }
-
-                    private String settlement;
-                    private String validatingCarrier;
-                    private Detail detail;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_NULL)
-                    public static class Detail {
-                        private String couponType;
-                        private BigInteger maximumQuantity;
-                    }
-                }
-            }
         }
 
         @Data
@@ -199,61 +93,6 @@ public class ServiceListRspDto {
             private String description;
             private Service service;
 
-            @Data
-            @AllArgsConstructor
-            @NoArgsConstructor
-            @JsonInclude(JsonInclude.Include.NON_NULL)
-            public static class Service {
-                private String serviceId;
-                private ServiceDefinationRef serviceDefinationRef;
-
-                @Data
-                @AllArgsConstructor
-                @NoArgsConstructor
-                @JsonInclude(JsonInclude.Include.NON_NULL)
-                public static class ServiceDefinationRef {
-                    private String serviceDefId;
-                    private String name;
-                    private Encoding encoding;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_NULL)
-                    public static class Encoding {
-                        private String rfic;
-                        private String rfisc;
-                        private String type;
-                        private String code;
-                        private String subCode;
-                    }
-
-                    @JsonInclude(JsonInclude.Include.NON_EMPTY)
-                    private List<Description> descriptions;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_EMPTY)
-                    public static class Description {
-                        private String text;
-                        private String application;
-                    }
-
-                    private String settlement;
-                    private String validatingCarrier;
-                    private Detail detail;
-
-                    @Data
-                    @AllArgsConstructor
-                    @NoArgsConstructor
-                    @JsonInclude(JsonInclude.Include.NON_NULL)
-                    public static class Detail {
-                        private String couponType;
-                        private BigInteger maximumQuantity;
-                    }
-                }
-            }
         }
     }
 

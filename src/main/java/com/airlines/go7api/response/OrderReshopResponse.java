@@ -1,5 +1,4 @@
 package com.airlines.go7api.response;
-
 import com.airlines.go7api.requestdto.AirshopReqDto;
 import com.airlines.go7api.responsedto.AirshopRspDto;
 import com.airlines.go7api.responsedto.OrderReshopRspDto;

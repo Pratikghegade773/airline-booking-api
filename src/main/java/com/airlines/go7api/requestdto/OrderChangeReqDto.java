@@ -1,11 +1,11 @@
 package com.airlines.go7api.requestdto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.airlines.go7api.requestdto.common.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
 
@@ -17,7 +17,6 @@ public class OrderChangeReqDto {
     private String owner;
     private String responseId;
     private String orderId;
-    // private String offerId;
     private String agencyId;
     private String agentId;
     private String apiKey;
@@ -26,7 +25,7 @@ public class OrderChangeReqDto {
 
 
     private List<DeleteOrderItemDto> deleteOrderItems;
-    private PaymentInformation paymentInformation;
+    private PaymentInformationReqDto paymentInformation;
     private List<Offer> offers;
 
 
@@ -71,65 +70,11 @@ public class OrderChangeReqDto {
 
     private String paymentType;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class PaymentInformation {
-        private String cardCode;
-        private String cardNumber;
-        private String seriesCode;
-        private String cardHolderName;
-        private String expiration;
-        private Address address;
-        private String currencyCode;
-        private BigDecimal amount;
+    
 
-        @Data
-        @NoArgsConstructor
-        @AllArgsConstructor
-        public static class Address {
-            private String street;
-            private String city;
-            private String state;
-            private String postalCode;
-            private String countryCode;
-            private String country;
-        }
-    }
+    private List<PaxReqDto> passengers;
 
-    private List<Pax> passengers;
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Pax {
-        private String paxId;
-        private String ptc;
-        private String dob;
-        private String gender;
-        private String title;
-        private String firstName;
-        private String middleName;
-        private String lastName;
-        private String infantRef;
-        private String countryDialingCode;
-        private BigDecimal areaCode;
-        private BigDecimal phoneNumber;
-        private String email;
-        private Address1 address;
-
-        @Data
-        @NoArgsConstructor
-        @AllArgsConstructor
-        public static class Address1 {
-            private String street;
-            private String city;
-            private String state;
-            private String postalCode;
-            private String countryCode;
-            private String country;
-        }
-    }
+    
 
     @Data
     @NoArgsConstructor

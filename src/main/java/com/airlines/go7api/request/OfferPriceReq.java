@@ -2,8 +2,6 @@ package com.airlines.go7api.request;
 
 import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.OfferPriceReqDto;
-import com.airlines.go7api.responsedto.OfferPriceRspDto;
-//import com.airlines.go7api.responsedto.OfferPriceRspGo7Dto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -18,13 +16,12 @@ import org.springframework.web.client.RestTemplate;
 import javax.xml.datatype.DatatypeConfigurationException;
 import java.io.IOException;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Data
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class OfferPriceReq {
+public class OfferPriceReq extends BaseGo7Req {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -120,54 +117,13 @@ public class OfferPriceReq {
         return request;
     }
 
-    public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
-        String response = makeApiCall();
-        ObjectMapper objectMapper = new ObjectMapper();
-        JsonNode root = objectMapper.readTree(response);
-
-        if (root.has("errors")) {
-            ErrorRsp errorRsp = new ErrorRsp();
-            JsonNode errorsArray = root.path("errors");
-            if (errorsArray.isArray()) {
-                for (JsonNode errorNode : errorsArray) {
-                    String errorMessage = errorNode.path("message").asText();
-                    String code = errorNode.path("code").asText();
-                    ErrorRsp.Error tempError = new ErrorRsp.Error();
-                    tempError.setError(errorMessage);
-                    tempError.setCode(code);
-                    errorRsp.getErrorList().add(tempError);
-                }
-            }
-            return errorRsp;
-        } else {
-            // Return raw response for inspection
-            return objectMapper.readValue(response, Object.class);
-        }
+    @Override
+    protected String getApiUrl() {
+        return offerPriceUrl != null ? offerPriceUrl : "";
     }
 
-    public String makeApiCall() throws IOException {
-        String jsonBody = new ObjectMapper()
-                .enable(SerializationFeature.INDENT_OUTPUT)
-                .writeValueAsString(this);
-
-        HttpHeaders headers = new HttpHeaders();
-        // Hardcoded Auth Credentials
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated OfferPrice Request is:\n" + jsonBody);
-
-        RestTemplate restTemplate = new RestTemplate();
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(offerPriceUrl, HttpMethod.POST, entity,
-                    String.class);
-            System.out.println("OfferPrice Response: " + response.getBody());
-            return response.getBody();
-        } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
-            return e.getResponseBodyAsString();
-        }
+    @Override
+    protected String getRequestName() {
+        return "OfferPrice";
     }
 }

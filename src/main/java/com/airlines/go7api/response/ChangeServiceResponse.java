@@ -1,20 +1,22 @@
 package com.airlines.go7api.response;
 
+
+import com.airlines.go7api.responsego7.common.*;
+
+import com.airlines.go7api.responsedto.common.*;
+
 import com.airlines.go7api.responsedto.ChangeServiceRspDto;
 import com.airlines.go7api.responsego7.ChangeServiceRspGo7Dto;
 import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 
 import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 
 public class ChangeServiceResponse {
 
@@ -29,7 +31,7 @@ public class ChangeServiceResponse {
             return response;
         }
 
-        OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs().getBooking();
+        Booking booking = bookingRsp.getAerocrs().getBooking();
 
         // 1. Top Level Fields
         response.setResponseId("R" + java.util.UUID.randomUUID().toString().substring(0, 15).toUpperCase());
@@ -42,13 +44,13 @@ public class ChangeServiceResponse {
         response.setTotalOrderPrice(BigDecimal.ZERO); // Placeholder
 
         // 1b. Global Price Calculations (Pre-calculated for use in payments and items)
-        List<OrderRetrieveRspGo7Dto.Flight> flightList = booking.getFlights() != null
+        List<Flight> flightList = booking.getFlights() != null
                 && booking.getFlights().getFlight() != null ? booking.getFlights().getFlight()
                         : (booking.getItems() != null ? booking.getItems().getFlight() : null);
 
         BigDecimal totalTax = BigDecimal.ZERO;
         if (flightList != null) {
-            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+            for (Flight f : flightList) {
                 if (f.getTotaltaxes() > 0)
                     totalTax = totalTax.add(BigDecimal.valueOf(f.getTotaltaxes()));
             }
@@ -74,16 +76,16 @@ public class ChangeServiceResponse {
         response.setCurrency(booking.getCurrency() != null ? booking.getCurrency() : "USD");
 
         // 2. ODs (Flights)
-        List<ChangeServiceRspDto.OD> ods = new ArrayList<>();
-        List<ChangeServiceRspDto.PriceClass> pcl = new ArrayList<>();
+        List<OD> ods = new ArrayList<>();
+        List<PriceClass> pcl = new ArrayList<>();
 
         Map<String, String> flightSegmentMap = new HashMap<>();
 
         if (flightList != null) {
             int segId = 1;
             int odId = 1;
-            for (OrderRetrieveRspGo7Dto.Flight flight : flightList) {
-                ChangeServiceRspDto.OD od = new ChangeServiceRspDto.OD();
+            for (Flight flight : flightList) {
+                OD od = new OD();
                 String segIdStr = "SEG" + segId;
                 od.setSegmentId(segIdStr);
                 od.setOdKey("OD" + odId);
@@ -91,8 +93,8 @@ public class ChangeServiceResponse {
                 od.setDestination(flight.getTocode());
                 od.setOriginAirportName(flight.getFrom());
                 od.setDestinationAirportName(flight.getTo());
-                od.setDepartureDate(formatDate(flight.getFlightdate()));
-                od.setArrivalDate(formatDate(flight.getFlightdate())); // Simplified
+                od.setDepartureDate(OrderMappingUtil.formatDate(flight.getFlightdate()));
+                od.setArrivalDate(OrderMappingUtil.formatDate(flight.getFlightdate())); // Simplified
 
                 // Adjust for overnight
                 if (flight.getDepart() != null && flight.getArrive() != null) {
@@ -100,7 +102,7 @@ public class ChangeServiceResponse {
                         LocalTime depTime = LocalTime.parse(flight.getDepart());
                         LocalTime arrTime = LocalTime.parse(flight.getArrive());
                         if (arrTime.isBefore(depTime)) {
-                            od.setArrivalDate(formatDate(adjustDateByDays(flight.getFlightdate(), 1)));
+                            od.setArrivalDate(OrderMappingUtil.formatDate(OrderMappingUtil.adjustDateByDays(flight.getFlightdate(), 1)));
                         }
                     } catch (Exception e) {
                     }
@@ -108,7 +110,7 @@ public class ChangeServiceResponse {
 
                 od.setDepartureTime(flight.getDepart());
                 od.setArrivalTime(flight.getArrive());
-                od.setJourneyTime(calculateJourneyTime(flight.getFlightdate(), flight.getDepart(),
+                od.setJourneyTime(OrderMappingUtil.calculateJourneyTime(flight.getFlightdate(), flight.getDepart(),
                         flight.getFlightdate(), flight.getArrive()));
                 od.setFlightNumber(flight.getNumber());
                 od.setEquipment(flight.getAircraftType());
@@ -164,7 +166,7 @@ public class ChangeServiceResponse {
                 ods.add(od);
 
                 // Dynamic PriceClass Generation
-                ChangeServiceRspDto.PriceClass pc = new ChangeServiceRspDto.PriceClass();
+                PriceClass pc = new PriceClass();
                 pc.setPriceClassId("PC" + odId);
 
                 String finalClassName = cabinCode;
@@ -182,9 +184,9 @@ public class ChangeServiceResponse {
                 pc.setClassName(finalClassName);
                 pc.setCabinTypeCode(cabinCode);
 
-                List<ChangeServiceRspDto.PriceClass.Description> descs = new ArrayList<>();
+                List<PriceClass.Description> descs = new ArrayList<>();
                 if (descs.isEmpty()) {
-                    ChangeServiceRspDto.PriceClass.Description d = new ChangeServiceRspDto.PriceClass.Description();
+                    PriceClass.Description d = new PriceClass.Description();
                     d.setText("Standard Service");
                     d.setOdKey("OD" + odId);
                     descs.add(d);
@@ -199,8 +201,8 @@ public class ChangeServiceResponse {
         response.setPriceClassList(pcl);
 
         // 3. Booking References
-        List<ChangeServiceRspDto.BookingReferences> refs = new ArrayList<>();
-        ChangeServiceRspDto.BookingReferences ref = new ChangeServiceRspDto.BookingReferences();
+        List<BookingReferences> refs = new ArrayList<>();
+        BookingReferences ref = new BookingReferences();
         ref.setId(booking.getPnrref());
         ref.setAirlineId(carrierCode);
         refs.add(ref);
@@ -217,10 +219,10 @@ public class ChangeServiceResponse {
                 defaultIssuingAirline = flightList.get(0).getAirline();
         }
 
-        List<ChangeServiceRspDto.TicketDocInfoDTO> topTicketDocInfos = new ArrayList<>();
-        List<ChangeServiceRspDto.EMDInfoDTO> topEmdInfos = new ArrayList<>();
+        List<TicketDocInfoDTO> topTicketDocInfos = new ArrayList<>();
+        List<EMDInfoDTO> topEmdInfos = new ArrayList<>();
         List<String> rawPaxIds = new ArrayList<>();
-        List<ChangeServiceRspDto.PaxDetailDTO> paxList = new ArrayList<>();
+        List<PaxDetailDTO> paxList = new ArrayList<>();
 
         // CHECK IF PAYMENT WAS PROVIDED
         boolean isPaymentProvided = (requestDto != null && requestDto.getPaymentInformation() != null);
@@ -232,9 +234,9 @@ public class ChangeServiceResponse {
         // 4. Passenger Details & Service Mapping Logic (Mirroring ChangeSeat)
         Map<String, List<String>> paxToRequestedServices = new HashMap<>(); // PAX1 -> ["SRV123", "SRV456"]
         if (requestDto != null && requestDto.getOffers() != null) {
-            for (com.airlines.go7api.requestdto.ChangeServiceReqDto.Offer offer : requestDto.getOffers()) {
+            for (com.airlines.go7api.requestdto.common.ChangeOfferReqDto offer : requestDto.getOffers()) {
                 if (offer.getOfferItems() != null) {
-                    for (com.airlines.go7api.requestdto.ChangeServiceReqDto.Offer.OfferItemDto item : offer
+                    for (com.airlines.go7api.requestdto.common.ChangeOfferReqDto.OfferItemDto item : offer
                             .getOfferItems()) {
                         if (item.getPaxRefs() != null && item.getOfferItemId() != null) {
                             for (String paxRef : item.getPaxRefs()) {
@@ -253,14 +255,14 @@ public class ChangeServiceResponse {
 
         if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
             int paxCounter = 1;
-            List<ChangeServiceRspDto.PaxDetailDTO> adtList = new ArrayList<>();
-            for (OrderRetrieveRspGo7Dto.Passenger p : booking.getPassengers().getPassenger()) {
-                ChangeServiceRspDto.PaxDetailDTO pax = new ChangeServiceRspDto.PaxDetailDTO();
+            List<PaxDetailDTO> adtList = new ArrayList<>();
+            for (Passenger p : booking.getPassengers().getPassenger()) {
+                PaxDetailDTO pax = new PaxDetailDTO();
 
                 String rawTitle = p.getPaxtitle() != null ? p.getPaxtitle().toUpperCase().replace(".", "") : "MR";
                 boolean isInfantByTitle = rawTitle.contains("INF");
 
-                String assignedPtc = mapPaxType(p.getPaxtype());
+                String assignedPtc = OrderMappingUtil.mapPaxType(p.getPaxtype());
                 if (isInfantByTitle) {
                     assignedPtc = "INF";
                 }
@@ -268,7 +270,7 @@ public class ChangeServiceResponse {
                 String pid;
                 if ("INF".equals(assignedPtc)) {
                     if (!adtList.isEmpty()) {
-                        ChangeServiceRspDto.PaxDetailDTO parent = adtList.get(adtList.size() - 1);
+                        PaxDetailDTO parent = adtList.get(adtList.size() - 1);
                         pid = parent.getPaxId() + ".1";
                         try {
                             parent.setInfantRef(pid);
@@ -290,7 +292,7 @@ public class ChangeServiceResponse {
                 pax.setTitle(rawTitle);
                 pax.setGivenName(p.getFirstname() != null ? p.getFirstname().toUpperCase() : "");
                 pax.setSurname(p.getLastname() != null ? p.getLastname().toUpperCase() : "");
-                pax.setBirthDate(formatDate(p.getDob()));
+                pax.setBirthDate(OrderMappingUtil.formatDate(p.getDob()));
 
                 // Gender Logic Match OrderRetrieve
                 String gender = null;
@@ -326,50 +328,50 @@ public class ChangeServiceResponse {
                 }
 
                 if (p.getEmail() != null) {
-                    ChangeServiceRspDto.PaxDetailDTO.EmailDTO email = new ChangeServiceRspDto.PaxDetailDTO.EmailDTO();
+                    PaxDetailDTO.EmailDTO email = new PaxDetailDTO.EmailDTO();
                     email.setEmailAddress(p.getEmail().toUpperCase());
                     email.setLabel("OTH");
                     email.setType("OSI");
-                    List<ChangeServiceRspDto.PaxDetailDTO.EmailDTO> emails = new ArrayList<>();
+                    List<PaxDetailDTO.EmailDTO> emails = new ArrayList<>();
                     emails.add(email);
                     pax.setEmails(emails);
                 }
 
                 // Ticket Doc Info (Pax Level) - ONLY IF PAYMENT PROVIDED
                 if (isPaymentProvided && p.getETickets() != null && p.getETickets().getFlight() != null) {
-                    List<ChangeServiceRspDto.TicketDocInfoDTO> paxTicketDocs = new ArrayList<>();
+                    List<TicketDocInfoDTO> paxTicketDocs = new ArrayList<>();
 
-                    ChangeServiceRspDto.TicketDocInfoDTO tdi = new ChangeServiceRspDto.TicketDocInfoDTO();
+                    TicketDocInfoDTO tdi = new TicketDocInfoDTO();
                     tdi.setPaxId(Arrays.asList(pid));
                     tdi.setValidatingCarrier(carrierCode);
                     tdi.setIssuingAirlineName(defaultIssuingAirline);
                     tdi.setIssuingPlace(defaultIssuingPlace);
 
-                    List<ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO> docs = new ArrayList<>();
+                    List<TicketDocInfoDTO.TicketDocumentDTO> docs = new ArrayList<>();
 
                     java.util.Set<String> uniqueTickets = new java.util.LinkedHashSet<>();
-                    for (OrderRetrieveRspGo7Dto.Passenger.ETicketFlight etf : p.getETickets().getFlight()) {
+                    for (Passenger.ETicketFlight etf : p.getETickets().getFlight()) {
                         if (etf.getEticketnumber() != null && !etf.getEticketnumber().isEmpty()) {
                             uniqueTickets.add(etf.getEticketnumber().trim());
                         }
                     }
 
                     for (String ticketNbr : uniqueTickets) {
-                        ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO doc = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO();
+                        TicketDocInfoDTO.TicketDocumentDTO doc = new TicketDocInfoDTO.TicketDocumentDTO();
                         doc.setTicketDocNbr(ticketNbr);
                         doc.setType("T");
                         doc.setNumberOfBooklets(1);
-                        doc.setDateOfIssue(formatCurrentDate());
+                        doc.setDateOfIssue(OrderMappingUtil.formatCurrentDate());
                         doc.setTimeOfIssue("00:00");
                         doc.setTicketingLocation(tdi.getIssuingPlace());
                         doc.setReportingType("BSP");
 
                         // Coupons
-                        List<ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO> coupons = new ArrayList<>();
+                        List<TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO> coupons = new ArrayList<>();
                         if (flightList != null) {
                             int couponNum = 1;
-                            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
-                                ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO coupon = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+                            for (Flight f : flightList) {
+                                TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO coupon = new TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO();
                                 coupon.setCouponNumber(couponNum++);
                                 coupon.setCouponReference("FBA" + couponNum);
 
@@ -388,14 +390,14 @@ public class ChangeServiceResponse {
                                 coupon.setStatus("I");
                                 coupon.setValidatingCarrier(carrierCode);
 
-                                ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
+                                TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
                                 cai.setDepartureAirportCode(f.getFromcode());
                                 cai.setArrivalAirportCode(f.getTocode());
-                                cai.setDepartureDate(formatDate(f.getFlightdate()));
+                                cai.setDepartureDate(OrderMappingUtil.formatDate(f.getFlightdate()));
                                 cai.setDepartureTime(f.getDepart());
                                 cai.setDepartureAirportName(f.getFrom());
                                 cai.setDepartureTerminal(f.getDepartureTerminal());
-                                cai.setArrivalDate(formatDate(f.getFlightdate()));
+                                cai.setArrivalDate(OrderMappingUtil.formatDate(f.getFlightdate()));
                                 cai.setArrivalTime(f.getArrive());
                                 cai.setArrivalAirportName(f.getTo());
                                 cai.setArrivalTerminal(f.getArrivalTerminal());
@@ -408,7 +410,7 @@ public class ChangeServiceResponse {
                                         f.getAircraftTypeIataCode() != null ? f.getAircraftTypeIataCode()
                                                 : f.getAircraftType());
 
-                                List<ChangeServiceRspDto.TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
+                                List<TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
                                 caiList.add(cai);
                                 coupon.setCurrentAirlineInfo(caiList);
                                 coupons.add(coupon);
@@ -425,20 +427,20 @@ public class ChangeServiceResponse {
 
                 // EMD Info - ONLY IF PAYMENT PROVIDED
                 if (isPaymentProvided && flightList != null && !flightList.isEmpty()) {
-                    List<ChangeServiceRspDto.EMDInfoDTO> paxEmds = new ArrayList<>();
+                    List<EMDInfoDTO> paxEmds = new ArrayList<>();
 
                     int flightIdx = 0;
-                    for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+                    for (Flight f : flightList) {
                         flightIdx++;
 
-                        ChangeServiceRspDto.EMDInfoDTO emd = new ChangeServiceRspDto.EMDInfoDTO();
+                        EMDInfoDTO emd = new EMDInfoDTO();
                         emd.setValidatingCarrier(carrierCode);
                         emd.setPaxId(Arrays.asList(pid));
                         emd.setIssuingAirlineName(defaultIssuingAirline);
                         emd.setIssuingPlace(defaultIssuingPlace);
 
-                        List<ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
-                        ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO emdDoc = new ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO();
+                        List<EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
+                        EMDInfoDTO.TicketDocumentDTO emdDoc = new EMDInfoDTO.TicketDocumentDTO();
                         String emdNum = "619" + String.valueOf(System.currentTimeMillis()).substring(3);
                         if (booking.getLinktoticket() != null && !booking.getLinktoticket().isEmpty()) {
                             emdNum = booking.getLinktoticket();
@@ -453,23 +455,23 @@ public class ChangeServiceResponse {
                         emdDoc.setConnectedDocNbr(null);
                         emdDoc.setType("J");
                         emdDoc.setNumberOfBooklets(1);
-                        emdDoc.setDateOfIssue(formatCurrentDate());
+                        emdDoc.setDateOfIssue(OrderMappingUtil.formatCurrentDate());
                         emdDoc.setTimeOfIssue("00:00");
                         emdDoc.setTicketingLocation(emd.getIssuingPlace());
                         emdDoc.setReportingType("BSP");
 
-                        List<ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
-                        ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+                        List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
+                        EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
                         emdCoupon.setCouponNumber(1);
                         emdCoupon.setValidatingCarrier(carrierCode);
                         emdCoupon.setStatus("I");
 
                         if (requestDto.getOffers() != null && !requestDto.getOffers().isEmpty()) {
                             List<String> srvRefs = new ArrayList<>();
-                            for (com.airlines.go7api.requestdto.ChangeServiceReqDto.Offer offer : requestDto
+                            for (com.airlines.go7api.requestdto.common.ChangeOfferReqDto offer : requestDto
                                     .getOffers()) {
                                 if (offer.getOfferItems() != null) {
-                                    for (com.airlines.go7api.requestdto.ChangeServiceReqDto.Offer.OfferItemDto item : offer
+                                    for (com.airlines.go7api.requestdto.common.ChangeOfferReqDto.OfferItemDto item : offer
                                             .getOfferItems()) {
                                         if (item.getOfferItemId() != null) {
                                             srvRefs.add(item.getOfferItemId());
@@ -483,15 +485,15 @@ public class ChangeServiceResponse {
                             emdCoupon.setServiceRefs(Arrays.asList("SEG" + flightIdx + "_" + pid + "_SRV"));
                         }
 
-                        List<ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
-                        ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new ChangeServiceRspDto.EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
+                        List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
+                        EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
                         cai.setDepartureAirportCode(f.getFromcode());
                         cai.setArrivalAirportCode(f.getTocode());
-                        cai.setDepartureDate(formatDate(f.getFlightdate()));
+                        cai.setDepartureDate(OrderMappingUtil.formatDate(f.getFlightdate()));
                         cai.setDepartureTime(f.getDepart());
                         cai.setDepartureAirportName(f.getFrom());
                         cai.setDepartureTerminal(f.getDepartureTerminal());
-                        cai.setArrivalDate(formatDate(f.getFlightdate()));
+                        cai.setArrivalDate(OrderMappingUtil.formatDate(f.getFlightdate()));
                         cai.setArrivalTime(f.getArrive());
                         cai.setArrivalAirportName(f.getTo());
                         cai.setArrivalTerminal(f.getArrivalTerminal());
@@ -537,16 +539,16 @@ public class ChangeServiceResponse {
         // 5. Payments (Reordered below Order Items)
 
         // 6. Order Items
-        List<ChangeServiceRspDto.OrderItemsDTO> orderItems = new ArrayList<>();
+        List<OrderItemsDTO> orderItems = new ArrayList<>();
 
         // 6a. Main Flight Item (AIR-1)
-        ChangeServiceRspDto.OrderItemsDTO airItem = new ChangeServiceRspDto.OrderItemsDTO();
+        OrderItemsDTO airItem = new OrderItemsDTO();
         airItem.setOrderItemId(response.getOrderId() + "_AIR-1");
 
         String primaryPtc = "ADT";
         if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null
                 && !booking.getPassengers().getPassenger().isEmpty()) {
-            primaryPtc = mapPaxType(booking.getPassengers().getPassenger().get(0).getPaxtype());
+            primaryPtc = OrderMappingUtil.mapPaxType(booking.getPassengers().getPassenger().get(0).getPaxtype());
         }
         airItem.setPtc(primaryPtc);
 
@@ -554,7 +556,7 @@ public class ChangeServiceResponse {
         BigDecimal actualSrvPrice = BigDecimal.ZERO;
         if (changeServiceRsp != null && changeServiceRsp.getAerocrs() != null
                 && changeServiceRsp.getAerocrs().getDetails() != null) {
-            for (ChangeServiceRspGo7Dto.Aerocrs.Detail detail : changeServiceRsp.getAerocrs().getDetails()) {
+            for (Aerocrs.Detail detail : changeServiceRsp.getAerocrs().getDetails()) {
                 if (detail.getAncillary() != null) {
                     Object priceObj = detail.getAncillary().get("totalprice");
                     if (priceObj != null) {
@@ -571,7 +573,7 @@ public class ChangeServiceResponse {
         BigDecimal sumFlightPrice = BigDecimal.ZERO;
         totalTax = BigDecimal.ZERO;
         if (flightList != null) {
-            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+            for (Flight f : flightList) {
                 BigDecimal fBase = BigDecimal.ZERO;
                 if (f.getInvpricingwithouttax() != null) {
                     try {
@@ -588,7 +590,7 @@ public class ChangeServiceResponse {
 
         BigDecimal invPricingBasis = BigDecimal.ZERO;
         if (flightList != null && !flightList.isEmpty()) {
-            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+            for (Flight f : flightList) {
                 if (f.getInvpricing() != null) {
                     try {
                         invPricingBasis = invPricingBasis.add(new BigDecimal(f.getInvpricing()));
@@ -644,26 +646,26 @@ public class ChangeServiceResponse {
         if (airBaseFare.compareTo(BigDecimal.ZERO) < 0)
             airBaseFare = airItemPrice;
 
-        airItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(
+        airItem.setBaseFare(new OrderItemsDTO.BaseFare(
                 airBaseFare.setScale(2, java.math.RoundingMode.HALF_UP), response.getCurrency()));
-        airItem.setTotalTax(new ChangeServiceRspDto.OrderItemsDTO.TotalTax(
+        airItem.setTotalTax(new OrderItemsDTO.TotalTax(
                 totalTax.setScale(2, java.math.RoundingMode.HALF_UP), response.getCurrency()));
-        airItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(
+        airItem.setTotalFare(new OrderItemsDTO.TotalFare(
                 airItemPrice.setScale(2, java.math.RoundingMode.HALF_UP), response.getCurrency()));
         airItem.setTotalPrice(airItemPrice.setScale(2, java.math.RoundingMode.HALF_UP));
         airItem.setPassengerIds(rawPaxIds);
 
         // Taxes Breakdown
-        List<ChangeServiceRspDto.OrderItemsDTO.Tax> airTaxes = new ArrayList<>();
+        List<OrderItemsDTO.Tax> airTaxes = new ArrayList<>();
         if (flightList != null && totalTax.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal totalGranular = BigDecimal.ZERO;
-            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+            for (Flight f : flightList) {
                 if (f.getTaxes() != null) {
                     totalGranular = totalGranular.add(BigDecimal.valueOf(f.getTaxes().getSecurity()));
                     totalGranular = totalGranular.add(BigDecimal.valueOf(f.getTaxes().getFuel()));
                     totalGranular = totalGranular.add(BigDecimal.valueOf(f.getTaxes().getGroundHandling()));
-                    totalGranular = totalGranular.add(BigDecimal.valueOf(f.getTaxes().getTax_1()));
-                    totalGranular = totalGranular.add(BigDecimal.valueOf(f.getTaxes().getTax_4()));
+                    totalGranular = totalGranular.add(BigDecimal.valueOf(f.getTaxes().getTax1()));
+                    totalGranular = totalGranular.add(BigDecimal.valueOf(f.getTaxes().getTax4()));
                 }
             }
 
@@ -672,18 +674,18 @@ public class ChangeServiceResponse {
                 scaleFactor = totalTax.divide(totalGranular, 10, java.math.RoundingMode.HALF_UP);
             }
 
-            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+            for (Flight f : flightList) {
                 if (f.getTaxes() != null) {
-                    OrderRetrieveRspGo7Dto.Taxes tObj = f.getTaxes();
+                    Taxes tObj = f.getTaxes();
                     addScaledTaxItem(airTaxes, "I2", tObj.getSecurity(), scaleFactor, response.getCurrency(),
                             "Security Tax");
                     addScaledTaxItem(airTaxes, "YQ", tObj.getFuel(), scaleFactor, response.getCurrency(),
                             "Fuel Surcharge");
                     addScaledTaxItem(airTaxes, "GH", tObj.getGroundHandling(), scaleFactor, response.getCurrency(),
                             "Ground Handling");
-                    addScaledTaxItem(airTaxes, "IN", tObj.getTax_1(), scaleFactor, response.getCurrency(),
+                    addScaledTaxItem(airTaxes, "IN", tObj.getTax1(), scaleFactor, response.getCurrency(),
                             "Infrastructure Tax");
-                    addScaledTaxItem(airTaxes, "OT", tObj.getTax_4(), scaleFactor, response.getCurrency(), "Other Tax");
+                    addScaledTaxItem(airTaxes, "OT", tObj.getTax4(), scaleFactor, response.getCurrency(), "Other Tax");
                 }
             }
         }
@@ -691,15 +693,15 @@ public class ChangeServiceResponse {
             airItem.setTaxes(airTaxes);
 
         // Flight Services (Confirmed segment services)
-        List<ChangeServiceRspDto.Service> flightServices = new ArrayList<>();
+        List<Service> flightServices = new ArrayList<>();
         if (flightList != null) {
-            for (OrderRetrieveRspGo7Dto.Flight f : flightList) {
+            for (Flight f : flightList) {
                 String flightKey = (f.getNumber() != null ? f.getNumber() : "") + "_"
                         + (f.getFromcode() != null ? f.getFromcode() : "") + "_"
                         + (f.getTocode() != null ? f.getTocode() : "");
                 String segmentId = flightSegmentMap.getOrDefault(flightKey, "SEG1");
                 for (String pid : rawPaxIds) {
-                    ChangeServiceRspDto.Service srv = new ChangeServiceRspDto.Service();
+                    Service srv = new Service();
                     srv.setServiceId(segmentId + "_" + pid);
                     srv.setServiceStatus("CONFIRMED");
                     flightServices.add(srv);
@@ -717,10 +719,10 @@ public class ChangeServiceResponse {
 
         if (changeServiceRsp != null && changeServiceRsp.getAerocrs() != null
                 && changeServiceRsp.getAerocrs().getDetails() != null) {
-            for (ChangeServiceRspGo7Dto.Aerocrs.Detail detail : changeServiceRsp.getAerocrs().getDetails()) {
+            for (Aerocrs.Detail detail : changeServiceRsp.getAerocrs().getDetails()) {
                 if (detail.getAncillary() != null) {
                     detailsProvided = true;
-                    ChangeServiceRspDto.OrderItemsDTO srvItem = new ChangeServiceRspDto.OrderItemsDTO();
+                    OrderItemsDTO srvItem = new OrderItemsDTO();
                     srvItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
                     srvItem.setPtc("ADT");
 
@@ -765,15 +767,15 @@ public class ChangeServiceResponse {
                     if (currObj != null)
                         srvCurrency = currObj.toString();
 
-                    srvItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(srvPrice, srvCurrency));
-                    srvItem.setTotalTax(new ChangeServiceRspDto.OrderItemsDTO.TotalTax(BigDecimal.ZERO, srvCurrency));
-                    srvItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(srvPrice, srvCurrency));
+                    srvItem.setBaseFare(new OrderItemsDTO.BaseFare(srvPrice, srvCurrency));
+                    srvItem.setTotalTax(new OrderItemsDTO.TotalTax(BigDecimal.ZERO, srvCurrency));
+                    srvItem.setTotalFare(new OrderItemsDTO.TotalFare(srvPrice, srvCurrency));
                     srvItem.setTotalPrice(srvPrice);
                     srvItem.setPassengerIds(Arrays.asList(rawPaxIds.isEmpty() ? "T1" : rawPaxIds.get(0)));
 
                     // Service List for this Ancillary
-                    List<ChangeServiceRspDto.Service> srvList = new ArrayList<>();
-                    ChangeServiceRspDto.Service srv = new ChangeServiceRspDto.Service();
+                    List<Service> srvList = new ArrayList<>();
+                    Service srv = new Service();
 
                     String srvName = detail.getAncillary().get("name") != null
                             ? detail.getAncillary().get("name").toString()
@@ -820,7 +822,7 @@ public class ChangeServiceResponse {
             for (Map.Entry<String, List<String>> entry : paxToRequestedServices.entrySet()) {
                 String pid = entry.getKey();
                 for (String srvRef : entry.getValue()) {
-                    ChangeServiceRspDto.OrderItemsDTO srvItem = new ChangeServiceRspDto.OrderItemsDTO();
+                    OrderItemsDTO srvItem = new OrderItemsDTO();
                     srvItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
                     srvItem.setPtc("ADT");
 
@@ -833,15 +835,15 @@ public class ChangeServiceResponse {
                             srvPrice = actualPrices.get(srvRef);
                         }
                     }
-                    srvItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(srvPrice, srvCurrency));
-                    srvItem.setTotalTax(new ChangeServiceRspDto.OrderItemsDTO.TotalTax(BigDecimal.ZERO, srvCurrency));
-                    srvItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(pricePerSrv, srvCurrency));
+                    srvItem.setBaseFare(new OrderItemsDTO.BaseFare(srvPrice, srvCurrency));
+                    srvItem.setTotalTax(new OrderItemsDTO.TotalTax(BigDecimal.ZERO, srvCurrency));
+                    srvItem.setTotalFare(new OrderItemsDTO.TotalFare(pricePerSrv, srvCurrency));
                     srvItem.setTotalPrice(pricePerSrv);
                     String safePid = rawPaxIds.contains(pid) ? pid : (rawPaxIds.isEmpty() ? "T1" : rawPaxIds.get(0));
                     srvItem.setPassengerIds(Arrays.asList(safePid));
 
-                    List<ChangeServiceRspDto.Service> srvList = new ArrayList<>();
-                    ChangeServiceRspDto.Service srv = new ChangeServiceRspDto.Service();
+                    List<Service> srvList = new ArrayList<>();
+                    Service srv = new Service();
                     srv.setServiceId("SRV_" + srvRef);
                     srv.setServiceStatus("CONFIRMED");
                     srv.setServiceCode(srvRef);
@@ -904,16 +906,16 @@ public class ChangeServiceResponse {
                 }
 
                 if (!processedSrvKeys.contains(pId + "_" + srvCode)) {
-                    ChangeServiceRspDto.OrderItemsDTO srvItem = new ChangeServiceRspDto.OrderItemsDTO();
+                    OrderItemsDTO srvItem = new OrderItemsDTO();
                     srvItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
                     srvItem.setPassengerIds(Arrays.asList(pId));
                     
                     srvItem.setTotalPrice(srvPrice);
-                    srvItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(srvPrice, response.getCurrency()));
-                    srvItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(srvPrice, response.getCurrency()));
+                    srvItem.setBaseFare(new OrderItemsDTO.BaseFare(srvPrice, response.getCurrency()));
+                    srvItem.setTotalFare(new OrderItemsDTO.TotalFare(srvPrice, response.getCurrency()));
 
-                    List<ChangeServiceRspDto.Service> srvListList = new ArrayList<>();
-                    ChangeServiceRspDto.Service srv = new ChangeServiceRspDto.Service();
+                    List<Service> srvListList = new ArrayList<>();
+                    Service srv = new Service();
                     srv.setServiceId(srvCode);
                     srv.setServiceStatus("CONFIRMED");
                     srv.setServiceCode(srvCode);
@@ -944,16 +946,16 @@ public class ChangeServiceResponse {
                     } catch (Exception e) {}
                 }
                 
-                ChangeServiceRspDto.OrderItemsDTO seatItem = new ChangeServiceRspDto.OrderItemsDTO();
+                OrderItemsDTO seatItem = new OrderItemsDTO();
                 seatItem.setOrderItemId(response.getOrderId() + "_SRV" + srvIdx++);
                 seatItem.setPassengerIds(Arrays.asList(pId));
                 
                 seatItem.setTotalPrice(seatPrice);
-                seatItem.setBaseFare(new ChangeServiceRspDto.OrderItemsDTO.BaseFare(seatPrice, response.getCurrency()));
-                seatItem.setTotalFare(new ChangeServiceRspDto.OrderItemsDTO.TotalFare(seatPrice, response.getCurrency()));
+                seatItem.setBaseFare(new OrderItemsDTO.BaseFare(seatPrice, response.getCurrency()));
+                seatItem.setTotalFare(new OrderItemsDTO.TotalFare(seatPrice, response.getCurrency()));
 
-                List<ChangeServiceRspDto.Service> seatServicesList = new ArrayList<>();
-                ChangeServiceRspDto.Service seatSrv = new ChangeServiceRspDto.Service();
+                List<Service> seatServicesList = new ArrayList<>();
+                Service seatSrv = new Service();
                 seatSrv.setServiceId("SEG1_" + pId);
                 seatSrv.setServiceStatus("CONFIRMED");
                 seatSrv.setServiceCode("SEAT" + seatNum);
@@ -971,12 +973,12 @@ public class ChangeServiceResponse {
 
         // 5. Payments split
         if (isPaymentProvided) {
-            List<ChangeServiceRspDto.PaymentsDTO> payments = new ArrayList<>();
+            List<PaymentsDTO> payments = new ArrayList<>();
             String pType = requestDto.getPaymentType() != null ? requestDto.getPaymentType() : "CA";
 
             // Payment for Service Item (Combined New Charges)
             if (paymentSrvAmount.compareTo(BigDecimal.ZERO) > 0 || actualSrvPrice.compareTo(BigDecimal.ZERO) > 0) {
-                ChangeServiceRspDto.PaymentsDTO paySrv = new ChangeServiceRspDto.PaymentsDTO();
+                PaymentsDTO paySrv = new PaymentsDTO();
                 paySrv.setType(pType);
                 paySrv.setStatusCode("SUCCESSFUL");
                 paySrv.setCurrency(response.getCurrency());
@@ -991,7 +993,7 @@ public class ChangeServiceResponse {
                 }
                 // Collect service item IDs
                 List<String> srvRefs = new ArrayList<>();
-                for (ChangeServiceRspDto.OrderItemsDTO item : orderItems) {
+                for (OrderItemsDTO item : orderItems) {
                     if (item.getOrderItemId() != null && item.getOrderItemId().contains("_SRV")) {
                         srvRefs.add(item.getOrderItemId());
                     }
@@ -1007,80 +1009,20 @@ public class ChangeServiceResponse {
         return response;
     }
 
-    private static String mapPaxType(String go7Type) {
-        if ("ADULT".equalsIgnoreCase(go7Type))
-            return "ADT";
-        if ("CHILD".equalsIgnoreCase(go7Type))
-            return "CHD";
-        if ("INFANT".equalsIgnoreCase(go7Type))
-            return "INF";
-        return "ADT";
-    }
+    
 
-    private static String formatDate(String dateStr) {
-        if (dateStr == null)
-            return null;
-        try {
-            DateTimeFormatter inputFormatter = dateStr.contains("/") ? DateTimeFormatter.ofPattern("yyyy/MM/dd")
-                    : DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            LocalDate date = LocalDate.parse(dateStr, inputFormatter);
-            return date.format(DateTimeFormatter.ofPattern("ddMMMyyyy", Locale.ENGLISH));
-        } catch (Exception e) {
-            return dateStr;
-        }
-    }
+    
 
-    private static String adjustDateByDays(String dateStr, int days) {
-        if (dateStr == null)
-            return null;
-        try {
-            DateTimeFormatter inputFormatter = dateStr.contains("/") ? DateTimeFormatter.ofPattern("yyyy/MM/dd")
-                    : DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            LocalDate date = LocalDate.parse(dateStr, inputFormatter);
-            return date.plusDays(days).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        } catch (Exception e) {
-            return dateStr;
-        }
-    }
+    
 
-    private static String calculateJourneyTime(String depDate, String depTime, String arrDate, String arrTime) {
-        if (depDate == null || depTime == null || arrDate == null || arrTime == null) {
-            return "PT0H0M";
-        }
-        try {
-            DateTimeFormatter dateFormatter;
-            if (depDate.contains("/")) {
-                dateFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
-            } else {
-                dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-            }
+    
 
-            LocalDateTime dep = LocalDateTime.parse(depDate + " " + depTime, dateFormatter);
-            LocalDateTime arr = LocalDateTime.parse(arrDate + " " + arrTime, dateFormatter);
+    
 
-            if (arr.isBefore(dep)) {
-                arr = arr.plusDays(1);
-            }
-
-            Duration duration = Duration.between(dep, arr);
-            long hours = duration.toHours();
-            long minutes = duration.toMinutesPart();
-
-            return String.format("PT%dH%dM", hours, minutes);
-
-        } catch (Exception e) {
-            return "PT0H0M";
-        }
-    }
-
-    private static String formatCurrentDate() {
-        return LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMMyyyy", Locale.ENGLISH));
-    }
-
-    private static void addScaledTaxItem(List<ChangeServiceRspDto.OrderItemsDTO.Tax> list, String code, double amount,
+    private static void addScaledTaxItem(List<OrderItemsDTO.Tax> list, String code, double amount,
             BigDecimal scaleFactor, String currency, String description) {
         if (amount > 0) {
-            ChangeServiceRspDto.OrderItemsDTO.Tax t = new ChangeServiceRspDto.OrderItemsDTO.Tax();
+            OrderItemsDTO.Tax t = new OrderItemsDTO.Tax();
             t.setCode(code);
             BigDecimal scaledAmount = BigDecimal.valueOf(amount).multiply(scaleFactor).setScale(2,
                     java.math.RoundingMode.HALF_UP);

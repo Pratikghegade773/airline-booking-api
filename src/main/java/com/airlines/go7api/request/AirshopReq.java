@@ -1,12 +1,9 @@
 package com.airlines.go7api.request;
 
 import com.airlines.go7api.requestdto.AirshopReqDto;
-import com.airlines.go7api.responsedto.AirshopRspDto;
-import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.responsego7.AirshopRspGo7Dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.*;
 import org.springframework.web.client.HttpClientErrorException;
@@ -18,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class AirshopReq {
+public class AirshopReq extends BaseGo7Req {
     @JsonProperty("journeys")
     private List<Journey> journeys;
 
@@ -517,7 +514,7 @@ public class AirshopReq {
         return flightSearchRequestDTO;
     }
 
-    public AirshopRspGo7Dto unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
+    public AirshopRspGo7Dto unmarshal() throws IOException {
         String response = makeApiCall(); // Always a JSON string
         ObjectMapper objectMapper = new ObjectMapper();
 
@@ -571,7 +568,6 @@ public class AirshopReq {
         if (cabinType != null) {
             // Map cabinType string to AeroCRS code if needed, for now passing as is or
             // skipping if not standard
-            // urlBuilder.append("&cabinClass=").append(cabinType);
         }
 
         String finalUrl = urlBuilder.toString();
@@ -615,5 +611,15 @@ public class AirshopReq {
             // Return the error JSON string
             return e.getResponseBodyAsString();
         }
+    }
+
+    @Override
+    protected String getApiUrl() {
+        return "";
+    }
+
+    @Override
+    protected String getRequestName() {
+        return "Airshop";
     }
 }

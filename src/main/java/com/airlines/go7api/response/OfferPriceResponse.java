@@ -1,5 +1,9 @@
 package com.airlines.go7api.response;
 
+import com.airlines.go7api.responsego7.common.*;
+
+import com.airlines.go7api.responsedto.common.*;
+
 import com.airlines.go7api.request.OfferPriceReq;
 import com.airlines.go7api.requestdto.OfferPriceReqDto;
 import com.airlines.go7api.responsedto.OfferPriceRspDto;
@@ -14,6 +18,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+
 
 public class OfferPriceResponse {
 
@@ -44,7 +49,7 @@ public class OfferPriceResponse {
         }
 
         if (go7Response == null || go7Response.getAerocrs() == null
-                || go7Response.getAerocrs().getGetFlight() == null) {
+                || go7Response.getAerocrs().getFlights() == null) {
             System.out.println("OfferPriceResp is null or missing required fields. Raw Response: " + responseObj);
             return new ErrorRsp(); // Or return a specific error
         }
@@ -56,24 +61,23 @@ public class OfferPriceResponse {
         response.setApiOwner("G7"); // As per user request/Airshop
         response.setValidatingCarrier("G7"); // Placeholder or derive from first flight
 
-        List<OfferPriceRspGo7Dto.Flight> flights = go7Response.getAerocrs().getGetFlight().getFlight();
+        List<Flight> flights = go7Response.getAerocrs().getFlights().getFlight();
 
         if (flights != null && !flights.isEmpty()) {
-            OfferPriceRspGo7Dto.Flight firstFlight = flights.get(0);
+            Flight firstFlight = flights.get(0);
 
             // Generate a PricedOfferId
-            // String pricedOfferId = response.getResponseId() + "-1";
             StringBuilder idBuilder = new StringBuilder();
             Map<String, Object> reqParms = request.getAerocrs().getParms();
 
             for (int i = 0; i < flights.size(); i++) {
-                OfferPriceRspGo7Dto.Flight flight = flights.get(i);
+                Flight flight = flights.get(i);
                 int index = i + 1;
 
                 // flightid
                 String flightId = (reqParms != null && reqParms.get("flightid" + index) != null)
                         ? reqParms.get("flightid" + index).toString()
-                        : flight.getFlightid(); // fallback
+                        : String.valueOf(flight.getFlightid()); // fallback
                 if (flightId == null && index == 1 && reqParms != null)
                     flightId = (String) reqParms.get("flightid");
 
@@ -123,19 +127,19 @@ public class OfferPriceResponse {
             response.setTicketedByTimeLimit(now.plusHours(24).format(ndcTimeFormat));
 
             // ODs Mapping
-            List<OfferPriceRspDto.OD> ods = new ArrayList<>();
+            List<OD> ods = new ArrayList<>();
             BigDecimal totalPrice = BigDecimal.ZERO;
             BigDecimal totalTax = BigDecimal.ZERO;
 
             for (int i = 0; i < flights.size(); i++) {
-                OfferPriceRspGo7Dto.Flight flight = flights.get(i);
-                OfferPriceRspDto.OD od = new OfferPriceRspDto.OD();
+                Flight flight = flights.get(i);
+                OD od = new OD();
 
                 od.setOdKey("OD" + (i + 1));
                 od.setOrigin(flight.getFromcode());
                 od.setDestination(flight.getTocode());
-                od.setOriginAirportName(flight.getFromLocation()); // Mapping 'from' to Name
-                od.setDestinationAirportName(flight.getToLocation()); // Mapping 'to' to Name
+                od.setOriginAirportName(flight.getFrom()); // Mapping 'from' to Name
+                od.setDestinationAirportName(flight.getTo()); // Mapping 'to' to Name
 
                 // flightdate="2026/02/20", depart="16:30"
                 // NDC format: 20Feb2026
@@ -226,7 +230,7 @@ public class OfferPriceResponse {
                 BigDecimal adtUnitTotal = BigDecimal.ZERO;
                 BigDecimal adtUnitTax = BigDecimal.ZERO;
 
-                for (OfferPriceRspGo7Dto.Flight f : flights) {
+                for (Flight f : flights) {
                     // Prefer agtfare_adult if available, else rackfare_adult, else net_fare?
                     // Airshop logic uses: new BigDecimal(flightClass.getFare().getAdultFare())
                     // Here we have getRackfareAdult, getAgtfareAdult..
@@ -282,7 +286,7 @@ public class OfferPriceResponse {
                 BigDecimal cnnUnitTotal = BigDecimal.ZERO;
                 BigDecimal cnnUnitTax = BigDecimal.ZERO;
 
-                for (OfferPriceRspGo7Dto.Flight f : flights) {
+                for (Flight f : flights) {
                     String fareStr = f.getAgtfareChild();
                     if (fareStr == null)
                         fareStr = f.getRackfareChild();
@@ -334,7 +338,7 @@ public class OfferPriceResponse {
                 BigDecimal infUnitTotal = BigDecimal.ZERO;
                 BigDecimal infUnitTax = BigDecimal.ZERO;
 
-                for (OfferPriceRspGo7Dto.Flight f : flights) {
+                for (Flight f : flights) {
                     String fareStr = f.getAgtfareInfant();
                     if (fareStr == null)
                         fareStr = f.getRackfareInfant();
@@ -367,7 +371,7 @@ public class OfferPriceResponse {
             // Price Class List
             List<OfferPriceRspDto.PriceClassList> pclList = new ArrayList<>();
             for (int i = 0; i < flights.size(); i++) {
-                OfferPriceRspGo7Dto.Flight f = flights.get(i);
+                Flight f = flights.get(i);
                 OfferPriceRspDto.PriceClassList pcl = new OfferPriceRspDto.PriceClassList();
                 pcl.setPriceClassId("PC" + (i + 1));
                 pcl.setClassName(f.getFlightClass());
@@ -407,7 +411,7 @@ public class OfferPriceResponse {
     }
 
     private static OfferPriceRspDto.OfferItemDto createOfferItem(String pricedOfferId, int itemIndex, String ptc,
-            List<String> paxRefs, BigDecimal unitTotal, BigDecimal unitTax, OfferPriceRspGo7Dto.Flight flight) {
+            List<String> paxRefs, BigDecimal unitTotal, BigDecimal unitTax, Flight flight) {
 
         OfferPriceRspDto.OfferItemDto item = new OfferPriceRspDto.OfferItemDto();
         item.setOfferItemId(pricedOfferId + "-" + itemIndex);

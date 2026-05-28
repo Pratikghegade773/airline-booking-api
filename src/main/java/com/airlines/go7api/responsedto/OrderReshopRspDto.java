@@ -1,5 +1,7 @@
 package com.airlines.go7api.responsedto;
 
+import com.airlines.go7api.responsedto.common.*;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
@@ -36,41 +38,7 @@ public class OrderReshopRspDto {
         private List<OD> ods;
         private BigDecimal totalPrice;
         private String currency;
-        private List<OfferItemDto> offerItems;
-
-        @Data
-        @NoArgsConstructor
-        @AllArgsConstructor
-        @JsonInclude(JsonInclude.Include.NON_NULL)
-        public static class OD {
-            private String fareBasisCode;
-            private String rbdCode;
-            private String cabinType;
-            private String odKey;
-            private String priceClassId;
-            private String origin;
-            private String segmentId;
-            private String destination;
-            private String originAirportName;
-            private String destinationAirportName;
-            private String departureDate;
-            private String arrivalDate;
-            private String departureTime;
-            private String arrivalTime;
-            private String journeyTime;
-            private String equipment;
-            private String flightNumber;
-            private String marketingCarrierName;
-            private String marketingCarrierCode;
-            private String marketingCarrierLogo;
-            private String operatingCarrierName;
-            private String operatingCarrierCode;
-            private String operatingCarrierLogo;
-            private String arrivalTerminal;
-            private String departureTerminal;
-            private String operatingCarrierFlightNumber;
-            private int changeOfDay;
-        }
+        private List<OfferItemDto> offerItems;
 
         @Data
         @NoArgsConstructor

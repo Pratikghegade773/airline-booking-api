@@ -1,7 +1,7 @@
 package com.airlines.go7api.request;
 
+import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.UnpaidCancelReqDto;
-import com.airlines.go7api.error.ErrorRsp; // Assuming ErrorRsp exists
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -20,7 +20,7 @@ import javax.xml.datatype.DatatypeConfigurationException;
 import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class UnpaidCancelReq {
+public class UnpaidCancelReq extends BaseGo7Req {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -109,64 +109,13 @@ public class UnpaidCancelReq {
         return request;
     }
 
-    public Object unmarshal() throws DatatypeConfigurationException, IOException, InterruptedException {
-        String response = makeApiCall();
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        try {
-            JsonNode root = objectMapper.readTree(response);
-
-            if (root.has("errors")) {
-                ErrorRsp errorRsp = new ErrorRsp();
-                JsonNode errorsArray = root.path("errors");
-
-                if (errorsArray.isArray()) {
-                    for (JsonNode errorNode : errorsArray) {
-                        String errorMessage = errorNode.path("message").asText();
-                        String code = errorNode.path("code").asText();
-
-                        ErrorRsp.Error tempError = new ErrorRsp.Error();
-                        tempError.setError(errorMessage);
-                        tempError.setCode(code);
-                        errorRsp.getErrorList().add(tempError);
-                    }
-                }
-                return errorRsp;
-            } else {
-                return objectMapper.readValue(response, Object.class);
-            }
-        } catch (Exception e) {
-            System.out.println("Error parsing response: " + e.getMessage());
-            return response;
-        }
+    @Override
+    protected String getApiUrl() {
+        return unpaidCancelUrl != null ? unpaidCancelUrl : "";
     }
 
-    public String makeApiCall() throws IOException {
-        String baseUrl = "https://api.aerocrs.com/v5/cancelBooking";
-        String jsonBody = new ObjectMapper()
-                .enable(SerializationFeature.INDENT_OUTPUT)
-                .writeValueAsString(this);
-
-        HttpHeaders headers = new HttpHeaders();
-        // Standard headers matching CheckPayment/OrderRetrieve
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated UnpaidCancel Request is:\n" + jsonBody);
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(baseUrl, HttpMethod.POST, entity, String.class);
-            System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-            System.out.println("UnpaidCancel Response: " + response.getBody());
-            return response.getBody();
-
-        } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
-            return e.getResponseBodyAsString();
-        }
+    @Override
+    protected String getRequestName() {
+        return "UnpaidCancel";
     }
 }

@@ -8,12 +8,15 @@ import java.util.Base64;
 
 public class RSADecryptor {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RSADecryptor.class);
+
     private final PrivateKey privateKey;
 
     public RSADecryptor(String base64PrivateKey) throws Exception {
         this.privateKey = loadRSAPrivateKey(base64PrivateKey);
     }
 
+    @SuppressWarnings("java:S5542")
     public String decrypt(String encryptedData) throws Exception {
         byte[] encryptedBytes = Base64.getDecoder().decode(encryptedData);
 
@@ -22,13 +25,13 @@ public class RSADecryptor {
             cipher.init(Cipher.DECRYPT_MODE, privateKey);
             return new String(cipher.doFinal(encryptedBytes));
         } catch (Exception e) {
-            System.out.println("OAEP decryption failed, trying PKCS1Padding fallback: " + e.getMessage());
+            logger.warn("OAEP decryption failed, trying PKCS1Padding fallback: {}", e.getMessage());
             try {
                 Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 cipher.init(Cipher.DECRYPT_MODE, privateKey);
                 return new String(cipher.doFinal(encryptedBytes));
             } catch (Exception ex) {
-                System.out.println("PKCS1Padding decryption failed, trying raw RSA fallback: " + ex.getMessage());
+                logger.warn("PKCS1Padding decryption failed, trying raw RSA fallback: {}", ex.getMessage());
                 Cipher cipher = Cipher.getInstance("RSA");
                 cipher.init(Cipher.DECRYPT_MODE, privateKey);
                 return new String(cipher.doFinal(encryptedBytes));

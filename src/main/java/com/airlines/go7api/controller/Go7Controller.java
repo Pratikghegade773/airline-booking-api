@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-@SuppressWarnings("java:S120")
+@SuppressWarnings({"java:S120", "java:S2142"})
 @RestController
 public class Go7Controller {
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Go7Controller.class);
@@ -59,8 +59,6 @@ public class Go7Controller {
 
             return new ResponseEntity<>(airshopRspDto, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("Airshop", e);
         } catch (Exception e) {
             return handleException("Airshop", e);
         }
@@ -77,8 +75,6 @@ public class Go7Controller {
 
             return new ResponseEntity<>(response, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("OfferPrice", e);
         } catch (Exception e) {
             return handleException("OfferPrice", e);
         }
@@ -123,14 +119,12 @@ public class Go7Controller {
 
             return new ResponseEntity<>(ndcResponse, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("OrderCreate", e);
         } catch (Exception e) {
             return handleException("OrderCreate", e);
         }
     }
 
-    private ResponseEntity<Object> processOrderConfirmAndGetBooking(OrderCreateReqDto orderCreateReqDto, Long bookingId) throws java.io.IOException, InterruptedException, javax.xml.datatype.DatatypeConfigurationException {
+    private ResponseEntity<Object> processOrderConfirmAndGetBooking(OrderCreateReqDto orderCreateReqDto, Long bookingId) throws java.io.IOException {
         logger.info("Booking ID extracted: {}. Proceeding to OrderConfirm.", bookingId);
 
         OrderCreateReq orderConfirmReq = OrderCreateReq.mapToOrderConfirmReq(orderCreateReqDto, bookingId);
@@ -205,7 +199,7 @@ public class Go7Controller {
         return null;
     }
 
-    private ResponseEntity<Object> processPaymentAndTicketing(OrderCreateReqDto orderCreateReqDto, Long bookingId) throws java.io.IOException, InterruptedException, javax.xml.datatype.DatatypeConfigurationException {
+    private ResponseEntity<Object> processPaymentAndTicketing(OrderCreateReqDto orderCreateReqDto, Long bookingId) throws java.io.IOException {
         if (orderCreateReqDto.getPaymentInformation() != null) {
             OrderCreateReq makePaymentReq = OrderCreateReq.mapToMakePaymentReq(orderCreateReqDto, bookingId);
             Object paymentResponse = makePaymentReq.unmarshal();
@@ -598,8 +592,6 @@ public class Go7Controller {
 
             return new ResponseEntity<>(ndcResponse, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("OrderRetrieve", e);
         } catch (Exception e) {
             return handleException("OrderRetrieve", e);
         }
@@ -795,18 +787,12 @@ public class Go7Controller {
 
             return new ResponseEntity<>(ndcResponse, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("UnpaidCancel", e);
         } catch (Exception e) {
             return handleException("UnpaidCancel", e);
         }
     }
 
-        private ResponseEntity<Object> handleInterruptedException(String requestName, InterruptedException e) {
-        Thread.currentThread().interrupt();
-        return new ResponseEntity<>("Error occurred during " + requestName + " request: " + e.getMessage(),
-                HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+
 
     private ResponseEntity<Object> handleException(String requestName, Exception e) {
         // Exception ignored or handled by fallback
@@ -824,7 +810,7 @@ public class Go7Controller {
         }
     }
 
-    private com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto fetchBookingDetails(String orderId) throws javax.xml.datatype.DatatypeConfigurationException, java.io.IOException, InterruptedException {
+    private com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto fetchBookingDetails(String orderId) throws java.io.IOException {
         String bookingConfirmation = null;
         if (orderId != null) {
             java.util.Optional<com.airlines.go7api.entity.BookingEntity> entityOpt = bookingService
@@ -907,9 +893,6 @@ public class Go7Controller {
             if (!(refreshResp instanceof com.airlines.go7api.error.ErrorRsp)) {
                 return deserializeResponse(refreshResp, com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.class);
             }
-        } catch (InterruptedException e) {
-            logger.error("Interrupted refreshing booking after {}: {}", changeType, e.getMessage());
-            Thread.currentThread().interrupt();
         } catch (Exception e) {
             logger.error("Error refreshing booking after {}: {}", changeType, e.getMessage());
         }
@@ -957,8 +940,6 @@ public class Go7Controller {
 
             return new ResponseEntity<>(ndcResponse, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("ServiceList", e);
         } catch (Exception e) {
             return handleException("ServiceList", e);
         }
@@ -993,8 +974,6 @@ public class Go7Controller {
 
             return new ResponseEntity<>(mappedRsp, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("SeatAvailability", e);
         } catch (Exception e) {
             return handleException("SeatAvailability", e);
         }
@@ -1158,8 +1137,6 @@ public class Go7Controller {
 
             return new ResponseEntity<>(response, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException(CHANGE_SEAT, e);
         } catch (Exception e) {
             return handleException(CHANGE_SEAT, e);
         }
@@ -1340,8 +1317,6 @@ public class Go7Controller {
 
             return new ResponseEntity<>(response, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException(CHANGE_SERVICE, e);
         } catch (Exception e) {
             return handleException(CHANGE_SERVICE, e);
         }
@@ -1371,8 +1346,6 @@ public class Go7Controller {
 
             return new ResponseEntity<>(response, HttpStatus.OK);
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("OrderChange", e);
         } catch (Exception e) {
             return handleException("OrderChange", e);
         }
@@ -1478,8 +1451,6 @@ public class Go7Controller {
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
             }
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("OrderReshop", e);
         } catch (Exception e) {
             return handleException("OrderReshop", e);
         }
@@ -1544,8 +1515,6 @@ public class Go7Controller {
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
             }
 
-        } catch (InterruptedException e) {
-            return handleInterruptedException("FSOrderReshop", e);
         } catch (Exception e) {
             return handleException("FSOrderReshop", e);
         }

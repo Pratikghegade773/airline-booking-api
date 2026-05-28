@@ -1,7 +1,8 @@
 package com.airlines.go7api.responsego7;
 
+import com.airlines.go7api.responsego7.common.*;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,20 +14,13 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
+
 public class ServiceListRspGo7Dto {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Aerocrs {
-        private boolean success;
-        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.airlines.go7api.util.EmptyArrayToEmptyObjectDeserializer.class)
-        private Ancillaries ancillaries;
-    }
+    
 
     @Data
     @NoArgsConstructor

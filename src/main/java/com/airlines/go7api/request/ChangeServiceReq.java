@@ -1,9 +1,10 @@
 package com.airlines.go7api.request;
 
+import com.airlines.go7api.requestdto.common.*;
+
 import com.airlines.go7api.requestdto.ChangeServiceReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
@@ -23,7 +24,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @ToString
-public class ChangeServiceReq {
+public class ChangeServiceReq extends BaseGo7Req {
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -84,9 +85,9 @@ public class ChangeServiceReq {
         List<Ancillary> ancillaryList = new ArrayList<>();
 
         if (dto.getOffers() != null) {
-            for (ChangeServiceReqDto.Offer offer : dto.getOffers()) {
+            for (ChangeOfferReqDto offer : dto.getOffers()) {
                 if (offer.getOfferItems() != null) {
-                    for (ChangeServiceReqDto.Offer.OfferItemDto item : offer.getOfferItems()) {
+                    for (ChangeOfferReqDto.OfferItemDto item : offer.getOfferItems()) {
                         if (item.getSpecialServices() != null) {
                             String serviceDefId = item.getOfferItemId(); // User requested to map itemid from
                                                                          // offerItemId
@@ -97,11 +98,11 @@ public class ChangeServiceReq {
                                     && bookingRsp.getAerocrs() != null
                                     && bookingRsp.getAerocrs().getBooking() != null
                                     && bookingRsp.getAerocrs().getBooking().getPassengers() != null) {
-                                List<com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Passenger> passengers = bookingRsp
+                                List<com.airlines.go7api.responsego7.common.Passenger> passengers = bookingRsp
                                         .getAerocrs().getBooking().getPassengers().getPassenger();
                                 for (String paxRef : item.getPaxRefs()) {
                                     try {
-                                        String numStr = paxRef.replaceAll("[^0-9]", "");
+                                        String numStr = paxRef.replaceAll("\\D", "");
                                         if (!numStr.isEmpty()) {
                                             int idx = Integer.parseInt(numStr) - 1;
                                             if (idx >= 0 && idx < passengers.size()) {
@@ -124,11 +125,11 @@ public class ChangeServiceReq {
                                     && bookingRsp.getAerocrs() != null
                                     && bookingRsp.getAerocrs().getBooking() != null
                                     && bookingRsp.getAerocrs().getBooking().getFlights() != null) {
-                                List<com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight> flights = bookingRsp
+                                List<com.airlines.go7api.responsego7.common.Flight> flights = bookingRsp
                                         .getAerocrs().getBooking().getFlights().getFlight();
                                 for (String segRef : item.getSpecialServices().getSegId()) {
                                     try {
-                                        String numStr = segRef.replaceAll("[^0-9]", "");
+                                        String numStr = segRef.replaceAll("\\D", "");
                                         if (!numStr.isEmpty()) {
                                             int idx = Integer.parseInt(numStr) - 1;
                                             if (idx >= 0 && idx < flights.size()) {
@@ -178,57 +179,13 @@ public class ChangeServiceReq {
         return request;
     }
 
-    public Object unmarshal() throws java.io.IOException {
-        String response = makeApiCall();
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        try {
-            JsonNode root = objectMapper.readTree(response);
-            if (root.has("errors")) {
-                com.airlines.go7api.error.ErrorRsp errorRsp = new com.airlines.go7api.error.ErrorRsp();
-                errorRsp.setErrorList(new java.util.ArrayList<>());
-                JsonNode errorsArray = root.path("errors");
-                if (errorsArray.isArray()) {
-                    for (JsonNode errorNode : errorsArray) {
-                        com.airlines.go7api.error.ErrorRsp.Error tempError = new com.airlines.go7api.error.ErrorRsp.Error();
-                        tempError.setError(errorNode.path("message").asText());
-                        tempError.setCode(errorNode.path("code").asText());
-                        errorRsp.getErrorList().add(tempError);
-                    }
-                }
-                return errorRsp;
-            } else {
-                return response;
-            }
-        } catch (Exception e) {
-            System.out.println("Error parsing response: " + e.getMessage());
-            return response;
-        }
+    @Override
+    protected String getApiUrl() {
+        return changeAncillariesUrl != null ? changeAncillariesUrl : "";
     }
 
-    public String makeApiCall() throws java.io.IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
-        String jsonBody = mapper.writeValueAsString(this);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        // Hardcoded Auth for consistency with other files
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-
-        HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated ChangeService Request is:\n" + jsonBody);
-
-        RestTemplate restTemplate = new RestTemplate();
-        try {
-            ResponseEntity<String> response = restTemplate.exchange(changeAncillariesUrl, HttpMethod.POST, entity,
-                    String.class);
-            System.out.println("ChangeService Response: " + response.getBody());
-            return response.getBody();
-        } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
-            return e.getResponseBodyAsString();
-        }
+    @Override
+    protected String getRequestName() {
+        return "ChangeService";
     }
 }

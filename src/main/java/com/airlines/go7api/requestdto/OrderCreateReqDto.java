@@ -1,6 +1,7 @@
 package com.airlines.go7api.requestdto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.airlines.go7api.requestdto.common.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -35,7 +36,7 @@ public class OrderCreateReqDto {
     private String seatResponseId;
     private String seatOfferId;
     private List<OfferItemDto> offerItems;
-    private PaymentInformation paymentInformation;
+    private PaymentInformationReqDto paymentInformation;
     private int httpResponse;
 
     @Data
@@ -63,20 +64,7 @@ public class OrderCreateReqDto {
 
     private String paymentType;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class PaymentInformation {
-        private String cardCode;
-        private String cardNumber;
-        private String seriesCode;
-        private String cardHolderName;
-        private String expiration;
-        private Address address;
-        private String currencyCode;
-        private BigDecimal amount;
-        private String currency;
-    }
+    
 
     @Data
     @NoArgsConstructor
@@ -90,57 +78,8 @@ public class OrderCreateReqDto {
         private String country;
     }
 
-    private List<Pax> passengers;
+    private List<PaxReqDto> passengers;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Pax {
-        private String paxId;
-        private String ptc;
-        private String dob;
-        private String gender;
-        private String title;
-        private String firstName;
-        private String middleName;
-        private String lastName;
-        private String language;
-        private String loyaltyAccountNumber;
-        private String infantRef;
-        private String countryDialingCode;
-        private BigDecimal areaCode;
-        private BigDecimal phoneNumber;
-        private IdentityDocument identityDocument;
-        private String email;
-        private Address1 address;
-
-        @Data
-        @NoArgsConstructor
-        @AllArgsConstructor
-        public static class Address1 {
-            private String street;
-            private String city;
-            private String state;
-            private String postalCode;
-            private String countryCode;
-            private String country;
-        }
-
-        @Data
-        @NoArgsConstructor
-        @AllArgsConstructor
-        public static class IdentityDocument {
-            private String identityDocumentNumber;
-            private String identityDocumentType;
-            private String issuingCountryCode;
-            private String citizenshipCountryCode;
-            private String residenceCountryCode;
-            private String issueDate;
-            private String expiryDate;
-            private String birthDate;
-            private String birthPlace;
-            private String gender;
-        }
-    }
+    
 
 }

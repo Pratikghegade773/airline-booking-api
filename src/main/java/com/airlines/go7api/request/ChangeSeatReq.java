@@ -1,5 +1,7 @@
 package com.airlines.go7api.request;
 
+import com.airlines.go7api.requestdto.common.*;
+
 import com.airlines.go7api.requestdto.ChangeSeatReqDto;
 import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -12,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Data
-public class ChangeSeatReq {
+public class ChangeSeatReq extends BaseGo7Req {
 
     private Aerocrs aerocrs;
     private String changeSeatUrl = "https://api.aerocrs.com/v5/makeSeatReservation";
@@ -60,10 +62,10 @@ public class ChangeSeatReq {
         parms.setCompanycode("API");
 
         // 2. Booking ID & Flight Retrieval
-        com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Flight firstBookingFlight = null;
+        com.airlines.go7api.responsego7.common.Flight firstBookingFlight = null;
 
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto.Booking booking = bookingRsp.getAerocrs()
+            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs()
                     .getBooking();
 
             parms.setBookingid(booking.getBookingid());
@@ -84,9 +86,9 @@ public class ChangeSeatReq {
         java.util.Map<String, Flight> flightMap = new java.util.LinkedHashMap<>();
 
         if (dto.getOffers() != null) {
-            for (ChangeSeatReqDto.Offer offer : dto.getOffers()) {
+            for (ChangeOfferReqDto offer : dto.getOffers()) {
                 if (offer.getOfferItems() != null) {
-                    for (ChangeSeatReqDto.Offer.OfferItemDto item : offer.getOfferItems()) {
+                    for (ChangeOfferReqDto.OfferItemDto item : offer.getOfferItems()) {
 
                         // Use the found flight (defaulting to first flight)
                         if (firstBookingFlight != null) {
@@ -136,57 +138,13 @@ public class ChangeSeatReq {
         return req;
     }
 
-    public Object unmarshal() {
-        try {
-            String response = makeApiCall();
-            ObjectMapper objectMapper = new ObjectMapper();
-            objectMapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
-                    false);
-
-            // Check for errors
-            com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(response);
-            if (root.has("errors")) {
-                com.airlines.go7api.error.ErrorRsp errorRsp = new com.airlines.go7api.error.ErrorRsp();
-                com.fasterxml.jackson.databind.JsonNode errorsArray = root.path("errors");
-                if (errorsArray.isArray()) {
-                    for (com.fasterxml.jackson.databind.JsonNode errorNode : errorsArray) {
-                        com.airlines.go7api.error.ErrorRsp.Error tempError = new com.airlines.go7api.error.ErrorRsp.Error();
-                        tempError.setError(errorNode.path("message").asText());
-                        tempError.setCode(errorNode.path("code").asText());
-                        errorRsp.getErrorList().add(tempError);
-                    }
-                }
-                return errorRsp;
-            } else {
-                return response;
-            }
-        } catch (Exception e) {
-            // Exception ignored or handled by fallback
-            return null;
-        }
+    @Override
+    protected String getApiUrl() {
+        return changeSeatUrl != null ? changeSeatUrl : "";
     }
 
-    public String makeApiCall() throws java.io.IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.enable(com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT);
-        String jsonBody = mapper.writeValueAsString(this);
-
-        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
-
-        org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(jsonBody,
-                headers);
-        System.out.println("Generated ChangeSeat Request is:\n" + jsonBody);
-
-        org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
-        org.springframework.http.ResponseEntity<String> response = restTemplate
-                .postForEntity(changeSeatUrl, entity, String.class);
-
-        System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-        System.out.println("ChangeSeat Response: " + response.getBody());
-
-        return response.getBody();
+    @Override
+    protected String getRequestName() {
+        return "ChangeSeat";
     }
 }
