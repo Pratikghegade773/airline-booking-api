@@ -30,7 +30,7 @@ public class OfferPriceRspDto {
     private String ticketedByTimeLimit;
     private List<OD> ods;
     private List<OfferItemDto> offerItems;
-    private List<PriceClassList> priceClassList;
+    private List<PriceClass> priceClassList;
 
 
     @Data
@@ -124,24 +124,5 @@ public class OfferPriceRspDto {
 
         private String cabinTypeCode;
         private String cabinType;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class PriceClassList {
-        private String priceClassId;
-        private String className;
-        private String cabinTypeCode;
-        private List<Description> descriptions;
-
-        @Data
-        @NoArgsConstructor
-        @AllArgsConstructor
-        public static class Description {
-            private String odKey;
-            private String text;
-        }
     }
 }

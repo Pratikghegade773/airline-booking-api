@@ -1,28 +1,18 @@
 package com.airlines.go7api.request;
 
-import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.ChangePaymentReqDto;
 import com.airlines.go7api.util.RSADecryptor;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.Data;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Data
 public class ChangePaymentReq extends BaseGo7Req {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ChangePaymentReq.class);
+    private static final String BOOKING_ID_KEY = "bookingid";
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -47,12 +37,12 @@ public class ChangePaymentReq extends BaseGo7Req {
         // Map Booking ID
         if (dto.getOrderId() != null) {
             try {
-                parms.put("bookingid", Long.parseLong(dto.getOrderId()));
+                parms.put(BOOKING_ID_KEY, Long.parseLong(dto.getOrderId()));
             } catch (NumberFormatException e) {
                 // If strict Long is needed but String provided.
                 // User sample has 66243880 (number).
                 // Or try parsing, fallback to string if needed but bookingid usually Long.
-                parms.put("bookingid", dto.getOrderId());
+                parms.put(BOOKING_ID_KEY, dto.getOrderId());
             }
 
         }
@@ -83,7 +73,7 @@ public class ChangePaymentReq extends BaseGo7Req {
                     String decryptedCardNumber = rsaDecryptor.decrypt(payInfo.getCardNumber());
                     parms.put("creditcardnumber", decryptedCardNumber);
                 } catch (Exception e) {
-                    System.out.println("Card Decryption failed: " + e.getMessage());
+                    logger.error("Card Decryption failed: {}", e.getMessage());
                     parms.put("creditcardnumber", payInfo.getCardNumber());
                 }
             }
@@ -108,7 +98,7 @@ public class ChangePaymentReq extends BaseGo7Req {
         Aerocrs aerocrs = new Aerocrs();
         Map<String, Object> parms = new LinkedHashMap<>();
 
-        parms.put("bookingid", bookingId);
+        parms.put(BOOKING_ID_KEY, bookingId);
 
         aerocrs.setParms(parms);
         request.setAerocrs(aerocrs);

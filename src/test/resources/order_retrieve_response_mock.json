@@ -1,0 +1,17 @@
+{
+  "aerocrs": {
+    "booking": {
+      "bookingid": 12345,
+      "passengers": {
+        "passenger": [
+          { "paxnum": 1, "firstname": "John" }
+        ]
+      },
+      "flights": {
+        "flight": [
+          { "flightid": 999, "flightnumber": "G7" }
+        ]
+      }
+    }
+  }
+}

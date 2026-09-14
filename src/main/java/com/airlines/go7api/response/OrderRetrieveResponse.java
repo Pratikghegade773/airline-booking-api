@@ -1,10 +1,7 @@
 package com.airlines.go7api.response;
 
 import com.airlines.go7api.responsego7.common.*;
-
 import com.airlines.go7api.responsedto.common.*;
-
-import com.airlines.go7api.requestdto.OrderRetrieveReqDto;
 import com.airlines.go7api.responsedto.OrderRetrieveRspDto;
 import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 
@@ -15,753 +12,987 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-
 public class OrderRetrieveResponse {
 
-    public static OrderRetrieveRspDto generateResponse(OrderRetrieveRspGo7Dto go7Response,
-            OrderRetrieveReqDto requestDto, java.util.Map<String, String> passengerSeats,
-            java.util.Map<String, String> passengerServices, java.math.BigDecimal dbTotalOrderPrice) {
-        OrderRetrieveRspDto response = new OrderRetrieveRspDto();
+    private OrderRetrieveResponse() {
+        throw new IllegalStateException("Utility class");
+    }
 
+    public static OrderRetrieveRspDto generateResponse(OrderRetrieveRspGo7Dto go7Response,
+            java.util.Map<String, String> passengerSeats,
+            java.util.Map<String, String> passengerServices, java.math.BigDecimal dbTotalOrderPrice) {
         if (go7Response == null || go7Response.getAerocrs() == null || go7Response.getAerocrs().getBooking() == null) {
+            return new OrderRetrieveRspDto();
+        }
+        return new ResponseContext(go7Response, passengerSeats, passengerServices, dbTotalOrderPrice).buildResponse();
+    }
+
+    private static class ResponseContext {
+        final OrderRetrieveRspGo7Dto go7Response;
+        final Booking booking;
+        final java.util.Map<String, String> passengerSeats;
+        final java.util.Map<String, String> passengerServices;
+        final java.math.BigDecimal dbTotalOrderPrice;
+
+        final OrderRetrieveRspDto response;
+        List<Flight> flightList;
+        String carrierCode = "G7";
+        String currency;
+
+        final List<OD> ods = new ArrayList<>();
+        final List<PriceClass> priceClasses = new ArrayList<>();
+        final List<PaxDetailDTO> paxList = new ArrayList<>();
+        final List<TicketDocInfoDTO> topLevelTicketDocs = new ArrayList<>();
+        final List<EMDInfoDTO> topLevelEmdInfos = new ArrayList<>();
+        final List<PaxDetailDTO> adtList = new ArrayList<>();
+        final List<OrderItemsDTO> orderItems = new ArrayList<>();
+        final List<PaymentsDTO> payments = new ArrayList<>();
+
+        private static final String CABIN_ECONOMY = "Economy";
+        private static final String DEFAULT_ISSUING_AIRLINE = "API Airways";
+        private static final String SUFFIX_SEAT = "_SEAT";
+        private static final String DEFAULT_TIME_OF_ISSUE = "00:00";
+
+        BigDecimal distributedItemPrice = BigDecimal.ZERO;
+        BigDecimal secondaryTotal = BigDecimal.ZERO;
+        BigDecimal bookingTotal = BigDecimal.ZERO;
+        int paxCounter = 1;
+        int itemIdx = 1;
+
+        ResponseContext(OrderRetrieveRspGo7Dto go7Response,
+                java.util.Map<String, String> passengerSeats,
+                java.util.Map<String, String> passengerServices,
+                java.math.BigDecimal dbTotalOrderPrice) {
+            this.go7Response = go7Response;
+            this.booking = go7Response.getAerocrs().getBooking();
+            this.passengerSeats = passengerSeats;
+            this.passengerServices = passengerServices;
+            this.dbTotalOrderPrice = dbTotalOrderPrice;
+            this.response = new OrderRetrieveRspDto();
+        }
+
+        OrderRetrieveRspDto buildResponse() {
+            determineFlightList();
+            populateTopLevelFields();
+            populateBookingReferences();
+            populateOdsAndPriceClasses();
+            populatePassengers();
+            populateOrderItems();
+            populatePayments();
             return response;
         }
 
-        Booking booking = go7Response.getAerocrs().getBooking();
+        private void determineFlightList() {
+            if (booking.getFlights() != null && booking.getFlights().getFlight() != null) {
+                flightList = booking.getFlights().getFlight();
+            } else if (booking.getItems() != null && booking.getItems().getFlight() != null) {
+                flightList = booking.getItems().getFlight();
+            }
 
-        // 1. Top Level Fields
-        response.setResponseId("P" + UUID.randomUUID().toString().substring(0, 15).toUpperCase());
-        response.setOrderId(booking.getBookingconfirmation() != null ? booking.getBookingconfirmation()
-                : String.valueOf(booking.getBookingid()));
-        response.setPnr(booking.getPnrref());
-
-        List<Flight> flightList = null;
-        if (booking.getFlights() != null && booking.getFlights().getFlight() != null) {
-            flightList = booking.getFlights().getFlight();
-        } else if (booking.getItems() != null && booking.getItems().getFlight() != null) {
-            flightList = booking.getItems().getFlight();
+            if (flightList != null && !flightList.isEmpty()) {
+                String desig = flightList.get(0).getAirlinedesignator();
+                if (desig != null) {
+                    carrierCode = desig;
+                }
+            }
         }
 
-        String carrierCode = "G7";
-        if (flightList != null && !flightList.isEmpty()) {
-            String desig = flightList.get(0).getAirlinedesignator();
-            if (desig != null)
-                carrierCode = desig;
+        private void populateTopLevelFields() {
+            response.setResponseId("P" + UUID.randomUUID().toString().substring(0, 15).toUpperCase());
+            response.setOrderId(booking.getBookingconfirmation() != null ? booking.getBookingconfirmation()
+                    : String.valueOf(booking.getBookingid()));
+            response.setPnr(booking.getPnrref());
+            response.setApiOwner(carrierCode);
+            response.setTotalOrderPrice(BigDecimal.ZERO);
+            response.setCurrency(booking.getCurrency() != null ? booking.getCurrency() : "USD");
+            response.setPaymentTimeLimit(formatDateTime(booking.getPnrttl()));
+            response.setStatusCode(go7Response.getAerocrs().isSuccess() ? "OPENED" : "REJECTED");
+            response.setValidatingCarrier(carrierCode);
         }
 
-        response.setApiOwner(carrierCode);
-        // response.setAgentId("1416-AGT40148"); // Default per example or mapping
-        // response.setAgencyName("Fareintelligence"); // Default
-        // response.setAgencyId("1416"); // Default
+        private void populateBookingReferences() {
+            List<BookingReferences> refs = new ArrayList<>();
+            BookingReferences ref1 = new BookingReferences();
+            ref1.setId(booking.getPnrref());
+            ref1.setOtherId("F1");
+            refs.add(ref1);
 
-        response.setTotalOrderPrice(BigDecimal.ZERO);
+            BookingReferences ref2 = new BookingReferences();
+            ref2.setId(booking.getPnrref());
+            ref2.setAirlineId("G7");
+            refs.add(ref2);
 
-        response.setCurrency(booking.getCurrency() != null ? booking.getCurrency() : "USD");
-        // Exchange Rate if available in Go7 (Sample didn't explicitly show it in top
-        // level clearly, but usually calculated or static)
-        // response.setExchangeRate("239.10915543"); // Hardcoded from example or
-        // derived? Leaving as example
-        // default/placeholder
+            response.setBookingReferences(refs);
+        }
 
-        response.setPaymentTimeLimit(formatDateTime(booking.getPnrttl()));
-
-        response.setStatusCode(go7Response.getAerocrs().isSuccess() ? "OPENED" : "REJECTED");
-        response.setValidatingCarrier(carrierCode);
-
-        // 2. Booking References
-        List<BookingReferences> refs = new ArrayList<>();
-        BookingReferences ref1 = new BookingReferences();
-        ref1.setId(booking.getPnrref());
-        ref1.setOtherId("F1");
-        refs.add(ref1);
-
-        BookingReferences ref2 = new BookingReferences();
-        ref2.setId(booking.getPnrref());
-        ref2.setAirlineId("G7");
-        refs.add(ref2);
-
-        response.setBookingReferences(refs);
-
-        // Remarks
-        // Remarks mapping removed as per request to avoid specific Service Contact
-        // details
-        // {
-        // List<String> remarkTexts = booking.getRemarks().getRemark().stream()
-        // .map(Remark::getText)
-        // }
-
-        // 3. ODs (Flights)
-        List<OD> ods = new ArrayList<>();
-        List<PriceClass> priceClasses = new ArrayList<>();
-
-        if (flightList != null) {
+        private void populateOdsAndPriceClasses() {
+            if (flightList == null) {
+                return;
+            }
             int segmentCounter = 1;
             int odCounter = 1;
 
             for (Flight flight : flightList) {
-                OD od = new OD();
-                od.setSegmentId("S" + segmentCounter);
-                od.setOdKey("OD" + odCounter);
-
-                od.setOrigin(flight.getFromcode());
-                od.setOriginAirportName(flight.getFrom());
-                od.setDestination(flight.getTocode());
-                od.setDestinationAirportName(flight.getTo());
-
-                // Calculate dates
-                String formattedDepDate = OrderMappingUtil.formatDate(flight.getFlightdate());
-                String formattedArrDate = formattedDepDate; // Default to same day
-
-                // Handle overnight arrival for date calculation
-                if (flight.getDepart() != null && flight.getArrive() != null) {
-                    try {
-                        LocalTime depTime = LocalTime.parse(flight.getDepart());
-                        LocalTime arrTime = LocalTime.parse(flight.getArrive());
-                        if (arrTime.isBefore(depTime)) {
-                            // Arrives next day
-                            formattedArrDate = OrderMappingUtil.formatDate(OrderMappingUtil.adjustDateByDays(flight.getFlightdate(), 1));
-                        } else {
-                            formattedArrDate = formattedDepDate;
-                        }
-                    } catch (Exception e) {
-                        // ignore parsing error
-                    }
-                }
-
-                od.setDepartureDate(formattedDepDate);
-                // Try format from Go7 which is yyyy/MM/dd to match example? Example output says
-                // 04Feb2026.
-                // formatDate handles conversion to ddMMMyyyy.
-
-                od.setArrivalDate(formattedArrDate);
-                od.setDepartureTime(flight.getDepart());
-                od.setArrivalTime(flight.getArrive());
-
-                od.setJourneyTime(
-                        OrderMappingUtil.calculateJourneyTime(flight.getFlightdate(), flight.getDepart(), flight.getFlightdate(),
-                                flight.getArrive()));
-
-                if (flight.getNumber() != null) {
-                    od.setFlightNumber(flight.getNumber());
-                }
-                od.setEquipment(flight.getAircraftType());
-                od.setMarketingCarrierCode(
-                        flight.getAirlinedesignator() != null ? flight.getAirlinedesignator() : "G7");
-                od.setMarketingCarrierName(flight.getAirline());
-                od.setArrivalTerminal(flight.getArrivalTerminal());
-                od.setDepartureTerminal(flight.getDepartureTerminal());
-
-                String rawClass = flight.getFlightClass() != null ? flight.getFlightClass() : "";
-                String className = rawClass;
-                String cabinCode = "Economy";
-
-                if (rawClass.contains("/")) {
-                    String[] parts = rawClass.split("/");
-                    if (parts.length > 0) {
-                        String code = parts[0].trim().toUpperCase();
-                        if (code.equals("F") || code.equals("A") || code.equals("P")) {
-                            cabinCode = "First";
-                        } else if (code.equals("C") || code.equals("J") || code.equals("D") || code.equals("Z")
-                                || code.equals("I")) {
-                            cabinCode = "Business";
-                        } else {
-                            cabinCode = "Economy";
-                        }
-                    }
-                    if (parts.length > 1) {
-                        className = parts[1].trim();
-                    }
-                } else {
-                    if (rawClass.toUpperCase().contains("BUSINESS")) {
-                        cabinCode = "Business";
-                    } else if (rawClass.toUpperCase().contains("FIRST")) {
-                        cabinCode = "First";
-                    }
-                }
-
-                String priceClassId = "PC" + odCounter;
-
-                od.setCabinType(cabinCode);
-                od.setPriceClassId(priceClassId);
-
-                ods.add(od);
-
-                // Populate PriceClass List
-                // NOTE: OrderRetrieveRspDto has List<PriceClass> ? Check DTO definition. Yes,
-                // line 35.
-                PriceClass pc = new PriceClass();
-                pc.setPriceClassId(priceClassId);
-                pc.setClassName(className);
-                pc.setCabinTypeCode(cabinCode.equals("Economy") ? "ECO" : cabinCode);
-
-                List<PriceClass.Description> descriptions = new ArrayList<>();
-                if (flight.getServices() != null) {
-                    for (java.util.Map.Entry<String, Boolean> entry : flight.getServices().entrySet()) {
-                        PriceClass.Description d = new PriceClass.Description();
-                        d.setText(entry.getKey() + ": " + entry.getValue());
-                        descriptions.add(d);
-                    }
-                }
-                pc.setDescriptions(descriptions);
-                priceClasses.add(pc);
-
+                processSingleFlight(flight, segmentCounter, odCounter);
                 segmentCounter++;
                 odCounter++;
             }
-        }
-        response.setOds(ods);
-        response.setPriceClassList(priceClasses);
-
-        // 4. Pax Details
-        List<PaxDetailDTO> paxList = new ArrayList<>();
-        List<Passenger> go7PaxList = null;
-
-        if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
-            go7PaxList = booking.getPassengers().getPassenger();
+            response.setOds(ods);
+            response.setPriceClassList(priceClasses);
         }
 
-        if (go7PaxList != null) {
-            int paxCounter = 1;
-            List<TicketDocInfoDTO> topLevelTicketDocs = new ArrayList<>();
-            List<EMDInfoDTO> topLevelEmdInfos = new ArrayList<>();
-            List<PaxDetailDTO> adtList = new ArrayList<>();
+        private static class CabinAndClass {
+            final String cabinCode;
+            final String className;
+            CabinAndClass(String cabinCode, String className) {
+                this.cabinCode = cabinCode;
+                this.className = className;
+            }
+        }
 
-            for (Passenger go7Pax : go7PaxList) {
-                PaxDetailDTO pax = new PaxDetailDTO();
+        private CabinAndClass parseCabinAndRbd(String rawClass) {
+            if (rawClass.contains("/")) {
+                return parseCabinWithSlash(rawClass);
+            }
+            return parseCabinWithoutSlash(rawClass);
+        }
 
-                String rawTitle = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "")
-                        : "MR";
-                boolean isInfantByTitle = rawTitle.contains("INF");
+        private CabinAndClass parseCabinWithSlash(String rawClass) {
+            String[] parts = rawClass.split("/");
+            String cabinCode = CABIN_ECONOMY;
+            String className = rawClass;
 
-                String assignedPtc = OrderMappingUtil.mapPaxType(go7Pax.getPaxtype());
-                if (isInfantByTitle) {
-                    assignedPtc = "INF";
-                }
+            if (parts.length > 0) {
+                cabinCode = determineCabinFromCode(parts[0].trim().toUpperCase());
+            }
+            if (parts.length > 1) {
+                className = parts[1].trim();
+            }
+            return new CabinAndClass(cabinCode, className);
+        }
 
-                String paxId;
-                if ("INF".equals(assignedPtc)) {
-                    if (!adtList.isEmpty()) {
-                        PaxDetailDTO parent = adtList.get(adtList.size() - 1);
-                        paxId = parent.getPaxId() + ".1";
-                        parent.setInfantRef(paxId);
-                    } else {
-                        paxId = "T" + paxCounter++ + ".1";
+        private String determineCabinFromCode(String code) {
+            if (code.equals("F") || code.equals("A") || code.equals("P")) {
+                return "First";
+            }
+            if (code.equals("C") || code.equals("J") || code.equals("D") || code.equals("Z")
+                    || code.equals("I")) {
+                return "Business";
+            }
+            return CABIN_ECONOMY;
+        }
+
+        private CabinAndClass parseCabinWithoutSlash(String rawClass) {
+            String cabinCode = CABIN_ECONOMY;
+            String upper = rawClass.toUpperCase();
+            if (upper.contains("BUSINESS")) {
+                cabinCode = "Business";
+            } else if (upper.contains("FIRST")) {
+                cabinCode = "First";
+            }
+            return new CabinAndClass(cabinCode, rawClass);
+        }
+
+        private String calculateArrivalDate(Flight flight, String formattedDepDate) {
+            String formattedArrDate = formattedDepDate;
+            if (flight.getDepart() != null && flight.getArrive() != null) {
+                try {
+                    LocalTime depTime = LocalTime.parse(flight.getDepart());
+                    LocalTime arrTime = LocalTime.parse(flight.getArrive());
+                    if (arrTime.isBefore(depTime)) {
+                        formattedArrDate = OrderMappingUtil.formatDate(OrderMappingUtil.adjustDateByDays(flight.getFlightdate(), 1));
                     }
+                } catch (Exception e) {
+                    // ignore parsing error
+                }
+            }
+            return formattedArrDate;
+        }
+
+        private List<PriceClass.Description> generatePriceClassDescriptions(Flight flight) {
+            List<PriceClass.Description> descriptions = new ArrayList<>();
+            if (flight.getServices() != null) {
+                for (java.util.Map.Entry<String, Boolean> entry : flight.getServices().entrySet()) {
+                    PriceClass.Description d = new PriceClass.Description();
+                    d.setText(entry.getKey() + ": " + entry.getValue());
+                    descriptions.add(d);
+                }
+            }
+            return descriptions;
+        }
+
+        private void processSingleFlight(Flight flight, int segmentCounter, int odCounter) {
+            OD od = new OD();
+            od.setSegmentId("S" + segmentCounter);
+            od.setOdKey("OD" + odCounter);
+
+            od.setOrigin(flight.getFromcode());
+            od.setOriginAirportName(flight.getFrom());
+            od.setDestination(flight.getTocode());
+            od.setDestinationAirportName(flight.getTo());
+
+            String formattedDepDate = OrderMappingUtil.formatDate(flight.getFlightdate());
+            String formattedArrDate = calculateArrivalDate(flight, formattedDepDate);
+
+            od.setDepartureDate(formattedDepDate);
+            od.setArrivalDate(formattedArrDate);
+            od.setDepartureTime(flight.getDepart());
+            od.setArrivalTime(flight.getArrive());
+
+            od.setJourneyTime(
+                    OrderMappingUtil.calculateJourneyTime(flight.getFlightdate(), flight.getDepart(), flight.getFlightdate(),
+                            flight.getArrive()));
+
+            if (flight.getNumber() != null) {
+                od.setFlightNumber(flight.getNumber());
+            }
+            od.setEquipment(flight.getAircraftType());
+            od.setMarketingCarrierCode(
+                    flight.getAirlinedesignator() != null ? flight.getAirlinedesignator() : "G7");
+            od.setMarketingCarrierName(flight.getAirline());
+            od.setArrivalTerminal(flight.getArrivalTerminal());
+            od.setDepartureTerminal(flight.getDepartureTerminal());
+
+            String rawClass = flight.getFlightClass() != null ? flight.getFlightClass() : "";
+            CabinAndClass cc = parseCabinAndRbd(rawClass);
+
+            String priceClassId = "PC" + odCounter;
+
+            od.setCabinType(cc.cabinCode);
+            od.setPriceClassId(priceClassId);
+
+            ods.add(od);
+
+            PriceClass pc = new PriceClass();
+            pc.setPriceClassId(priceClassId);
+            pc.setClassName(cc.className);
+            pc.setCabinTypeCode(cc.cabinCode.equals(CABIN_ECONOMY) ? "ECO" : cc.cabinCode);
+            pc.setDescriptions(generatePriceClassDescriptions(flight));
+            priceClasses.add(pc);
+        }
+
+        private void populatePassengers() {
+            List<Passenger> go7PaxList = null;
+            if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
+                go7PaxList = booking.getPassengers().getPassenger();
+            }
+
+            if (go7PaxList != null) {
+                paxCounter = 1;
+                for (Passenger go7Pax : go7PaxList) {
+                    processPassenger(go7Pax);
+                }
+                if (!topLevelTicketDocs.isEmpty()) {
+                    response.setTicketDocInfoList(topLevelTicketDocs);
+                }
+                if (!topLevelEmdInfos.isEmpty()) {
+                    response.setEmdInfoList(topLevelEmdInfos);
+                }
+            }
+            response.setPaxDetailList(paxList);
+        }
+
+        private void processPassenger(Passenger go7Pax) {
+            PaxDetailDTO pax = new PaxDetailDTO();
+
+            String rawTitle = go7Pax.getPaxtitle() != null ? go7Pax.getPaxtitle().toUpperCase().replace(".", "")
+                    : "MR";
+            boolean isInfantByTitle = rawTitle.contains("INF");
+
+            String assignedPtc = OrderMappingUtil.mapPaxType(go7Pax.getPaxtype());
+            if (isInfantByTitle) {
+                assignedPtc = "INF";
+            }
+
+            String paxId = determinePaxId(assignedPtc, pax);
+
+            pax.setPaxId(paxId);
+            pax.setPtc(assignedPtc);
+            pax.setGivenName(go7Pax.getFirstname() != null ? go7Pax.getFirstname().toUpperCase() : "");
+            pax.setSurname(go7Pax.getLastname() != null ? go7Pax.getLastname().toUpperCase() : "");
+            pax.setTitle(rawTitle);
+
+            pax.setGender(determineGender(go7Pax));
+
+            // Override for Child/Infant
+            if ("CHD".equals(pax.getPtc()) || "CNN".equals(pax.getPtc())) {
+                pax.setTitle("CHILD");
+            } else if ("INF".equals(pax.getPtc())) {
+                pax.setTitle("INFANT");
+            }
+
+            pax.setBirthDate(OrderMappingUtil.formatDate(go7Pax.getDob()));
+            pax.setLanguage("English");
+
+            populateContactDetails(pax, go7Pax);
+            populatePassengerTicketDocs(pax, go7Pax, paxId);
+            mapPassengerEmds(pax, go7Pax, paxId);
+
+            paxList.add(pax);
+        }
+
+        private String determinePaxId(String assignedPtc, PaxDetailDTO pax) {
+            if ("INF".equals(assignedPtc)) {
+                if (!adtList.isEmpty()) {
+                    PaxDetailDTO parent = adtList.get(adtList.size() - 1);
+                    String paxId = parent.getPaxId() + ".1";
+                    parent.setInfantRef(paxId);
+                    return paxId;
                 } else {
-                    paxId = "T" + paxCounter++;
-                    if ("ADT".equals(assignedPtc)) {
-                        adtList.add(pax);
-                    }
+                    return "T" + paxCounter++ + ".1";
                 }
-
-                pax.setPaxId(paxId);
-                pax.setPtc(assignedPtc);
-                pax.setGivenName(go7Pax.getFirstname() != null ? go7Pax.getFirstname().toUpperCase() : "");
-                pax.setSurname(go7Pax.getLastname() != null ? go7Pax.getLastname().toUpperCase() : "");
-                pax.setTitle(rawTitle);
-
-                String gender = null;
-                if (go7Pax.getGender() != null && !go7Pax.getGender().isEmpty()) {
-                    if (go7Pax.getGender().toUpperCase().startsWith("M")) {
-                        gender = "Male";
-                    } else if (go7Pax.getGender().toUpperCase().startsWith("F")) {
-                        gender = "Female";
-                    }
+            } else {
+                String paxId = "T" + paxCounter++;
+                if ("ADT".equals(assignedPtc)) {
+                    adtList.add(pax);
                 }
+                return paxId;
+            }
+        }
 
-                // Title-based fallback
-                if (gender == null && go7Pax.getPaxtitle() != null) {
-                    String title = go7Pax.getPaxtitle().toUpperCase();
-                    if (title.contains("MR") || title.contains("MSTR") || title.contains("MISTR")) {
-                        gender = "Male";
-                    } else if (title.contains("MS") || title.contains("MRS") || title.contains("MISS")) {
-                        gender = "Female";
-                    }
+        private String determineGender(Passenger go7Pax) {
+            String gender = null;
+            if (go7Pax.getGender() != null && !go7Pax.getGender().isEmpty()) {
+                if (go7Pax.getGender().toUpperCase().startsWith("M")) {
+                    gender = "Male";
+                } else if (go7Pax.getGender().toUpperCase().startsWith("F")) {
+                    gender = "Female";
                 }
+            }
 
-                if (gender != null) {
-                    pax.setGender(gender);
-                } else {
-                    pax.setGender("Male"); // Default
+            if (gender == null && go7Pax.getPaxtitle() != null) {
+                String title = go7Pax.getPaxtitle().toUpperCase();
+                if (title.contains("MR") || title.contains("MSTR") || title.contains("MISTR")) {
+                    gender = "Male";
+                } else if (title.contains("MS") || title.contains("MRS") || title.contains("MISS")) {
+                    gender = "Female";
                 }
+            }
 
-                // Override for Child/Infant
-                if ("CHD".equals(pax.getPtc()) || "CNN".equals(pax.getPtc())) {
-                    pax.setTitle("CHILD");
-                } else if ("INF".equals(pax.getPtc())) {
-                    pax.setTitle("INFANT");
+            return (gender != null) ? gender : "Male";
+        }
+
+        private void populateContactDetails(PaxDetailDTO pax, Passenger go7Pax) {
+            if (go7Pax.getContact() != null) {
+                PaxDetailDTO.PhoneDTO phone = new PaxDetailDTO.PhoneDTO();
+                phone.setPhoneNumber(go7Pax.getContact());
+                phone.setType("Operational");
+                phone.setLabel("Mobile");
+                pax.setPhones(new ArrayList<>(List.of(phone)));
+            }
+
+            if (go7Pax.getEmail() != null) {
+                PaxDetailDTO.EmailDTO email = new PaxDetailDTO.EmailDTO();
+                email.setEmailAddress(go7Pax.getEmail().toUpperCase());
+                email.setType("Operational");
+                pax.setEmails(new ArrayList<>(List.of(email)));
+            }
+        }
+
+        private void populatePassengerTicketDocs(PaxDetailDTO pax, Passenger go7Pax, String paxId) {
+            if (go7Pax.getETickets() == null || go7Pax.getETickets().getFlight() == null) {
+                return;
+            }
+            List<TicketDocInfoDTO> paxTicketDocs = new ArrayList<>();
+            java.util.Set<String> uniqueTickets = collectUniqueTickets(go7Pax);
+
+            for (String ticketNbr : uniqueTickets) {
+                TicketDocInfoDTO tdi = buildTicketDocInfo(ticketNbr, paxId);
+                paxTicketDocs.add(tdi);
+                topLevelTicketDocs.add(tdi);
+            }
+            pax.setTicketDocInfo(paxTicketDocs);
+        }
+
+        private java.util.Set<String> collectUniqueTickets(Passenger go7Pax) {
+            java.util.Set<String> uniqueTickets = new java.util.LinkedHashSet<>();
+            for (Passenger.ETicketFlight etf : go7Pax.getETickets().getFlight()) {
+                if (etf.getEticketnumber() != null && !etf.getEticketnumber().isEmpty()) {
+                    uniqueTickets.add(etf.getEticketnumber().trim());
                 }
+            }
+            return uniqueTickets;
+        }
 
-                pax.setBirthDate(OrderMappingUtil.formatDate(go7Pax.getDob()));
-                pax.setLanguage("English");
-
-                if (go7Pax.getContact() != null) {
-                    PaxDetailDTO.PhoneDTO phone = new PaxDetailDTO.PhoneDTO();
-                    phone.setPhoneNumber(go7Pax.getContact());
-                    phone.setType("Operational");
-                    phone.setLabel("Mobile");
-                    List<PaxDetailDTO.PhoneDTO> phones = new ArrayList<>();
-                    phones.add(phone);
-                    pax.setPhones(phones);
+        private TicketDocInfoDTO buildTicketDocInfo(String ticketNbr, String paxId) {
+            TicketDocInfoDTO tdi = new TicketDocInfoDTO();
+            String issuingDesig = DEFAULT_ISSUING_AIRLINE;
+            String issuingPlace = "TLV";
+            if (flightList != null && !flightList.isEmpty()) {
+                Flight f0 = flightList.get(0);
+                if (f0.getAirline() != null) {
+                    issuingDesig = f0.getAirline();
                 }
-
-                if (go7Pax.getEmail() != null) {
-                    PaxDetailDTO.EmailDTO email = new PaxDetailDTO.EmailDTO();
-                    email.setEmailAddress(go7Pax.getEmail().toUpperCase());
-                    email.setType("Operational");
-                    List<PaxDetailDTO.EmailDTO> emails = new ArrayList<>();
-                    emails.add(email);
-                    pax.setEmails(emails);
+                if (f0.getFromcode() != null) {
+                    issuingPlace = f0.getFromcode();
                 }
+            }
+            tdi.setIssuingAirlineName(issuingDesig);
+            tdi.setIssuingPlace(issuingPlace);
+            tdi.setValidatingCarrier("G7");
+            tdi.setPaxId(new ArrayList<>(List.of(paxId)));
 
-                // Map TicketDocInfo (E-Tickets)
-                if (go7Pax.getETickets() != null && go7Pax.getETickets().getFlight() != null) {
-                    List<TicketDocInfoDTO> paxTicketDocs = new ArrayList<>();
+            TicketDocInfoDTO.TicketDocumentDTO doc = new TicketDocInfoDTO.TicketDocumentDTO();
+            doc.setTicketDocNbr(ticketNbr);
+            doc.setType("T");
+            doc.setNumberOfBooklets(1);
+            doc.setDateOfIssue(OrderMappingUtil.formatDate(LocalDate.now().toString()));
+            doc.setTimeOfIssue(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+            doc.setTicketingLocation(issuingPlace);
+            doc.setReportingType("BSP");
+            doc.setCouponInfo(buildCoupons(paxId));
 
-                    java.util.Set<String> uniqueTickets = new java.util.LinkedHashSet<>();
-                    for (Passenger.ETicketFlight etf : go7Pax.getETickets().getFlight()) {
-                        if (etf.getEticketnumber() != null && !etf.getEticketnumber().isEmpty()) {
-                            uniqueTickets.add(etf.getEticketnumber().trim());
-                        }
-                    }
+            tdi.setTicketDocument(new ArrayList<>(List.of(doc)));
+            return tdi;
+        }
 
-                    for (String ticketNbr : uniqueTickets) {
-                        TicketDocInfoDTO tdi = new TicketDocInfoDTO();
-                        String issuingDesig = "API Airways";
-                        String issuingPlace = "TLV";
-                        if (flightList != null && !flightList.isEmpty()) {
-                            Flight f0 = flightList.get(0);
-                            if (f0.getAirline() != null)
-                                issuingDesig = f0.getAirline();
-                            if (f0.getFromcode() != null)
-                                issuingPlace = f0.getFromcode();
-                        }
-                        tdi.setIssuingAirlineName(issuingDesig);
-                        tdi.setIssuingPlace(issuingPlace);
-                        tdi.setValidatingCarrier("G7");
-                        List<String> pIds = new ArrayList<>();
-                        pIds.add(paxId);
-                        tdi.setPaxId(pIds);
-
-                        List<TicketDocInfoDTO.TicketDocumentDTO> docs = new ArrayList<>();
-                        TicketDocInfoDTO.TicketDocumentDTO doc = new TicketDocInfoDTO.TicketDocumentDTO();
-                        doc.setTicketDocNbr(ticketNbr);
-                        doc.setType("T");
-                        doc.setNumberOfBooklets(1);
-                        doc.setDateOfIssue(OrderMappingUtil.formatDate(java.time.LocalDate.now().toString()));
-                        doc.setTimeOfIssue(java.time.LocalTime.now()
-                                .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")));
-                        doc.setTicketingLocation(issuingPlace);
-                        doc.setReportingType("BSP");
-
-                        // Coupons
-                        List<TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO> coupons = new ArrayList<>();
-                        if (flightList != null) {
-                            int couponNum = 1;
-                            for (Flight f : flightList) {
-                                TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO coupon = new TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO();
-                                coupon.setCouponNumber(couponNum++);
-                                coupon.setCouponReference("FBA" + couponNum);
-
-                                String fClass = f.getFlightClass() != null ? f.getFlightClass() : "";
-                                String fRbd = "";
-                                if (fClass.contains("/")) {
-                                    String[] parts = fClass.split("/");
-                                    if (parts.length > 0)
-                                        fRbd = parts[0].trim().toUpperCase();
-                                } else if (!fClass.isEmpty()) {
-                                    fRbd = fClass.substring(0, 1).toUpperCase();
-                                }
-
-                                coupon.setFareBasisCode(fClass);
-                                coupon.setRbd(fRbd);
-                                coupon.setStatus("I");
-                                coupon.setValidatingCarrier("G7");
-
-                                TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
-                                cai.setDepartureAirportCode(f.getFromcode());
-                                cai.setArrivalAirportCode(f.getTocode());
-                                cai.setDepartureDate(OrderMappingUtil.formatDate(f.getFlightdate()));
-                                cai.setDepartureTime(f.getDepart());
-                                cai.setDepartureAirportName(f.getFrom());
-                                cai.setDepartureTerminal(f.getDepartureTerminal());
-                                cai.setArrivalDate(OrderMappingUtil.formatDate(f.getFlightdate()));
-                                cai.setArrivalTime(f.getArrive());
-                                cai.setArrivalAirportName(f.getTo());
-                                cai.setArrivalTerminal(f.getArrivalTerminal());
-                                cai.setMarketingCarrierAirlineId(f.getAirlinedesignator());
-                                cai.setMarketingCarrierName(f.getAirline());
-                                cai.setOperatingCarrierAirlineId(f.getAirlinedesignator());
-                                cai.setOperatingCarrierName(f.getAirline());
-                                cai.setFlightNumber(f.getNumber());
-                                cai.setEquipmentAircraftCode(
-                                        f.getAircraftTypeIataCode() != null ? f.getAircraftTypeIataCode()
-                                                : f.getAircraftType());
-
-                                List<TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
-                                caiList.add(cai);
-                                coupon.setCurrentAirlineInfo(caiList);
-
-                                List<BaggageAllowance> bags = new ArrayList<>();
-                                if (f.getServices() != null && f.getServices().containsKey("CheckedInBaggage")
-                                        && Boolean.TRUE.equals(f.getServices().get("CheckedInBaggage"))) {
-                                    BaggageAllowance bag = new BaggageAllowance();
-                                    bag.setBaggageAllowanceId("FBA" + couponNum);
-                                    bag.setPassengerId(paxId);
-                                    bag.setCategory("Checked-In");
-                                    bag.setName("Bag allowances");
-                                    bags.add(bag);
-                                }
-                                coupon.setBaggageAllowances(bags);
-                                coupons.add(coupon);
-                            }
-                        }
-                        doc.setCouponInfo(coupons);
-                        docs.add(doc);
-
-                        tdi.setTicketDocument(docs);
-                        paxTicketDocs.add(tdi);
-                        topLevelTicketDocs.add(tdi);
-                    }
-                    pax.setTicketDocInfo(paxTicketDocs);
+        private List<TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO> buildCoupons(String paxId) {
+            List<TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO> coupons = new ArrayList<>();
+            if (flightList != null) {
+                int couponNum = 1;
+                for (Flight f : flightList) {
+                    coupons.add(buildCoupon(f, couponNum++, paxId));
                 }
+            }
+            return coupons;
+        }
 
-                // EMD Info Mapping (Seats & Services)
-                if (flightList != null) {
-                    List<EMDInfoDTO> paxEmds = new ArrayList<>();
+        private TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO buildCoupon(Flight f, int couponNum, String paxId) {
+            TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO coupon = new TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+            coupon.setCouponNumber(couponNum);
+            coupon.setCouponReference("FBA" + (couponNum + 1));
 
-                    // Build priority map from ChangePayment flow
-                    java.util.LinkedHashMap<String, String> combinedEmdMap = new java.util.LinkedHashMap<>();
-                    if (passengerSeats != null) {
-                        for (java.util.Map.Entry<String, String> entry : passengerSeats.entrySet()) {
-                            combinedEmdMap.put(entry.getKey() + "_SEAT", entry.getValue());
-                        }
-                    }
-                    if (passengerServices != null) {
-                        for (java.util.Map.Entry<String, String> entry : passengerServices.entrySet()) {
-                            combinedEmdMap.put(entry.getKey() + "_SRV", entry.getValue());
-                        }
-                    }
+            String fClass = f.getFlightClass() != null ? f.getFlightClass() : "";
+            String fRbd = "";
+            if (fClass.contains("/")) {
+                String[] parts = fClass.split("/");
+                if (parts.length > 0) {
+                    fRbd = parts[0].trim().toUpperCase();
+                }
+            } else if (!fClass.isEmpty()) {
+                fRbd = fClass.substring(0, 1).toUpperCase();
+            }
 
-                    if (!combinedEmdMap.isEmpty()) {
-                        // Priority 1: Use DB maps populated by ChangeSeat / ChangeService
-                        List<String> assignedValues = new ArrayList<>();
-                        for (java.util.Map.Entry<String, String> entry : combinedEmdMap.entrySet()) {
-                            String paxIdKey = entry.getKey().substring(0, entry.getKey().lastIndexOf("_"));
-                            if (paxIdKey.equals(paxId)) {
-                                assignedValues.add(entry.getValue());
-                            }
-                        }
+            coupon.setFareBasisCode(fClass);
+            coupon.setRbd(fRbd);
+            coupon.setStatus("I");
+            coupon.setValidatingCarrier("G7");
+            coupon.setCurrentAirlineInfo(new ArrayList<>(List.of(buildCouponCurrentAirlineInfo(f))));
+            coupon.setBaggageAllowances(buildCouponBaggageAllowances(f, paxId, couponNum + 1));
 
-                        for (String assignedValue : assignedValues) {
-                            EMDInfoDTO emd = new EMDInfoDTO();
-                            emd.setValidatingCarrier("G7");
-                            emd.setPaxId(Arrays.asList(paxId));
+            return coupon;
+        }
 
-                            String issuingDesig = "API Airways";
-                            String issuingPlace = "TLV";
-                            Flight f0 = flightList.get(0);
-                            if (f0.getAirline() != null)
-                                issuingDesig = f0.getAirline();
-                            if (f0.getFromcode() != null)
-                                issuingPlace = f0.getFromcode();
+        private TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO buildCouponCurrentAirlineInfo(Flight f) {
+            TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new TicketDocInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
+            cai.setDepartureAirportCode(f.getFromcode());
+            cai.setArrivalAirportCode(f.getTocode());
+            cai.setDepartureDate(OrderMappingUtil.formatDate(f.getFlightdate()));
+            cai.setDepartureTime(f.getDepart());
+            cai.setDepartureAirportName(f.getFrom());
+            cai.setDepartureTerminal(f.getDepartureTerminal());
+            cai.setArrivalDate(OrderMappingUtil.formatDate(f.getFlightdate()));
+            cai.setArrivalTime(f.getArrive());
+            cai.setArrivalAirportName(f.getTo());
+            cai.setArrivalTerminal(f.getArrivalTerminal());
+            cai.setMarketingCarrierAirlineId(f.getAirlinedesignator());
+            cai.setMarketingCarrierName(f.getAirline());
+            cai.setOperatingCarrierAirlineId(f.getAirlinedesignator());
+            cai.setOperatingCarrierName(f.getAirline());
+            cai.setFlightNumber(f.getNumber());
+            cai.setEquipmentAircraftCode(
+                    f.getAircraftTypeIataCode() != null ? f.getAircraftTypeIataCode()
+                            : f.getAircraftType());
+            return cai;
+        }
 
-                            emd.setIssuingAirlineName(issuingDesig);
-                            emd.setIssuingPlace(issuingPlace);
+        private List<BaggageAllowance> buildCouponBaggageAllowances(Flight f, String paxId, int nextCouponNum) {
+            List<BaggageAllowance> bags = new ArrayList<>();
+            if (f.getServices() != null && f.getServices().containsKey("CheckedInBaggage")
+                    && Boolean.TRUE.equals(f.getServices().get("CheckedInBaggage"))) {
+                BaggageAllowance bag = new BaggageAllowance();
+                bag.setBaggageAllowanceId("FBA" + nextCouponNum);
+                bag.setPassengerId(paxId);
+                bag.setCategory("Checked-In");
+                bag.setName("Bag allowances");
+                bags.add(bag);
+            }
+            return bags;
+        }
 
-                            List<EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
-                            EMDInfoDTO.TicketDocumentDTO emdDoc = new EMDInfoDTO.TicketDocumentDTO();
+        private void mapPassengerEmds(PaxDetailDTO pax, Passenger go7Pax, String paxId) {
+            if (flightList == null) {
+                return;
+            }
+            List<EMDInfoDTO> paxEmds = new ArrayList<>();
 
-                            String baseTkt = (go7Pax.getETickets() != null && go7Pax.getETickets().getFlight() != null
-                                    && !go7Pax.getETickets().getFlight().isEmpty())
-                                            ? go7Pax.getETickets().getFlight().get(0).getEticketnumber()
-                                            : "EMD";
+            java.util.LinkedHashMap<String, String> combinedEmdMap = new java.util.LinkedHashMap<>();
+            if (passengerSeats != null) {
+                for (java.util.Map.Entry<String, String> entry : passengerSeats.entrySet()) {
+                    combinedEmdMap.put(entry.getKey() + SUFFIX_SEAT, entry.getValue());
+                }
+            }
+            if (passengerServices != null) {
+                for (java.util.Map.Entry<String, String> entry : passengerServices.entrySet()) {
+                    combinedEmdMap.put(entry.getKey() + "_SRV", entry.getValue());
+                }
+            }
 
-                            emdDoc.setTicketDocNbr(baseTkt + "-" + (topLevelEmdInfos.size() + 1));
-                            emdDoc.setType("J");
-                            emdDoc.setNumberOfBooklets(1);
-                            emdDoc.setDateOfIssue(OrderMappingUtil.formatDate(java.time.LocalDate.now().toString()));
-                            emdDoc.setTimeOfIssue("00:00");
-                            emdDoc.setTicketingLocation(issuingPlace);
-                            emdDoc.setReportingType("BSP");
+            if (!combinedEmdMap.isEmpty()) {
+                mapDbEmds(go7Pax, paxId, combinedEmdMap, paxEmds);
+            } else {
+                mapFallbackEmds(go7Pax, paxId, paxEmds);
+            }
 
-                            List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
-                            EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
-                            emdCoupon.setCouponNumber(1);
-                            emdCoupon.setValidatingCarrier("G7");
-                            emdCoupon.setStatus("I");
+            if (!paxEmds.isEmpty()) {
+                pax.setEmdInfo(paxEmds);
+            }
+        }
 
-                            String refVal = assignedValue;
-                            if (refVal != null && refVal.startsWith("SRV_")) {
-                                refVal = refVal.substring(4);
-                            }
-                            emdCoupon.setServiceRefs(Arrays.asList(refVal));
+        private void mapDbEmds(Passenger go7Pax, String paxId, java.util.LinkedHashMap<String, String> combinedEmdMap, List<EMDInfoDTO> paxEmds) {
+            List<String> assignedValues = new ArrayList<>();
+            for (java.util.Map.Entry<String, String> entry : combinedEmdMap.entrySet()) {
+                String paxIdKey = entry.getKey().substring(0, entry.getKey().lastIndexOf("_"));
+                if (paxIdKey.equals(paxId)) {
+                    assignedValues.add(entry.getValue());
+                }
+            }
 
-                            List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
-                            EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
-                            cai.setDepartureAirportCode(f0.getFromcode());
-                            cai.setArrivalAirportCode(f0.getTocode());
-                            cai.setDepartureDate(OrderMappingUtil.formatDate(f0.getFlightdate()));
-                            cai.setDepartureTime(f0.getDepart());
-                            cai.setDepartureAirportName(f0.getFrom());
-                            cai.setArrivalAirportName(f0.getTo());
-                            cai.setFlightNumber(f0.getNumber());
-                            cai.setMarketingCarrierAirlineId(f0.getAirlinedesignator());
-                            caiList.add(cai);
-                            emdCoupon.setCurrentAirlineInfo(caiList);
+            for (String assignedValue : assignedValues) {
+                EMDInfoDTO emd = new EMDInfoDTO();
+                emd.setValidatingCarrier("G7");
+                emd.setPaxId(Arrays.asList(paxId));
 
-                            emdCoupons.add(emdCoupon);
-                            emdDoc.setCouponInfo(emdCoupons);
-                            emdDocs.add(emdDoc);
-                            emd.setTicketDocument(emdDocs);
+                String issuingDesig = DEFAULT_ISSUING_AIRLINE;
+                String issuingPlace = "TLV";
+                Flight f0 = flightList.get(0);
+                if (f0.getAirline() != null)
+                    issuingDesig = f0.getAirline();
+                if (f0.getFromcode() != null)
+                    issuingPlace = f0.getFromcode();
 
+                emd.setIssuingAirlineName(issuingDesig);
+                emd.setIssuingPlace(issuingPlace);
+
+                List<EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
+                EMDInfoDTO.TicketDocumentDTO emdDoc = new EMDInfoDTO.TicketDocumentDTO();
+
+                String baseTkt = (go7Pax.getETickets() != null && go7Pax.getETickets().getFlight() != null
+                        && !go7Pax.getETickets().getFlight().isEmpty())
+                                ? go7Pax.getETickets().getFlight().get(0).getEticketnumber()
+                                : "EMD";
+
+                emdDoc.setTicketDocNbr(baseTkt + "-" + (topLevelEmdInfos.size() + 1));
+                emdDoc.setType("J");
+                emdDoc.setNumberOfBooklets(1);
+                emdDoc.setDateOfIssue(OrderMappingUtil.formatDate(LocalDate.now().toString()));
+                emdDoc.setTimeOfIssue(DEFAULT_TIME_OF_ISSUE);
+                emdDoc.setTicketingLocation(issuingPlace);
+                emdDoc.setReportingType("BSP");
+
+                List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
+                EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+                emdCoupon.setCouponNumber(1);
+                emdCoupon.setValidatingCarrier("G7");
+                emdCoupon.setStatus("I");
+
+                String refVal = assignedValue;
+                if (refVal != null && refVal.startsWith("SRV_")) {
+                    refVal = refVal.substring(4);
+                }
+                emdCoupon.setServiceRefs(Arrays.asList(refVal));
+
+                EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
+                cai.setDepartureAirportCode(f0.getFromcode());
+                cai.setArrivalAirportCode(f0.getTocode());
+                cai.setDepartureDate(OrderMappingUtil.formatDate(f0.getFlightdate()));
+                cai.setDepartureTime(f0.getDepart());
+                cai.setDepartureAirportName(f0.getFrom());
+                cai.setArrivalAirportName(f0.getTo());
+                cai.setFlightNumber(f0.getNumber());
+                cai.setMarketingCarrierAirlineId(f0.getAirlinedesignator());
+                emdCoupon.setCurrentAirlineInfo(new ArrayList<>(List.of(cai)));
+
+                emdCoupons.add(emdCoupon);
+                emdDoc.setCouponInfo(emdCoupons);
+                emdDocs.add(emdDoc);
+                emd.setTicketDocument(emdDocs);
+
+                paxEmds.add(emd);
+                topLevelEmdInfos.add(emd);
+            }
+        }
+
+        private void mapFallbackEmds(Passenger go7Pax, String paxId, List<EMDInfoDTO> paxEmds) {
+            mapSeatFallbackEmds(go7Pax, paxId, paxEmds);
+
+            if (paxEmds.isEmpty() && go7Pax.getCheckin() != null && !go7Pax.getCheckin().isEmpty()) {
+                mapCheckinFallbackEmds(go7Pax, paxId, paxEmds);
+            }
+        }
+
+        private void mapSeatFallbackEmds(Passenger go7Pax, String paxId, List<EMDInfoDTO> paxEmds) {
+            for (Flight f : flightList) {
+                if (f.getSeat() != null) {
+                    int seatIdxInFlight = 0;
+                    for (Seat s : f.getSeat()) {
+                        List<Passenger> originalList = booking.getPassengers().getPassenger();
+                        int currentPaxIndex = originalList.indexOf(go7Pax);
+
+                        if (seatIdxInFlight == currentPaxIndex) {
+                            EMDInfoDTO emd = buildSeatEmd(f, s, go7Pax, paxId);
                             paxEmds.add(emd);
                             topLevelEmdInfos.add(emd);
                         }
-
-                    } else {
-                        // Priority 2: Fallback to existing Go7 Flight/Checkin parsing
-                        int seatCounterGlobal = 0;
-                        for (Flight f : flightList) {
-                            if (f.getSeat() != null) {
-                                int seatIdxInFlight = 0;
-                                for (Seat s : f.getSeat()) {
-                                    int currentPaxIndex = paxCounter - 2;
-
-                                    if (seatIdxInFlight == currentPaxIndex) {
-                                        EMDInfoDTO emd = new EMDInfoDTO();
-                                        emd.setValidatingCarrier("G7");
-                                        emd.setPaxId(Arrays.asList(paxId));
-
-                                        String issuingDesig = "API Airways";
-                                        String issuingPlace = "TLV";
-                                        if (f.getAirline() != null)
-                                            issuingDesig = f.getAirline();
-                                        if (f.getFromcode() != null)
-                                            issuingPlace = f.getFromcode();
-
-                                        emd.setIssuingAirlineName(issuingDesig);
-                                        emd.setIssuingPlace(issuingPlace);
-
-                                        List<EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
-                                        EMDInfoDTO.TicketDocumentDTO emdDoc = new EMDInfoDTO.TicketDocumentDTO();
-
-                                        String baseTkt = (go7Pax.getETickets() != null
-                                                && go7Pax.getETickets().getFlight() != null
-                                                && !go7Pax.getETickets().getFlight().isEmpty())
-                                                        ? go7Pax.getETickets().getFlight().get(0).getEticketnumber()
-                                                        : "EMD";
-
-                                        emdDoc.setTicketDocNbr(baseTkt + "-" + (topLevelEmdInfos.size() + 1));
-                                        emdDoc.setType("J");
-                                        emdDoc.setNumberOfBooklets(1);
-                                        emdDoc.setDateOfIssue(OrderMappingUtil.formatDate(java.time.LocalDate.now().toString()));
-                                        emdDoc.setTimeOfIssue("00:00");
-                                        emdDoc.setTicketingLocation(issuingPlace);
-                                        emdDoc.setReportingType("BSP");
-
-                                        List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
-                                        EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
-                                        emdCoupon.setCouponNumber(1);
-                                        emdCoupon.setValidatingCarrier("G7");
-                                        emdCoupon.setStatus("I");
-                                        emdCoupon.setServiceRefs(Arrays.asList(s.getSeatNumber()));
-
-                                        List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
-                                        EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
-                                        cai.setDepartureAirportCode(f.getFromcode());
-                                        cai.setArrivalAirportCode(f.getTocode());
-                                        cai.setDepartureDate(OrderMappingUtil.formatDate(f.getFlightdate()));
-                                        cai.setDepartureTime(f.getDepart());
-                                        cai.setDepartureAirportName(f.getFrom());
-                                        cai.setArrivalAirportName(f.getTo());
-                                        cai.setFlightNumber(f.getNumber());
-                                        cai.setMarketingCarrierAirlineId(f.getAirlinedesignator());
-                                        caiList.add(cai);
-                                        emdCoupon.setCurrentAirlineInfo(caiList);
-
-                                        emdCoupons.add(emdCoupon);
-                                        emdDoc.setCouponInfo(emdCoupons);
-                                        emdDocs.add(emdDoc);
-                                        emd.setTicketDocument(emdDocs);
-
-                                        paxEmds.add(emd);
-                                        topLevelEmdInfos.add(emd);
-                                    }
-                                    seatIdxInFlight++;
-                                }
-                            }
-                        }
-
-                        if (paxEmds.isEmpty() && go7Pax.getCheckin() != null && !go7Pax.getCheckin().isEmpty()) {
-                            for (Passenger.Checkin chk : go7Pax.getCheckin()) {
-                                if (chk.getSeat() != null && !chk.getSeat().isEmpty()) {
-                                    EMDInfoDTO emd = new EMDInfoDTO();
-                                    emd.setValidatingCarrier("G7");
-                                    emd.setPaxId(Arrays.asList(paxId));
-
-                                    Flight matchedFlight = null;
-                                    if (chk.getFlight() != null) {
-                                        for (Flight f : flightList) {
-                                            if (f.getNumber() != null && chk.getFlight().contains(f.getNumber())) {
-                                                matchedFlight = f;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (matchedFlight == null && !flightList.isEmpty())
-                                        matchedFlight = flightList.get(0);
-
-                                    String issuingDesig = "API Airways";
-                                    String issuingPlace = "TLV";
-                                    if (matchedFlight != null) {
-                                        if (matchedFlight.getAirline() != null)
-                                            issuingDesig = matchedFlight.getAirline();
-                                        if (matchedFlight.getFromcode() != null)
-                                            issuingPlace = matchedFlight.getFromcode();
-                                    }
-
-                                    emd.setIssuingAirlineName(issuingDesig);
-                                    emd.setIssuingPlace(issuingPlace);
-
-                                    List<EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
-                                    EMDInfoDTO.TicketDocumentDTO emdDoc = new EMDInfoDTO.TicketDocumentDTO();
-
-                                    String baseTkt = (go7Pax.getETickets() != null
-                                            && go7Pax.getETickets().getFlight() != null
-                                            && !go7Pax.getETickets().getFlight().isEmpty())
-                                                    ? go7Pax.getETickets().getFlight().get(0).getEticketnumber()
-                                                    : "EMD";
-
-                                    emdDoc.setTicketDocNbr(baseTkt + "-" + (topLevelEmdInfos.size() + 1));
-                                    emdDoc.setType("J");
-                                    emdDoc.setNumberOfBooklets(1);
-                                    emdDoc.setDateOfIssue(OrderMappingUtil.formatDate(java.time.LocalDate.now().toString()));
-                                    emdDoc.setTimeOfIssue("00:00");
-                                    emdDoc.setTicketingLocation(issuingPlace);
-                                    emdDoc.setReportingType("BSP");
-
-                                    List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
-                                    EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
-                                    emdCoupon.setCouponNumber(1);
-                                    emdCoupon.setValidatingCarrier("G7");
-                                    emdCoupon.setStatus("I");
-                                    emdCoupon.setServiceRefs(Arrays.asList(chk.getSeat()));
-
-                                    if (matchedFlight != null) {
-                                        List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO> caiList = new ArrayList<>();
-                                        EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
-                                        cai.setDepartureAirportCode(matchedFlight.getFromcode());
-                                        cai.setArrivalAirportCode(matchedFlight.getTocode());
-                                        cai.setDepartureDate(OrderMappingUtil.formatDate(matchedFlight.getFlightdate()));
-                                        cai.setDepartureTime(matchedFlight.getDepart());
-                                        cai.setDepartureAirportName(matchedFlight.getFrom());
-                                        cai.setArrivalAirportName(matchedFlight.getTo());
-                                        cai.setFlightNumber(matchedFlight.getNumber());
-                                        cai.setMarketingCarrierAirlineId(matchedFlight.getAirlinedesignator());
-                                        caiList.add(cai);
-                                        emdCoupon.setCurrentAirlineInfo(caiList);
-                                    }
-
-                                    emdCoupons.add(emdCoupon);
-                                    emdDoc.setCouponInfo(emdCoupons);
-                                    emdDocs.add(emdDoc);
-                                    emd.setTicketDocument(emdDocs);
-
-                                    paxEmds.add(emd);
-                                    topLevelEmdInfos.add(emd);
-                                }
-                            }
-                        }
-                    }
-
-                    if (!paxEmds.isEmpty()) {
-                        pax.setEmdInfo(paxEmds);
+                        seatIdxInFlight++;
                     }
                 }
-
-                paxList.add(pax);
-            }
-            if (!topLevelTicketDocs.isEmpty()) {
-                response.setTicketDocInfoList(topLevelTicketDocs);
-            }
-            if (!topLevelEmdInfos.isEmpty()) {
-                response.setEmdInfoList(topLevelEmdInfos);
-            }
-        }
-        response.setPaxDetailList(paxList);
-
-        // 5. Order Items
-        // 5. Order Items
-        List<OrderItemsDTO> orderItems = new ArrayList<>();
-        int itemIdx = 1;
-
-        // Group Pax
-        List<String> adtRefs = new ArrayList<>();
-        List<String> cnnRefs = new ArrayList<>();
-        List<String> infRefs = new ArrayList<>();
-
-        for (PaxDetailDTO p : paxList) {
-            String pid = p.getPaxId();
-            if ("ADT".equals(p.getPtc())) {
-                adtRefs.add(pid);
-            } else if ("CHD".equals(p.getPtc())) {
-                cnnRefs.add(pid);
-            } else if ("INF".equals(p.getPtc())) {
-                infRefs.add(pid);
             }
         }
 
-        List<Flight> flightListRef = flightList;
-        String currency = booking.getCurrency();
-        if (currency == null)
-            currency = "USD";
+        private EMDInfoDTO buildSeatEmd(Flight f, Seat s, Passenger go7Pax, String paxId) {
+            EMDInfoDTO emd = new EMDInfoDTO();
+            emd.setValidatingCarrier("G7");
+            emd.setPaxId(Arrays.asList(paxId));
 
-        BigDecimal airTotalForFallback = null;
-        if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
-            airTotalForFallback = booking.getBalanceInformation().getPnrTotal();
-        } else if (booking.getTotalprice() != null) {
-            try {
-                airTotalForFallback = new BigDecimal(String.valueOf(booking.getTotalprice()));
-            } catch (Exception e) {}
+            String issuingDesig = DEFAULT_ISSUING_AIRLINE;
+            String issuingPlace = "TLV";
+            if (f.getAirline() != null) {
+                issuingDesig = f.getAirline();
+            }
+            if (f.getFromcode() != null) {
+                issuingPlace = f.getFromcode();
+            }
+
+            emd.setIssuingAirlineName(issuingDesig);
+            emd.setIssuingPlace(issuingPlace);
+
+            List<EMDInfoDTO.TicketDocumentDTO> emdDocs = new ArrayList<>();
+            EMDInfoDTO.TicketDocumentDTO emdDoc = new EMDInfoDTO.TicketDocumentDTO();
+
+            String baseTkt = (go7Pax.getETickets() != null
+                    && go7Pax.getETickets().getFlight() != null
+                    && !go7Pax.getETickets().getFlight().isEmpty())
+                            ? go7Pax.getETickets().getFlight().get(0).getEticketnumber()
+                            : "EMD";
+
+            emdDoc.setTicketDocNbr(baseTkt + "-" + (topLevelEmdInfos.size() + 1));
+            emdDoc.setType("J");
+            emdDoc.setNumberOfBooklets(1);
+            emdDoc.setDateOfIssue(OrderMappingUtil.formatDate(LocalDate.now().toString()));
+            emdDoc.setTimeOfIssue(DEFAULT_TIME_OF_ISSUE);
+            emdDoc.setTicketingLocation(issuingPlace);
+            emdDoc.setReportingType("BSP");
+
+            List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> emdCoupons = new ArrayList<>();
+            EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+            emdCoupon.setCouponNumber(1);
+            emdCoupon.setValidatingCarrier("G7");
+            emdCoupon.setStatus("I");
+            emdCoupon.setServiceRefs(Arrays.asList(s.getSeatNumber()));
+
+            EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
+            cai.setDepartureAirportCode(f.getFromcode());
+            cai.setArrivalAirportCode(f.getTocode());
+            cai.setDepartureDate(OrderMappingUtil.formatDate(f.getFlightdate()));
+            cai.setDepartureTime(f.getDepart());
+            cai.setDepartureAirportName(f.getFrom());
+            cai.setArrivalAirportName(f.getTo());
+            cai.setFlightNumber(f.getNumber());
+            cai.setMarketingCarrierAirlineId(f.getAirlinedesignator());
+            emdCoupon.setCurrentAirlineInfo(new ArrayList<>(List.of(cai)));
+
+            emdCoupons.add(emdCoupon);
+            emdDoc.setCouponInfo(emdCoupons);
+            emdDocs.add(emdDoc);
+            emd.setTicketDocument(emdDocs);
+
+            return emd;
         }
 
-        // ADT Item
-        if (!adtRefs.isEmpty()) {
-            OrderItemsDTO item = createOrderItem(response.getResponseId(), itemIdx++, "ADT", adtRefs,
-                    flightListRef, currency, booking, airTotalForFallback);
-            orderItems.add(item);
-        }
-
-        // CHD Item
-        if (!cnnRefs.isEmpty()) {
-            OrderItemsDTO item = createOrderItem(response.getResponseId(), itemIdx++, "CHD", cnnRefs,
-                    flightListRef, currency, booking, airTotalForFallback);
-            orderItems.add(item);
-        }
-
-        // INF Item
-        if (!infRefs.isEmpty()) {
-            OrderItemsDTO item = createOrderItem(response.getResponseId(), itemIdx++, "INF", infRefs,
-                    flightListRef, currency, booking, airTotalForFallback);
-            orderItems.add(item);
-        }
-
-        // Generate SRV items from passengerSeats and passengerServices
-        java.util.LinkedHashMap<String, String> combinedSrvMap = new java.util.LinkedHashMap<>();
-        if (passengerSeats != null) {
-            for (java.util.Map.Entry<String, String> entry : passengerSeats.entrySet()) {
-                combinedSrvMap.put(entry.getKey() + "_SEAT", entry.getValue());
+        private void mapCheckinFallbackEmds(Passenger go7Pax, String paxId, List<EMDInfoDTO> paxEmds) {
+            for (Passenger.Checkin chk : go7Pax.getCheckin()) {
+                if (chk.getSeat() != null && !chk.getSeat().isEmpty()) {
+                    EMDInfoDTO emd = buildCheckinEmd(chk, go7Pax, paxId);
+                    paxEmds.add(emd);
+                    topLevelEmdInfos.add(emd);
+                }
             }
         }
-        if (passengerServices != null) {
-            for (java.util.Map.Entry<String, String> entry : passengerServices.entrySet()) {
-                                        combinedSrvMap.put(entry.getKey() + "_SRV", entry.getValue());
+
+        private EMDInfoDTO buildCheckinEmd(Passenger.Checkin chk, Passenger go7Pax, String paxId) {
+            EMDInfoDTO emd = new EMDInfoDTO();
+            emd.setValidatingCarrier("G7");
+            emd.setPaxId(Arrays.asList(paxId));
+
+            Flight matchedFlight = findMatchedFlight(chk);
+            populateEmdIssuingInfo(emd, matchedFlight);
+
+            EMDInfoDTO.TicketDocumentDTO emdDoc = new EMDInfoDTO.TicketDocumentDTO();
+            String baseTkt = getBaseTicketNumber(go7Pax);
+            emdDoc.setTicketDocNbr(baseTkt + "-" + (topLevelEmdInfos.size() + 1));
+            emdDoc.setType("J");
+            emdDoc.setNumberOfBooklets(1);
+            emdDoc.setDateOfIssue(OrderMappingUtil.formatDate(LocalDate.now().toString()));
+            emdDoc.setTimeOfIssue(DEFAULT_TIME_OF_ISSUE);
+            emdDoc.setTicketingLocation(emd.getIssuingPlace());
+            emdDoc.setReportingType("BSP");
+            emdDoc.setCouponInfo(buildCheckinCoupons(chk, matchedFlight));
+
+            emd.setTicketDocument(new ArrayList<>(List.of(emdDoc)));
+            return emd;
+        }
+
+        private Flight findMatchedFlight(Passenger.Checkin chk) {
+            if (chk.getFlight() != null) {
+                for (Flight f : flightList) {
+                    if (f.getNumber() != null && chk.getFlight().contains(f.getNumber())) {
+                        return f;
+                    }
+                }
+            }
+            if (!flightList.isEmpty()) {
+                return flightList.get(0);
+            }
+            return null;
+        }
+
+        private void populateEmdIssuingInfo(EMDInfoDTO emd, Flight matchedFlight) {
+            String issuingDesig = DEFAULT_ISSUING_AIRLINE;
+            String issuingPlace = "TLV";
+            if (matchedFlight != null) {
+                if (matchedFlight.getAirline() != null) {
+                    issuingDesig = matchedFlight.getAirline();
+                }
+                if (matchedFlight.getFromcode() != null) {
+                    issuingPlace = matchedFlight.getFromcode();
+                }
+            }
+            emd.setIssuingAirlineName(issuingDesig);
+            emd.setIssuingPlace(issuingPlace);
+        }
+
+        private String getBaseTicketNumber(Passenger go7Pax) {
+            if (go7Pax.getETickets() != null && go7Pax.getETickets().getFlight() != null
+                    && !go7Pax.getETickets().getFlight().isEmpty()) {
+                return go7Pax.getETickets().getFlight().get(0).getEticketnumber();
+            }
+            return "EMD";
+        }
+
+        private EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO buildEmdCouponCurrentAirlineInfo(Flight matchedFlight) {
+            EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO cai = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO.CurrentAirlineInfoDTO();
+            cai.setDepartureAirportCode(matchedFlight.getFromcode());
+            cai.setArrivalAirportCode(matchedFlight.getTocode());
+            cai.setDepartureDate(OrderMappingUtil.formatDate(matchedFlight.getFlightdate()));
+            cai.setDepartureTime(matchedFlight.getDepart());
+            cai.setDepartureAirportName(matchedFlight.getFrom());
+            cai.setArrivalAirportName(matchedFlight.getTo());
+            cai.setFlightNumber(matchedFlight.getNumber());
+            cai.setMarketingCarrierAirlineId(matchedFlight.getAirlinedesignator());
+            return cai;
+        }
+
+        private List<EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO> buildCheckinCoupons(Passenger.Checkin chk, Flight matchedFlight) {
+            EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO emdCoupon = new EMDInfoDTO.TicketDocumentDTO.CouponInfoDTO();
+            emdCoupon.setCouponNumber(1);
+            emdCoupon.setValidatingCarrier("G7");
+            emdCoupon.setStatus("I");
+            emdCoupon.setServiceRefs(Arrays.asList(chk.getSeat()));
+
+            if (matchedFlight != null) {
+                emdCoupon.setCurrentAirlineInfo(new ArrayList<>(List.of(buildEmdCouponCurrentAirlineInfo(matchedFlight))));
+            }
+            return new ArrayList<>(List.of(emdCoupon));
+        }
+
+        private void populateOrderItems() {
+            populateMainOrderItems();
+            populateSecondaryServiceItems(buildCombinedSrvMap());
+            response.setOrderItems(orderItems);
+            aggregateTotalOrderPrice();
+        }
+
+        private void populateMainOrderItems() {
+            List<String> adtRefs = new ArrayList<>();
+            List<String> cnnRefs = new ArrayList<>();
+            List<String> infRefs = new ArrayList<>();
+            groupPassengersByPtc(adtRefs, cnnRefs, infRefs);
+
+            currency = booking.getCurrency();
+            if (currency == null) {
+                currency = "USD";
+            }
+
+            BigDecimal airTotalForFallback = getAirTotalForFallback();
+
+            createAndAddMainOrderItem("ADT", adtRefs, airTotalForFallback);
+            createAndAddMainOrderItem("CHD", cnnRefs, airTotalForFallback);
+            createAndAddMainOrderItem("INF", infRefs, airTotalForFallback);
+        }
+
+        private void groupPassengersByPtc(List<String> adtRefs, List<String> cnnRefs, List<String> infRefs) {
+            for (PaxDetailDTO p : paxList) {
+                String pid = p.getPaxId();
+                if ("ADT".equals(p.getPtc())) {
+                    adtRefs.add(pid);
+                } else if ("CHD".equals(p.getPtc())) {
+                    cnnRefs.add(pid);
+                } else if ("INF".equals(p.getPtc())) {
+                    infRefs.add(pid);
+                }
             }
         }
 
-        if (!combinedSrvMap.isEmpty() && flightList != null && !flightList.isEmpty()) {
-            // Calculate distributed price as fallback
+        private BigDecimal getAirTotalForFallback() {
+            if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
+                return booking.getBalanceInformation().getPnrTotal();
+            } else if (booking.getTotalprice() != null) {
+                try {
+                    return new BigDecimal(String.valueOf(booking.getTotalprice()));
+                } catch (Exception e) {
+                    // Ignore total price parsing exception
+                }
+            }
+            return null;
+        }
+
+        private void createAndAddMainOrderItem(String ptc, List<String> refs, BigDecimal fallbackPrice) {
+            if (!refs.isEmpty()) {
+                OrderItemsDTO item = createOrderItem(ptc, refs, fallbackPrice);
+                orderItems.add(item);
+            }
+        }
+
+        private java.util.LinkedHashMap<String, String> buildCombinedSrvMap() {
+            java.util.LinkedHashMap<String, String> combinedSrvMap = new java.util.LinkedHashMap<>();
+            if (passengerSeats != null) {
+                for (java.util.Map.Entry<String, String> entry : passengerSeats.entrySet()) {
+                    combinedSrvMap.put(entry.getKey() + SUFFIX_SEAT, entry.getValue());
+                }
+            }
+            if (passengerServices != null) {
+                for (java.util.Map.Entry<String, String> entry : passengerServices.entrySet()) {
+                    combinedSrvMap.put(entry.getKey() + "_SRV", entry.getValue());
+                }
+            }
+            return combinedSrvMap;
+        }
+
+        private void populateSecondaryServiceItems(java.util.LinkedHashMap<String, String> combinedSrvMap) {
+            if (combinedSrvMap.isEmpty() || flightList == null || flightList.isEmpty()) {
+                return;
+            }
+            calculateDistributedItemPrice(combinedSrvMap);
+
+            for (java.util.Map.Entry<String, String> entry : combinedSrvMap.entrySet()) {
+                orderItems.add(buildSecondaryOrderItem(entry));
+            }
+        }
+
+        private static class SecondaryItemPriceInfo {
+            final String itemCode;
+            final BigDecimal itemPrice;
+            SecondaryItemPriceInfo(String itemCode, BigDecimal itemPrice) {
+                this.itemCode = itemCode;
+                this.itemPrice = itemPrice;
+            }
+        }
+
+        private SecondaryItemPriceInfo parseSecondaryItemPrice(String rawValue) {
+            String itemCode = rawValue;
+            BigDecimal itemPrice = distributedItemPrice;
+
+            if (rawValue != null && rawValue.contains("|")) {
+                String[] parts = rawValue.split("\\|");
+                itemCode = parts[0];
+                try {
+                    BigDecimal storedPrice = new BigDecimal(parts[1]);
+                    if (storedPrice.compareTo(BigDecimal.ZERO) > 0) {
+                        itemPrice = storedPrice;
+                    }
+                } catch (Exception e) {
+                    // Ignore stored price parsing exception
+                }
+            }
+            return new SecondaryItemPriceInfo(itemCode, itemPrice);
+        }
+
+        private String findPassengerPtc(String paxId) {
+            for (PaxDetailDTO p : paxList) {
+                if (p.getPaxId().equals(paxId)) {
+                    return p.getPtc();
+                }
+            }
+            return "ADT";
+        }
+
+        private List<Service> buildServiceList(boolean isSeat, String itemCode, String assignedPaxId) {
+            Service srv = new Service();
+            if (isSeat) {
+                populateSeatService(srv, itemCode, assignedPaxId);
+            } else {
+                populateAncillaryService(srv, itemCode);
+            }
+            return new ArrayList<>(List.of(srv));
+        }
+
+        private void populateSeatService(Service srv, String itemCode, String assignedPaxId) {
+            srv.setServiceId("SEG1_" + assignedPaxId);
+            srv.setServiceStatus("CONFIRMED");
+            srv.setServiceCode("SEAT" + itemCode);
+            srv.setServiceName("Specific Seat Request");
+            srv.setSegmentId("SEG1");
+
+            if (itemCode != null && !itemCode.isEmpty()) {
+                String col = itemCode.substring(itemCode.length() - 1);
+                String rowStr = itemCode.substring(0, itemCode.length() - 1);
+                srv.setColumn(col);
+                try {
+                    srv.setRow(new java.math.BigInteger(rowStr));
+                } catch (Exception e) {
+                    // Ignore seat row number parsing exception
+                }
+            }
+        }
+
+        private void populateAncillaryService(Service srv, String itemCode) {
+            srv.setServiceId(itemCode);
+            srv.setServiceStatus("CONFIRMED");
+            srv.setServiceCode("SRV");
+            srv.setServiceName("Ancillary Service");
+        }
+
+        private OrderItemsDTO buildSecondaryOrderItem(java.util.Map.Entry<String, String> entry) {
+            String rawKey = entry.getKey();
+            boolean isSeat = rawKey.endsWith(SUFFIX_SEAT);
+            String assignedPaxId = rawKey.substring(0, rawKey.lastIndexOf("_"));
+
+            SecondaryItemPriceInfo priceInfo = parseSecondaryItemPrice(entry.getValue());
+
+            OrderItemsDTO srvItem = new OrderItemsDTO();
+            srvItem.setOrderItemId(response.getOrderId() + "_SRV" + itemIdx++);
+            srvItem.setPtc(findPassengerPtc(assignedPaxId));
+            srvItem.setPassengerIds(java.util.Arrays.asList(assignedPaxId));
+            srvItem.setTotalPrice(priceInfo.itemPrice);
+            srvItem.setTotalFare(new OrderItemsDTO.TotalFare(priceInfo.itemPrice, currency));
+            srvItem.setBaseFare(new OrderItemsDTO.BaseFare(priceInfo.itemPrice, currency));
+            srvItem.setServiceList(buildServiceList(isSeat, priceInfo.itemCode, assignedPaxId));
+
+            return srvItem;
+        }
+
+        private void aggregateTotalOrderPrice() {
+            BigDecimal aggregatedTotal = BigDecimal.ZERO;
+            for (OrderItemsDTO o : orderItems) {
+                if (o.getTotalPrice() != null) {
+                    aggregatedTotal = aggregatedTotal.add(o.getTotalPrice());
+                }
+            }
+            response.setTotalOrderPrice(aggregatedTotal.setScale(2, java.math.RoundingMode.HALF_UP));
+        }
+
+        private void calculateDistributedItemPrice(java.util.LinkedHashMap<String, String> combinedSrvMap) {
             BigDecimal totalAirItemsPrice = BigDecimal.ZERO;
             for (OrderItemsDTO o : orderItems) {
                 if (o.getTotalPrice() != null) {
@@ -769,7 +1000,6 @@ public class OrderRetrieveResponse {
                 }
             }
 
-            BigDecimal bookingTotal = BigDecimal.ZERO;
             if (dbTotalOrderPrice != null) {
                 bookingTotal = dbTotalOrderPrice;
             } else if (booking.getBalanceInformation() != null && booking.getBalanceInformation().getPnrTotal() != null) {
@@ -777,215 +1007,156 @@ public class OrderRetrieveResponse {
             } else if (booking.getTotalprice() != null) {
                 try {
                     bookingTotal = new BigDecimal(booking.getTotalprice());
-                } catch (Exception e) {}
+                } catch (Exception e) {
+                    // Ignore parsing exception, fallback to other total price fields
+                }
             }
 
-            BigDecimal secondaryTotal = bookingTotal.subtract(totalAirItemsPrice);
+            secondaryTotal = bookingTotal.subtract(totalAirItemsPrice);
             if (secondaryTotal.compareTo(BigDecimal.ZERO) < 0) secondaryTotal = BigDecimal.ZERO;
 
-            BigDecimal distributedItemPrice = BigDecimal.ZERO;
             if (secondaryTotal.compareTo(BigDecimal.ZERO) > 0) {
-                // Filter out items that already have a price from the cache
                 long unpaidCount = combinedSrvMap.values().stream().filter(v -> !v.contains("|") || new BigDecimal(v.split("\\|")[1]).compareTo(BigDecimal.ZERO) == 0).count();
                 if (unpaidCount > 0) {
                     distributedItemPrice = secondaryTotal.divide(new BigDecimal(unpaidCount), 2, java.math.RoundingMode.HALF_UP);
                 }
             }
+        }
 
-            for (java.util.Map.Entry<String, String> paxSecondary : combinedSrvMap.entrySet()) {
-                String rawKey = paxSecondary.getKey();
-                String rawValue = paxSecondary.getValue();
-                
-                boolean isSeat = rawKey.endsWith("_SEAT");
-                String assignedPaxId = rawKey.substring(0, rawKey.lastIndexOf("_"));
-                
-                String itemCode = rawValue;
-                BigDecimal itemPrice = distributedItemPrice;
-                
-                if (rawValue != null && rawValue.contains("|")) {
-                    String[] parts = rawValue.split("\\|");
-                    itemCode = parts[0];
-                    try {
-                        BigDecimal storedPrice = new BigDecimal(parts[1]);
-                        if (storedPrice.compareTo(BigDecimal.ZERO) > 0) itemPrice = storedPrice;
-                    } catch (Exception e) {}
+        private void populatePayments() {
+            boolean isPaid = false;
+            if (booking.getBalanceInformation() != null) {
+                isPaid = booking.getBalanceInformation().getPnrOutstandingPayment() <= 0;
+            }
+
+            for (OrderItemsDTO o : orderItems) {
+                if (o.getTotalPrice() != null && o.getTotalPrice().compareTo(BigDecimal.ZERO) > 0) {
+                    PaymentsDTO payItem = new PaymentsDTO();
+                    payItem.setType("CC");
+                    payItem.setStatusCode(isPaid ? "SUCCESSFUL" : "PENDING");
+                    payItem.setAmount(o.getTotalPrice().setScale(2, java.math.RoundingMode.HALF_UP));
+                    payItem.setCurrency(response.getCurrency());
+                    payItem.setOrderItem(Arrays.asList(o.getOrderItemId()));
+                    payments.add(payItem);
                 }
+            }
+            response.setPayments(payments);
+        }
 
-                OrderItemsDTO srvItem = new OrderItemsDTO();
-                srvItem.setOrderItemId(response.getOrderId() + "_SRV" + itemIdx++);
+        private OrderItemsDTO createOrderItem(String ptc, List<String> paxIds, java.math.BigDecimal fallbackPrice) {
+            OrderItemsDTO item = new OrderItemsDTO();
+            item.setOrderItemId(response.getResponseId() + "_AIR-" + (itemIdx++));
+            item.setPtc(ptc);
 
-                String ptc = "ADT";
-                for (PaxDetailDTO p : response.getPaxDetailList()) {
-                    if (p.getPaxId().equals(assignedPaxId)) {
-                        ptc = p.getPtc();
-                        break;
+            String mainClassName = CABIN_ECONOMY;
+            if (flightList != null && !flightList.isEmpty()) {
+                Flight f = flightList.get(0);
+                if (f.getFlightClass() != null) {
+                    String[] parts = f.getFlightClass().split("/");
+                    if (parts.length > 1) {
+                        mainClassName = parts[1].trim();
+                    } else {
+                        mainClassName = f.getFlightClass();
                     }
                 }
+            }
+            item.setClassName(mainClassName);
+            item.setTimeStamp(
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", Locale.ENGLISH)));
+            item.setPassengerIds(paxIds);
 
-                srvItem.setPtc(ptc);
-                srvItem.setPassengerIds(java.util.Arrays.asList(assignedPaxId));
-                srvItem.setTotalPrice(itemPrice);
-                srvItem.setTotalFare(new OrderItemsDTO.TotalFare(itemPrice, currency));
-                srvItem.setBaseFare(new OrderItemsDTO.BaseFare(itemPrice, currency));
+            int count = paxIds.size();
+            BigDecimal[] fares = calculateBaseAndTaxFares(ptc, flightList, booking, fallbackPrice);
+            BigDecimal totalBase = fares[0].multiply(new BigDecimal(count));
+            BigDecimal totalTaxAmount = fares[1].multiply(new BigDecimal(count));
+            BigDecimal totalPrice = totalBase.add(totalTaxAmount);
 
-                List<Service> srvList = new ArrayList<>();
-                Service srv = new Service();
+            List<OrderItemsDTO.Tax> taxList = new ArrayList<>();
+            populateGranularTaxes(flightList, count, totalTaxAmount, currency, taxList);
+            item.setTaxes(taxList);
 
-                if (isSeat) {
-                    srv.setServiceId("SEG1_" + assignedPaxId);
-                    srv.setServiceStatus("CONFIRMED");
-                    srv.setServiceCode("SEAT" + itemCode);
-                    srv.setServiceName("Specific Seat Request");
-                    srv.setSegmentId("SEG1");
-                    
-                    if (itemCode != null && itemCode.length() > 0) {
-                        String col = itemCode.substring(itemCode.length() - 1);
-                        String rowStr = itemCode.substring(0, itemCode.length() - 1);
-                        srv.setColumn(col);
-                        try {
-                            srv.setRow(new java.math.BigInteger(rowStr));
-                        } catch (Exception e) {}
-                    }
-                } else {
-                    srv.setServiceId(itemCode);
-                    srv.setServiceStatus("CONFIRMED");
-                    srv.setServiceCode("SRV");
-                    srv.setServiceName("Ancillary Service");
+            finalizeRetrieveOrderItem(item, totalBase, totalTaxAmount, totalPrice, currency);
+
+            return item;
+        }
+
+        private static BigDecimal[] calculateBaseAndTaxFares(
+                String ptc, List<Flight> flights, Booking booking, BigDecimal dbTotalOrderPrice) {
+            BigDecimal unitBase = BigDecimal.ZERO;
+            BigDecimal unitTax = BigDecimal.ZERO;
+            int totalPaxCount = getRetrieveTotalPaxCount(booking);
+
+            if (flights != null) {
+                for (Flight f : flights) {
+                    String fareStr = selectFareByPtc(ptc, f);
+                    fareStr = applyFareFallback(fareStr, "ADT".equals(ptc), f);
+                    unitBase = unitBase.add(parseFareSafely(fareStr));
+                    unitTax = accumulateFlightTax(unitTax, f, totalPaxCount);
                 }
+            }
 
-                srvList.add(srv);
-                srvItem.setServiceList(srvList);
-                orderItems.add(srvItem);
+            unitBase = applyRetrieveBaseFareFallback(unitBase, flights, booking, dbTotalOrderPrice);
+            return new BigDecimal[]{unitBase, unitTax};
+        }
+
+        private static String selectFareByPtc(String ptc, Flight f) {
+            if ("ADT".equals(ptc)) {
+                return f.getAdultfare();
+            } else if ("CHD".equals(ptc) || "CNN".equals(ptc)) {
+                return f.getChildfare();
+            } else if ("INF".equals(ptc)) {
+                return f.getInfantfare();
+            }
+            return null;
+        }
+
+        private static String applyFareFallback(String fareStr, boolean isAdt, Flight f) {
+            if (fareStr != null && !fareStr.isEmpty() && !"0".equals(fareStr)) {
+                return fareStr;
+            }
+            if (f.getInvpricingwithouttax() != null && !f.getInvpricingwithouttax().isEmpty()) {
+                return f.getInvpricingwithouttax();
+            }
+            if (isAdt) {
+                return f.getNetFare();
+            }
+            return fareStr;
+        }
+
+        private static BigDecimal parseFareSafely(String fareStr) {
+            if (fareStr == null) {
+                return BigDecimal.ZERO;
+            }
+            try {
+                return new BigDecimal(fareStr);
+            } catch (NumberFormatException e) {
+                return BigDecimal.ZERO;
             }
         }
 
-        response.setOrderItems(orderItems);
-
-        // Aggregate final totalOrderPrice from all generated OrderItems
-        BigDecimal aggregatedTotal = BigDecimal.ZERO;
-        for (OrderItemsDTO o : orderItems) {
-            if (o.getTotalPrice() != null) {
-                aggregatedTotal = aggregatedTotal.add(o.getTotalPrice());
+        private static BigDecimal accumulateFlightTax(BigDecimal unitTax, Flight f, int totalPaxCount) {
+            BigDecimal flightTotalTax = BigDecimal.valueOf(f.getTotaltaxes());
+            if (totalPaxCount > 0) {
+                return unitTax.add(
+                        flightTotalTax.divide(new BigDecimal(totalPaxCount), 2, java.math.RoundingMode.HALF_UP));
             }
-        }
-        response.setTotalOrderPrice(aggregatedTotal.setScale(2, java.math.RoundingMode.HALF_UP));
-        
-        // 7. Separate Payments (Added per user request to match ChangePayment structure)
-        List<PaymentsDTO> payments = new ArrayList<>();
-        boolean isPaid = false;
-        if (booking.getBalanceInformation() != null) {
-            isPaid = booking.getBalanceInformation().getPnrOutstandingPayment() <= 0;
+            return unitTax.add(flightTotalTax);
         }
 
-        for (OrderItemsDTO o : orderItems) {
-            if (o.getTotalPrice() != null && o.getTotalPrice().compareTo(BigDecimal.ZERO) > 0) {
-                PaymentsDTO payItem = new PaymentsDTO();
-                payItem.setType("CC");
-                payItem.setStatusCode(isPaid ? "SUCCESSFUL" : "PENDING");
-                payItem.setAmount(o.getTotalPrice().setScale(2, java.math.RoundingMode.HALF_UP));
-                payItem.setCurrency(response.getCurrency());
-                payItem.setOrderItem(Arrays.asList(o.getOrderItemId()));
-                payments.add(payItem);
+        private static int getRetrieveTotalPaxCount(Booking booking) {
+            int totalPaxCount = booking.getAdults() + booking.getChild() + booking.getInfant();
+            if (totalPaxCount == 0 && booking.getPassengers() != null
+                    && booking.getPassengers().getPassenger() != null) {
+                totalPaxCount = booking.getPassengers().getPassenger().size();
             }
+            return totalPaxCount;
         }
-        response.setPayments(payments);
 
-        return response;
-    }
-
-    
-
-    
-
-    
-
-    
-
-    private static OrderItemsDTO createOrderItem(String responseId, int itemIndex, String ptc,
-            List<String> paxIds, List<Flight> flights, String currency,
-            Booking booking, java.math.BigDecimal dbTotalOrderPrice) {
-        OrderItemsDTO item = new OrderItemsDTO();
-        item.setOrderItemId(responseId + "_AIR-" + itemIndex);
-        item.setPtc(ptc);
-
-        String mainClassName = "Economy";
-        if (flights != null && !flights.isEmpty()) {
-            Flight f = flights.get(0);
-            if (f.getFlightClass() != null) {
-                String[] parts = f.getFlightClass().split("/");
-                if (parts.length > 1) {
-                    mainClassName = parts[1].trim();
-                } else {
-                    mainClassName = f.getFlightClass();
-                }
+        private static BigDecimal applyRetrieveBaseFareFallback(
+                BigDecimal unitBase, List<Flight> flights, Booking booking, BigDecimal dbTotalOrderPrice) {
+            if (unitBase.compareTo(BigDecimal.ZERO) != 0) {
+                return unitBase;
             }
-        }
-        item.setClassName(mainClassName); // Actually item className might differ per segment but usually one PNR class
-                                          // dominating
-        item.setTimeStamp(
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", Locale.ENGLISH)));
-        item.setPassengerIds(paxIds);
-
-        // Calculate Unit Totals
-        BigDecimal unitBase = BigDecimal.ZERO;
-        BigDecimal unitTax = BigDecimal.ZERO;
-
-        List<OrderItemsDTO.Tax> taxList = new ArrayList<>();
-
-        if (flights != null) {
-            for (Flight f : flights) {
-                // Base Fare
-                String fareStr = null;
-                boolean isAdt = "ADT".equals(ptc);
-                boolean isCnn = "CHD".equals(ptc) || "CNN".equals(ptc); // Handle both CHD and CNN
-                boolean isInf = "INF".equals(ptc);
-
-                if (isAdt)
-                    fareStr = f.getAdultfare();
-                else if (isCnn)
-                    fareStr = f.getChildfare();
-                else if (isInf)
-                    fareStr = f.getInfantfare();
-
-                // Fallback logic
-                if (fareStr == null || fareStr.isEmpty() || "0".equals(fareStr)) {
-                    if (f.getInvpricingwithouttax() != null && !f.getInvpricingwithouttax().isEmpty()) {
-                        fareStr = f.getInvpricingwithouttax();
-                    } else if (isAdt) {
-                        fareStr = f.getNetFare();
-                    }
-                }
-
-                // If fareStr has value, parse it.
-                BigDecimal fareVal = BigDecimal.ZERO;
-                if (fareStr != null) {
-                    try {
-                        fareVal = new BigDecimal(fareStr);
-                    } catch (Exception e) {
-                    }
-                }
-                unitBase = unitBase.add(fareVal);
-
-                // Tax Splitting Logic
-                BigDecimal flightTotalTax = BigDecimal.valueOf(f.getTotaltaxes());
-                int totalPaxCount = booking.getAdults() + booking.getChild() + booking.getInfant();
-                if (totalPaxCount == 0 && booking.getPassengers() != null
-                        && booking.getPassengers().getPassenger() != null) {
-                    totalPaxCount = booking.getPassengers().getPassenger().size();
-                }
-
-                if (totalPaxCount > 0) {
-                    unitTax = unitTax.add(
-                            flightTotalTax.divide(new BigDecimal(totalPaxCount), 2, java.math.RoundingMode.HALF_UP));
-                } else {
-                    unitTax = unitTax.add(flightTotalTax);
-                }
-            }
-        }
-
-        // --- NEW FALLBACK FOR BASE FARE IF IT IS 0 AND NO EXPLICIT FARES WERE GIVEN
-        // ---
-        if (unitBase.compareTo(BigDecimal.ZERO) == 0) {
             try {
                 BigDecimal totalBookingPrice = BigDecimal.ZERO;
                 if (dbTotalOrderPrice != null) {
@@ -996,7 +1167,6 @@ public class OrderRetrieveResponse {
                     totalBookingPrice = new BigDecimal(booking.getTotalprice());
                 }
 
-                // Calculate total tax for the entire booking
                 BigDecimal totalBookingTax = BigDecimal.ZERO;
                 if (flights != null) {
                     for (Flight f : flights) {
@@ -1006,32 +1176,26 @@ public class OrderRetrieveResponse {
 
                 BigDecimal totalBookingBaseFare = totalBookingPrice.subtract(totalBookingTax);
                 if (totalBookingBaseFare.compareTo(BigDecimal.ZERO) > 0) {
-                    int totalPaxCount = booking.getAdults() + booking.getChild() + booking.getInfant();
-                    if (totalPaxCount == 0 && booking.getPassengers() != null
-                            && booking.getPassengers().getPassenger() != null) {
-                        totalPaxCount = booking.getPassengers().getPassenger().size();
-                    }
+                    int totalPaxCount = getRetrieveTotalPaxCount(booking);
                     if (totalPaxCount > 0) {
-                        unitBase = totalBookingBaseFare.divide(new BigDecimal(totalPaxCount), 2,
+                        return totalBookingBaseFare.divide(new BigDecimal(totalPaxCount), 2,
                                 java.math.RoundingMode.HALF_UP);
                     } else {
-                        unitBase = totalBookingBaseFare;
+                        return totalBookingBaseFare;
                     }
                 }
             } catch (Exception e) {
+                // Ignore exception, fallback to base fare unit unitBase
             }
+            return unitBase;
         }
-        // ---------------------------------------------------------------------------------
 
-        int count = paxIds.size();
-        BigDecimal totalBase = unitBase.multiply(new BigDecimal(count));
-        BigDecimal totalTaxAmount = unitTax.multiply(new BigDecimal(count));
-        BigDecimal totalPrice = totalBase.add(totalTaxAmount);
+        private static void populateGranularTaxes(
+                List<Flight> flights, int count, BigDecimal totalTaxAmount, String currency, List<OrderItemsDTO.Tax> taxList) {
+            if (flights == null) {
+                return;
+            }
 
-        item.setTotalPrice(totalPrice.setScale(2, java.math.RoundingMode.HALF_UP));
-
-        // Taxes Breakdown (Apply Count Multiplier and Proportional Scaling)
-        if (flights != null) {
             BigDecimal totalGranularTaxForAllPax = BigDecimal.ZERO;
             for (Flight f : flights) {
                 if (f.getTaxes() != null) {
@@ -1063,64 +1227,61 @@ public class OrderRetrieveResponse {
                 }
             }
         }
-        item.setTaxes(taxList);
 
-        OrderItemsDTO.TotalTax totalTaxObj = new OrderItemsDTO.TotalTax();
-        totalTaxObj.setAmount(totalTaxAmount.setScale(2, java.math.RoundingMode.HALF_UP));
-        totalTaxObj.setCurrency(currency);
-        item.setTotalTax(totalTaxObj);
+        private static void finalizeRetrieveOrderItem(
+                OrderItemsDTO item, BigDecimal totalBase, BigDecimal totalTaxAmount, BigDecimal totalPrice, String currency) {
+            item.setTotalPrice(totalPrice.setScale(2, java.math.RoundingMode.HALF_UP));
 
-        OrderItemsDTO.BaseFare baseFareObj = new OrderItemsDTO.BaseFare();
-        baseFareObj.setAmount(totalBase.setScale(2, java.math.RoundingMode.HALF_UP));
-        baseFareObj.setCurrency(currency);
-        item.setBaseFare(baseFareObj);
+            OrderItemsDTO.TotalTax totalTaxObj = new OrderItemsDTO.TotalTax();
+            totalTaxObj.setAmount(totalTaxAmount.setScale(2, java.math.RoundingMode.HALF_UP));
+            totalTaxObj.setCurrency(currency);
+            item.setTotalTax(totalTaxObj);
 
-        OrderItemsDTO.TotalFare totalFareObj = new OrderItemsDTO.TotalFare();
-        totalFareObj.setAmount(totalPrice.setScale(2, java.math.RoundingMode.HALF_UP));
-        totalFareObj.setCurrency(currency);
-        item.setTotalFare(totalFareObj);
+            OrderItemsDTO.BaseFare baseFareObj = new OrderItemsDTO.BaseFare();
+            baseFareObj.setAmount(totalBase.setScale(2, java.math.RoundingMode.HALF_UP));
+            baseFareObj.setCurrency(currency);
+            item.setBaseFare(baseFareObj);
 
-        return item;
-    }
-
-    private static void addScaledTaxItem(List<OrderItemsDTO.Tax> list, String code, double amount,
-            BigDecimal scaleFactor, int count, String currency, String description) {
-        if (amount > 0) {
-            OrderItemsDTO.Tax t = new OrderItemsDTO.Tax();
-            t.setCode(code);
-            BigDecimal scaledAmount = BigDecimal.valueOf(amount).multiply(BigDecimal.valueOf(count))
-                    .multiply(scaleFactor)
-                    .setScale(2, java.math.RoundingMode.HALF_UP);
-            t.setAmount(scaledAmount);
-            t.setCurrency(currency);
-            t.setDescription(description);
-            list.add(t);
+            OrderItemsDTO.TotalFare totalFareObj = new OrderItemsDTO.TotalFare();
+            totalFareObj.setAmount(totalPrice.setScale(2, java.math.RoundingMode.HALF_UP));
+            totalFareObj.setCurrency(currency);
+            item.setTotalFare(totalFareObj);
         }
-    }
 
-    private static String formatDateTime(String dateTimeStr) {
-        if (dateTimeStr == null) {
-            return null;
-        }
-        try {
-            // Flexible parsing (Go7 might return various formats)
-            // Example: "2026-02-13 11:55:06" or "2026/02/13 11:55:06"
-            DateTimeFormatter inputFormatter;
-            if (dateTimeStr.contains("/")) {
-                inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
-            } else {
-                inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        private static void addScaledTaxItem(List<OrderItemsDTO.Tax> list, String code, double amount,
+                BigDecimal scaleFactor, int count, String currency, String description) {
+            if (amount > 0) {
+                OrderItemsDTO.Tax t = new OrderItemsDTO.Tax();
+                t.setCode(code);
+                BigDecimal scaledAmount = BigDecimal.valueOf(amount).multiply(BigDecimal.valueOf(count))
+                        .multiply(scaleFactor)
+                        .setScale(2, java.math.RoundingMode.HALF_UP);
+                t.setAmount(scaledAmount);
+                t.setCurrency(currency);
+                t.setDescription(description);
+                list.add(t);
             }
-            LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, inputFormatter);
+        }
 
-            // Desired format: "13Feb2026 11:55:06" -> ddMMMyyyy HH:mm:ss
-            return dateTime.format(DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", Locale.ENGLISH));
-        } catch (Exception e) {
-            // Fallback: try just date parsing if no time
+        private static String formatDateTime(String dateTimeStr) {
+            if (dateTimeStr == null) {
+                return null;
+            }
             try {
-                return OrderMappingUtil.formatDate(dateTimeStr);
-            } catch (Exception ex) {
-                return dateTimeStr; // Return raw if all fails
+                DateTimeFormatter inputFormatter;
+                if (dateTimeStr.contains("/")) {
+                    inputFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
+                } else {
+                    inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                }
+                LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, inputFormatter);
+                return dateTime.format(DateTimeFormatter.ofPattern("ddMMMyyyy HH:mm:ss", Locale.ENGLISH));
+            } catch (Exception e) {
+                try {
+                    return OrderMappingUtil.formatDate(dateTimeStr);
+                } catch (Exception ex) {
+                    return dateTimeStr;
+                }
             }
         }
     }

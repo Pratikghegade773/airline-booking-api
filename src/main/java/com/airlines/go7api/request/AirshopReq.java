@@ -9,13 +9,14 @@ import org.springframework.http.*;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
-import javax.xml.datatype.DatatypeConfigurationException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AirshopReq extends BaseGo7Req {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AirshopReq.class);
+
     @JsonProperty("journeys")
     private List<Journey> journeys;
 
@@ -514,6 +515,7 @@ public class AirshopReq extends BaseGo7Req {
         return flightSearchRequestDTO;
     }
 
+    @Override
     public AirshopRspGo7Dto unmarshal() throws IOException {
         String response = makeApiCall(); // Always a JSON string
         ObjectMapper objectMapper = new ObjectMapper();
@@ -521,29 +523,70 @@ public class AirshopReq extends BaseGo7Req {
         return objectMapper.readValue(response, AirshopRspGo7Dto.class);
     }
 
+    @Override
     public String makeApiCall() throws IOException {
         String baseUrl = "https://api.aerocrs.com/v5/getDeepLink";
 
         StringBuilder urlBuilder = new StringBuilder(baseUrl);
         urlBuilder.append("?");
 
-        // Map 'journeys' to from/to/date parameters
-        if (journeys != null && !journeys.isEmpty()) {
-            Journey firstLeg = journeys.get(0);
-            urlBuilder.append("from=").append(firstLeg.getDepartureAirport());
-            urlBuilder.append("&to=").append(firstLeg.getArrivalAirport());
-            // Convert YYYY-MM-DD to YYYY/MM/DD
-            urlBuilder.append("&start=").append(firstLeg.getDate().getMain().replace("-", "/"));
+        appendJourneyParams(urlBuilder);
+        appendPassengerParams(urlBuilder);
 
-            // Handle return leg if present (for 'end' parameter)
-            if (journeys.size() > 1) {
-                Journey returnLeg = journeys.get(1);
-                // Convert YYYY-MM-DD to YYYY/MM/DD
-                urlBuilder.append("&end=").append(returnLeg.getDate().getMain().replace("-", "/"));
-            }
+        // Optional parameters could be added here if needed (e.g. cabin class)
+        if (cabinType != null) {
+            // Map cabinType string to AeroCRS code if needed, for now passing as is or
+            // skipping if not standard
         }
 
-        // Map 'passengers' to adults/children/infants parameters
+        String finalUrl = urlBuilder.toString();
+        logger.info("Generated URL is: {}", finalUrl);
+
+        HttpHeaders headers = new HttpHeaders();
+        // Hardcoded Auth Credentials
+        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
+        headers.add("auth_password", "vJ3yGilZ9u7N");
+        headers.setContentType(MediaType.APPLICATION_JSON); // Content-Type for GET is often ignored but safe to keep
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        RestTemplate restTemplate = new RestTemplate();
+        ObjectMapper mapper = new ObjectMapper();
+
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(finalUrl, HttpMethod.GET, entity, String.class);
+            logger.info("HTTP Response Status Code: {}", response.getStatusCode());
+            String rawJson = response.getBody();
+
+            prettyPrintResponse(rawJson, mapper);
+
+            return rawJson;
+
+        } catch (HttpClientErrorException e) {
+            logger.error("HTTP Error Response: {}", e.getResponseBodyAsString());
+
+            // Return the error JSON string
+            return e.getResponseBodyAsString();
+        }
+    }
+
+    private void appendJourneyParams(StringBuilder urlBuilder) {
+        if (journeys == null || journeys.isEmpty()) {
+            return;
+        }
+        Journey firstLeg = journeys.get(0);
+        urlBuilder.append("from=").append(firstLeg.getDepartureAirport());
+        urlBuilder.append("&to=").append(firstLeg.getArrivalAirport());
+        urlBuilder.append("&start=").append(firstLeg.getDate().getMain().replace("-", "/"));
+
+        // Handle return leg if present (for 'end' parameter)
+        if (journeys.size() > 1) {
+            Journey returnLeg = journeys.get(1);
+            urlBuilder.append("&end=").append(returnLeg.getDate().getMain().replace("-", "/"));
+        }
+    }
+
+    private void appendPassengerParams(StringBuilder urlBuilder) {
         int adults = 0;
         int children = 0;
         int infants = 0;
@@ -563,53 +606,20 @@ public class AirshopReq extends BaseGo7Req {
         urlBuilder.append("&adults=").append(adults);
         urlBuilder.append("&child=").append(children);
         urlBuilder.append("&infant=").append(infants);
+    }
 
-        // Optional parameters could be added here if needed (e.g. cabin class)
-        if (cabinType != null) {
-            // Map cabinType string to AeroCRS code if needed, for now passing as is or
-            // skipping if not standard
-        }
-
-        String finalUrl = urlBuilder.toString();
-        System.out.println("Generated URL is: " + finalUrl);
-
-        HttpHeaders headers = new HttpHeaders();
-        // Hardcoded Auth Credentials
-        headers.add("auth_id", "70DD4369-72F3-4426-A050-196FBC345009");
-        headers.add("auth_password", "vJ3yGilZ9u7N");
-        headers.setContentType(MediaType.APPLICATION_JSON); // Content-Type for GET is often ignored but safe to keep
-
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
-        RestTemplate restTemplate = new RestTemplate();
-        ObjectMapper mapper = new ObjectMapper();
-
+    private void prettyPrintResponse(String rawJson, ObjectMapper mapper) {
         try {
-            ResponseEntity<String> response = restTemplate.exchange(finalUrl, HttpMethod.GET, entity, String.class);
-            System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-            String rawJson = response.getBody();
-
-            // Pretty Print
-            try {
-                // Check if response is JSON before parsing
-                if (rawJson != null && rawJson.trim().startsWith("{")) {
-                    Object json = mapper.readValue(rawJson, Object.class);
-                    String prettyJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
-                    System.out.println("Pretty Response:\n" + prettyJson);
-                } else {
-                    System.out.println("Response is not JSON: " + rawJson);
-                }
-            } catch (Exception ex) {
-                System.out.println("Failed to pretty print JSON: " + ex.getMessage());
+            // Check if response is JSON before parsing
+            if (rawJson != null && rawJson.trim().startsWith("{")) {
+                Object json = mapper.readValue(rawJson, Object.class);
+                String prettyJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
+                logger.info("Pretty Response:\n{}", prettyJson);
+            } else {
+                logger.info("Response is not JSON: {}", rawJson);
             }
-
-            return rawJson;
-
-        } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
-
-            // Return the error JSON string
-            return e.getResponseBodyAsString();
+        } catch (Exception ex) {
+            logger.error("Failed to pretty print JSON: {}", ex.getMessage());
         }
     }
 

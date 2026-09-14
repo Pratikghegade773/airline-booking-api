@@ -1,24 +1,11 @@
 package com.airlines.go7api.request;
 
-import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.OrderChangeReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class OrderChangeReq extends BaseGo7Req {
@@ -133,6 +120,31 @@ public class OrderChangeReq extends BaseGo7Req {
         public void setFareid(String fareid) { this.fareid = fareid; }
     }
 
+    private static void populateFlightsAndCurrency(Parms parms, java.util.List<OrderChangeReqDto.Offer> offers) {
+        java.util.List<BookFlight> bookFlights = new java.util.ArrayList<>();
+        for (OrderChangeReqDto.Offer offer : offers) {
+            String offerId = offer.getOfferId();
+            if (offerId != null && offerId.contains("-")) {
+                String[] parts = offerId.split("-");
+                // Structure: flightid-fareid-fromcode-tocode-...
+                if (parts.length >= 4) {
+                    BookFlight bf = new BookFlight();
+                    bf.setFlightid(parts[0]);
+                    bf.setFareid(parts[1]);
+                    bf.setFromcode(parts[2]);
+                    bf.setTocode(parts[3]);
+                    bookFlights.add(bf);
+                    
+                    // Set currency from the last part of offerId if available
+                    if (parms.getCurrency() == null) {
+                        parms.setCurrency(parts[parts.length - 1]);
+                    }
+                }
+            }
+        }
+        parms.setBookFlight(bookFlights);
+    }
+
     public static OrderChangeReq mapToOrderChangeReq(OrderChangeReqDto dto) {
         OrderChangeReq req = new OrderChangeReq();
         req.setApiKey(dto.getApiKey());
@@ -147,28 +159,7 @@ public class OrderChangeReq extends BaseGo7Req {
         parms.setAction("amend");
 
         if (dto.getOffers() != null && !dto.getOffers().isEmpty()) {
-            java.util.List<BookFlight> bookFlights = new java.util.ArrayList<>();
-            for (OrderChangeReqDto.Offer offer : dto.getOffers()) {
-                String offerId = offer.getOfferId();
-                if (offerId != null && offerId.contains("-")) {
-                    String[] parts = offerId.split("-");
-                    // Structure: flightid-fareid-fromcode-tocode-...
-                    if (parts.length >= 4) {
-                        BookFlight bf = new BookFlight();
-                        bf.setFlightid(parts[0]);
-                        bf.setFareid(parts[1]);
-                        bf.setFromcode(parts[2]);
-                        bf.setTocode(parts[3]);
-                        bookFlights.add(bf);
-                        
-                        // Set currency from the last part of offerId if available
-                        if (parms.getCurrency() == null) {
-                            parms.setCurrency(parts[parts.length - 1]);
-                        }
-                    }
-                }
-            }
-            parms.setBookFlight(bookFlights);
+            populateFlightsAndCurrency(parms, dto.getOffers());
         }
 
         aerocrs.setParms(parms);

@@ -10,6 +10,8 @@ import java.util.Optional;
 @Service
 public class BookingService {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BookingService.class);
+
     private final BookingRepository bookingRepository;
 
     @Autowired
@@ -27,13 +29,12 @@ public class BookingService {
         entity.setOrderId(orderId);
 
         bookingRepository.save(entity);
-        System.out.println("Saved booking to MongoDB: PNR=" + pnr + ", OrderID=" + orderId);
+        logger.info("Saved booking to MongoDB: PNR={}, OrderID={}", pnr, orderId);
     }
 
     public void saveBooking(BookingEntity entity) {
         bookingRepository.save(entity);
-        System.out.println(
-                "Saved existing booking to MongoDB: PNR=" + entity.getPnr() + ", OrderID=" + entity.getOrderId());
+        logger.info("Saved existing booking to MongoDB: PNR={}, OrderID={}", entity.getPnr(), entity.getOrderId());
     }
 
     public Optional<BookingEntity> getBookingByPnr(String pnr) {

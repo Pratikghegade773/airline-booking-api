@@ -5,18 +5,11 @@ import com.airlines.go7api.requestdto.common.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.OrderCreateReqDto;
 import lombok.Data;
 import org.springframework.http.*;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.ArrayList;
@@ -29,11 +22,18 @@ import java.time.format.DateTimeFormatter;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class OrderCreateReq extends BaseGo7Req {
 
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OrderCreateReq.class);
+
+    private static final String PTC_INFANT = "INFANT";
+    private static final String CREATE_BOOKING_URL = "https://api.aerocrs.com/v5/createBooking";
+    private static final String PARM_BOOKING_ID = "bookingid";
+    private static final String PARM_PAX_TITLE = "paxtitle";
+
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
 
     @JsonIgnore
-    private String apiUrl = "https://api.aerocrs.com/v5/createBooking"; // Default
+    private String apiUrl = CREATE_BOOKING_URL; // Default
 
     @JsonIgnore
     private String apiKey; // For OrderTicket
@@ -52,84 +52,15 @@ public class OrderCreateReq extends BaseGo7Req {
         Aerocrs aerocrs = new Aerocrs();
         Map<String, Object> parms = new LinkedHashMap<>();
 
-        // Map Offer ID (Flight/Fare IDs)
-        String offerId = orderCreateRQ.getOfferId();
-        List<Map<String, Object>> bookflightList = new ArrayList<>();
-
-        if (offerId != null) {
-            String[] segments;
-            if (offerId.contains("*")) {
-                segments = offerId.split("\\*");
-            } else {
-                segments = new String[] { offerId };
-            }
-
-            for (String segment : segments) {
-                String[] parts = segment.split("-");
-                if (parts.length >= 4) {
-                    Map<String, Object> flightMap = new LinkedHashMap<>();
-                    try {
-                        flightMap.put("fromcode", parts[2]);
-                        flightMap.put("tocode", parts[3]);
-                        flightMap.put("flightid", Long.parseLong(parts[0]));
-                        flightMap.put("fareid", Long.parseLong(parts[1]));
-                    } catch (NumberFormatException e) {
-                        flightMap.put("flightid", parts[0]);
-                        flightMap.put("fareid", parts[1]);
-                    }
-                    bookflightList.add(flightMap);
-                }
-            }
-        }
-
-        // Calculate Pax Counts
-        int adults = 0;
-        int child = 0;
-        int infant = 0;
-        if (orderCreateRQ.getPassengers() != null) {
-            for (PaxReqDto pax : orderCreateRQ.getPassengers()) {
-                String ptc = pax.getPtc();
-                if (ptc == null)
-                    ptc = "ADT";
-
-                if ("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc))
-                    child++;
-                else if ("INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc))
-                    infant++;
-                else
-                    adults++;
-            }
-        }
-        if (adults == 0 && child == 0 && infant == 0)
-            adults = 1;
+        List<Map<String, Object>> bookflightList = parseBookFlights(orderCreateRQ.getOfferId());
+        int[] counts = calculatePaxCounts(orderCreateRQ.getPassengers());
 
         parms.put("triptype", bookflightList.size() > 1 ? "RT" : "OW");
-        parms.put("adults", adults);
-        parms.put("child", child);
-        parms.put("infant", infant);
+        parms.put("adults", counts[0]);
+        parms.put("child", counts[1]);
+        parms.put("infant", counts[2]);
         parms.put("bookflight", bookflightList);
-
-        List<Map<String, Object>> passengerList = new ArrayList<>();
-        if (orderCreateRQ.getPassengers() != null) {
-            for (PaxReqDto dtoPax : orderCreateRQ.getPassengers()) {
-                Map<String, Object> p = new LinkedHashMap<>();
-                p.put("firstname", dtoPax.getFirstName());
-                p.put("lastname", dtoPax.getLastName());
-                p.put("title", mapTitleToId(dtoPax.getTitle()));
-                // Map gender to M/F
-                String gender = dtoPax.getGender();
-                if (gender != null && !gender.isEmpty()) {
-                    p.put("gender", gender.toUpperCase().startsWith("M") ? "M" : "F");
-                }
-                // Calculate Age for all passengers
-                String age = calculateAge(dtoPax.getDob());
-                if (age != null) {
-                    p.put("paxage", age);
-                }
-                passengerList.add(p);
-            }
-        }
-        parms.put("passenger", passengerList);
+        parms.put("passenger", mapPassengers(orderCreateRQ.getPassengers()));
 
         // Agent/User
         parms.put("useremail", "apiconnector@go7.com"); // Placeholder/Default
@@ -137,8 +68,98 @@ public class OrderCreateReq extends BaseGo7Req {
 
         aerocrs.setParms(parms);
         request.setAerocrs(aerocrs);
-        request.setApiUrl("https://api.aerocrs.com/v5/createBooking");
+        request.setApiUrl(CREATE_BOOKING_URL);
         return request;
+    }
+
+    private static List<Map<String, Object>> parseBookFlights(String offerId) {
+        List<Map<String, Object>> bookflightList = new ArrayList<>();
+        if (offerId == null) {
+            return bookflightList;
+        }
+
+        String[] segments = offerId.contains("*") ? offerId.split("\\*") : new String[] { offerId };
+        for (String segment : segments) {
+            Map<String, Object> flightMap = parseSegment(segment);
+            if (!flightMap.isEmpty()) {
+                bookflightList.add(flightMap);
+            }
+        }
+        return bookflightList;
+    }
+
+    private static Map<String, Object> parseSegment(String segment) {
+        String[] parts = segment.split("-");
+        if (parts.length < 4) {
+            return new LinkedHashMap<>();
+        }
+        Map<String, Object> flightMap = new LinkedHashMap<>();
+        flightMap.put("fromcode", parts[2]);
+        flightMap.put("tocode", parts[3]);
+        try {
+            flightMap.put("flightid", Long.parseLong(parts[0]));
+            flightMap.put("fareid", Long.parseLong(parts[1]));
+        } catch (NumberFormatException e) {
+            flightMap.put("flightid", parts[0]);
+            flightMap.put("fareid", parts[1]);
+        }
+        return flightMap;
+    }
+
+    private static int[] calculatePaxCounts(List<PaxReqDto> passengers) {
+        int[] counts = {0, 0, 0}; // [adults, child, infant]
+        if (passengers == null) {
+            counts[0] = 1;
+            return counts;
+        }
+
+        for (PaxReqDto pax : passengers) {
+            incrementPaxCount(counts, pax.getPtc());
+        }
+
+        if (counts[0] == 0 && counts[1] == 0 && counts[2] == 0) {
+            counts[0] = 1;
+        }
+        return counts;
+    }
+
+    private static void incrementPaxCount(int[] counts, String ptc) {
+        String resolvedPtc = ptc != null ? ptc : "ADT";
+        if ("CHD".equalsIgnoreCase(resolvedPtc) || "CNN".equalsIgnoreCase(resolvedPtc)) {
+            counts[1]++;
+        } else if ("INF".equalsIgnoreCase(resolvedPtc) || PTC_INFANT.equalsIgnoreCase(resolvedPtc)) {
+            counts[2]++;
+        } else {
+            counts[0]++;
+        }
+    }
+
+    private static List<Map<String, Object>> mapPassengers(List<PaxReqDto> passengers) {
+        List<Map<String, Object>> passengerList = new ArrayList<>();
+        if (passengers != null) {
+            for (PaxReqDto dtoPax : passengers) {
+                passengerList.add(mapPassenger(dtoPax));
+            }
+        }
+        return passengerList;
+    }
+
+    private static Map<String, Object> mapPassenger(PaxReqDto dtoPax) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("firstname", dtoPax.getFirstName());
+        p.put("lastname", dtoPax.getLastName());
+        p.put("title", mapTitleToId(dtoPax.getTitle()));
+
+        String gender = dtoPax.getGender();
+        if (gender != null && !gender.isEmpty()) {
+            p.put("gender", gender.toUpperCase().startsWith("M") ? "M" : "F");
+        }
+
+        String age = calculateAge(dtoPax.getDob());
+        if (age != null) {
+            p.put("paxage", age);
+        }
+        return p;
     }
 
     private static Integer mapTitleToId(String title) {
@@ -182,7 +203,7 @@ public class OrderCreateReq extends BaseGo7Req {
         Aerocrs aerocrs = new Aerocrs();
         Map<String, Object> parms = new LinkedHashMap<>();
 
-        parms.put("bookingid", bookingId);
+        parms.put(PARM_BOOKING_ID, bookingId);
         parms.put("agentconfirmation", "apiconnector");
 
         // Email
@@ -197,81 +218,14 @@ public class OrderCreateReq extends BaseGo7Req {
         long unassignedInfants = 0;
         if (requestDto.getPassengers() != null) {
             unassignedInfants = requestDto.getPassengers().stream()
-                    .filter(pax -> "INF".equalsIgnoreCase(pax.getPtc()) || "INFANT".equalsIgnoreCase(pax.getPtc()))
+                    .filter(pax -> "INF".equalsIgnoreCase(pax.getPtc()) || PTC_INFANT.equalsIgnoreCase(pax.getPtc()))
                     .count();
         }
 
         if (requestDto.getPassengers() != null) {
+            long[] unassignedInfantsRef = { unassignedInfants };
             for (PaxReqDto dtoPax : requestDto.getPassengers()) {
-                String ptc = dtoPax.getPtc(); // Assuming PTC is available or default to ADT
-
-                // Included Infants as they are required for "Passengers must match" check
-
-                String titleStr = dtoPax.getTitle();
-
-                // AeroCRS confirmBooking specific title mapping
-                if ("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)) {
-                    titleStr = "Child";
-                } else if ("INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc)) {
-                    titleStr = "INFANT";
-                }
-
-                Map<String, Object> p = new LinkedHashMap<>();
-
-                // Set title. 'Child' and 'INFANT' should NOT have a trailing dot.
-                if ("Child".equals(titleStr) || "INFANT".equals(titleStr)) {
-                    p.put("paxtitle", titleStr);
-                } else if (titleStr != null && !titleStr.endsWith(".")) {
-                    p.put("paxtitle", titleStr + ".");
-                } else {
-                    p.put("paxtitle", titleStr);
-                }
-
-                // paxcarringinfant logic
-                // If this passenger is an Adult (not Child/Infant) and we have infants to carry
-                boolean isAdult = !("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)
-                        || "INF".equalsIgnoreCase(ptc) || "INFANT".equalsIgnoreCase(ptc));
-
-                if (isAdult && unassignedInfants > 0) {
-                    p.put("paxcarringinfant", 1);
-                    unassignedInfants--;
-                }
-
-                p.put("firstname", dtoPax.getFirstName());
-                p.put("lastname", dtoPax.getLastName());
-
-                // Calculate Age if possible
-                String age = calculateAge(dtoPax.getDob());
-                if (age != null) {
-                    p.put("paxage", age);
-                }
-
-                if (dtoPax.getPhoneNumber() != null) {
-                    String phone = dtoPax.getPhoneNumber().toString();
-                    p.put("paxphone",
-                            (dtoPax.getCountryDialingCode() != null ? dtoPax.getCountryDialingCode() : "") + phone);
-                }
-                p.put("paxemail", dtoPax.getEmail());
-                if (dtoPax.getDob() != null && dtoPax.getDob().contains("-")) {
-                    p.put("paxbirthdate", dtoPax.getDob().replace("-", "/"));
-                } else {
-                    p.put("paxbirthdate", dtoPax.getDob());
-                }
-
-                if (dtoPax.getIdentityDocument() != null) {
-                    PaxReqDto.IdentityDocument doc = dtoPax.getIdentityDocument();
-                    p.put("paxnationailty", doc.getCitizenshipCountryCode());
-                    p.put("paxdoctype", doc.getIdentityDocumentType() != null ? doc.getIdentityDocumentType() : "PP");
-                    p.put("paxdocnumber", doc.getIdentityDocumentNumber());
-                    p.put("paxdocissuer", doc.getIssuingCountryCode());
-                    p.put("paxdocexpiry", doc.getExpiryDate());
-                }
-                // Map gender to M/F
-                String gender = dtoPax.getGender();
-                if (gender != null && !gender.isEmpty()) {
-                    p.put("gender", gender.toUpperCase().startsWith("M") ? "M" : "F");
-                }
-                paxList.add(p);
+                paxList.add(mapConfirmPassenger(dtoPax, unassignedInfantsRef));
             }
         }
         parms.put("passenger", paxList);
@@ -282,6 +236,90 @@ public class OrderCreateReq extends BaseGo7Req {
         return request;
     }
 
+    private static Map<String, Object> mapConfirmPassenger(PaxReqDto dtoPax, long[] unassignedInfantsRef) {
+        String ptc = dtoPax.getPtc();
+        String titleStr = determineTitle(ptc, dtoPax.getTitle());
+
+        Map<String, Object> p = new LinkedHashMap<>();
+
+        formatPaxTitle(p, titleStr);
+        handleInfantCarrying(p, ptc, unassignedInfantsRef);
+        populatePaxContactAndBio(p, dtoPax);
+        populateIdentityDocument(p, dtoPax.getIdentityDocument());
+        populatePaxGender(p, dtoPax.getGender());
+
+        return p;
+    }
+
+    private static String determineTitle(String ptc, String originalTitle) {
+        if ("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)) {
+            return "Child";
+        }
+        if ("INF".equalsIgnoreCase(ptc) || PTC_INFANT.equalsIgnoreCase(ptc)) {
+            return PTC_INFANT;
+        }
+        return originalTitle;
+    }
+
+    private static void formatPaxTitle(Map<String, Object> p, String titleStr) {
+        if ("Child".equals(titleStr) || PTC_INFANT.equals(titleStr)) {
+            p.put(PARM_PAX_TITLE, titleStr);
+        } else if (titleStr != null && !titleStr.endsWith(".")) {
+            p.put(PARM_PAX_TITLE, titleStr + ".");
+        } else {
+            p.put(PARM_PAX_TITLE, titleStr);
+        }
+    }
+
+    private static void handleInfantCarrying(Map<String, Object> p, String ptc, long[] unassignedInfantsRef) {
+        boolean isAdult = !("CHD".equalsIgnoreCase(ptc) || "CNN".equalsIgnoreCase(ptc)
+                || "INF".equalsIgnoreCase(ptc) || PTC_INFANT.equalsIgnoreCase(ptc));
+
+        if (isAdult && unassignedInfantsRef[0] > 0) {
+            p.put("paxcarringinfant", 1);
+            unassignedInfantsRef[0]--;
+        }
+    }
+
+    private static void populatePaxContactAndBio(Map<String, Object> p, PaxReqDto dtoPax) {
+        p.put("firstname", dtoPax.getFirstName());
+        p.put("lastname", dtoPax.getLastName());
+
+        String age = calculateAge(dtoPax.getDob());
+        if (age != null) {
+            p.put("paxage", age);
+        }
+
+        if (dtoPax.getPhoneNumber() != null) {
+            String phone = dtoPax.getPhoneNumber().toString();
+            String dialCode = dtoPax.getCountryDialingCode() != null ? dtoPax.getCountryDialingCode() : "";
+            p.put("paxphone", dialCode + phone);
+        }
+        p.put("paxemail", dtoPax.getEmail());
+
+        if (dtoPax.getDob() != null && dtoPax.getDob().contains("-")) {
+            p.put("paxbirthdate", dtoPax.getDob().replace("-", "/"));
+        } else {
+            p.put("paxbirthdate", dtoPax.getDob());
+        }
+    }
+
+    private static void populatePaxGender(Map<String, Object> p, String gender) {
+        if (gender != null && !gender.isEmpty()) {
+            p.put("gender", gender.toUpperCase().startsWith("M") ? "M" : "F");
+        }
+    }
+
+    private static void populateIdentityDocument(Map<String, Object> p, PaxReqDto.IdentityDocument doc) {
+        if (doc != null) {
+            p.put("paxnationailty", doc.getCitizenshipCountryCode());
+            p.put("paxdoctype", doc.getIdentityDocumentType() != null ? doc.getIdentityDocumentType() : "PP");
+            p.put("paxdocnumber", doc.getIdentityDocumentNumber());
+            p.put("paxdocissuer", doc.getIssuingCountryCode());
+            p.put("paxdocexpiry", doc.getExpiryDate());
+        }
+    }
+
     // --------------------------------------------------------------------------------------------
     // 3. MakePayment Mapping
     // --------------------------------------------------------------------------------------------
@@ -290,7 +328,7 @@ public class OrderCreateReq extends BaseGo7Req {
         Aerocrs aerocrs = new Aerocrs();
         Map<String, Object> parms = new LinkedHashMap<>();
 
-        parms.put("bookingid", bookingId);
+        parms.put(PARM_BOOKING_ID, bookingId);
 
         if (requestDto.getPaymentInformation() != null) {
             PaymentInformationReqDto payInfo = requestDto.getPaymentInformation();
@@ -312,7 +350,9 @@ public class OrderCreateReq extends BaseGo7Req {
                 String decryptedCardNumber = rsaDecryptor.decrypt(payInfo.getCardNumber());
                 parms.put("creditcardnumber", decryptedCardNumber);
             } catch (Exception e) {
-                System.out.println("Decryption failed: " + e.getMessage());
+                if (logger.isErrorEnabled()) {
+                    logger.error("Decryption failed: {}", e.getMessage());
+                }
                 parms.put("creditcardnumber", payInfo.getCardNumber()); // Fallback
             }
 
@@ -334,7 +374,7 @@ public class OrderCreateReq extends BaseGo7Req {
         Aerocrs aerocrs = new Aerocrs();
         Map<String, Object> parms = new LinkedHashMap<>();
 
-        parms.put("bookingid", bookingId);
+        parms.put(PARM_BOOKING_ID, bookingId);
 
         aerocrs.setParms(parms);
         request.setAerocrs(aerocrs);
@@ -371,7 +411,7 @@ public class OrderCreateReq extends BaseGo7Req {
 
     @Override
     protected String getApiUrl() {
-        return apiUrl != null ? apiUrl : "https://api.aerocrs.com/v5/createBooking";
+        return apiUrl != null ? apiUrl : CREATE_BOOKING_URL;
     }
 
     @Override

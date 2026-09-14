@@ -5,18 +5,9 @@ import com.airlines.go7api.requestdto.common.*;
 import com.airlines.go7api.requestdto.ChangeServiceReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +16,7 @@ import java.util.List;
 @NoArgsConstructor
 @ToString
 public class ChangeServiceReq extends BaseGo7Req {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ChangeServiceReq.class);
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -89,81 +81,9 @@ public class ChangeServiceReq extends BaseGo7Req {
                 if (offer.getOfferItems() != null) {
                     for (ChangeOfferReqDto.OfferItemDto item : offer.getOfferItems()) {
                         if (item.getSpecialServices() != null) {
-                            String serviceDefId = item.getOfferItemId(); // User requested to map itemid from
-                                                                         // offerItemId
-
-                            // Map Pax Refs to PaxNum
-                            List<Integer> paxNums = new ArrayList<>();
-                            if (item.getPaxRefs() != null
-                                    && bookingRsp.getAerocrs() != null
-                                    && bookingRsp.getAerocrs().getBooking() != null
-                                    && bookingRsp.getAerocrs().getBooking().getPassengers() != null) {
-                                List<com.airlines.go7api.responsego7.common.Passenger> passengers = bookingRsp
-                                        .getAerocrs().getBooking().getPassengers().getPassenger();
-                                for (String paxRef : item.getPaxRefs()) {
-                                    try {
-                                        String numStr = paxRef.replaceAll("\\D", "");
-                                        if (!numStr.isEmpty()) {
-                                            int idx = Integer.parseInt(numStr) - 1;
-                                            if (idx >= 0 && idx < passengers.size()) {
-                                                // If available use it, else fallback to index
-                                                int pNum = passengers.get(idx).getPaxnum();
-                                                if (pNum == 0)
-                                                    pNum = idx;
-                                                paxNums.add(pNum);
-                                            }
-                                        }
-                                    } catch (Exception e) {
-                                        System.out.println("Error parsing paxRef: " + paxRef);
-                                    }
-                                }
-                            }
-
-                            // Map Segment Refs to FlightID
-                            List<Long> flightIds = new ArrayList<>();
-                            if (item.getSpecialServices().getSegId() != null
-                                    && bookingRsp.getAerocrs() != null
-                                    && bookingRsp.getAerocrs().getBooking() != null
-                                    && bookingRsp.getAerocrs().getBooking().getFlights() != null) {
-                                List<com.airlines.go7api.responsego7.common.Flight> flights = bookingRsp
-                                        .getAerocrs().getBooking().getFlights().getFlight();
-                                for (String segRef : item.getSpecialServices().getSegId()) {
-                                    try {
-                                        String numStr = segRef.replaceAll("\\D", "");
-                                        if (!numStr.isEmpty()) {
-                                            int idx = Integer.parseInt(numStr) - 1;
-                                            if (idx >= 0 && idx < flights.size()) {
-                                                flightIds.add((long) flights.get(idx).getFlightid());
-                                            }
-                                        }
-                                    } catch (Exception e) {
-                                        System.out.println("Error parsing segRef or flightId: " + segRef);
-                                    }
-                                }
-                            }
-
-                            // Create Ancillary Entry for each combination
-                            for (Integer paxNum : paxNums) {
-                                for (Long flightId : flightIds) {
-                                    Ancillary ancillary = new Ancillary();
-                                    ancillary.setPaxnum(paxNum);
-                                    try {
-                                        ancillary.setItemid(Long.parseLong(serviceDefId));
-                                    } catch (Exception e) {
-                                        // Provide fallback or log error if serviceDefId is not numeric
-                                        System.out.println("Error parsing serviceDefId: " + serviceDefId);
-                                    }
-
-                                    if (bookingRsp.getAerocrs() != null
-                                            && bookingRsp.getAerocrs().getBooking() != null) {
-                                        Long bid = bookingRsp.getAerocrs().getBooking().getBookingid();
-                                        ancillary.setBookingid(bid);
-                                    }
-
-                                    ancillary.setFlightid(flightId);
-                                    ancillaryList.add(ancillary);
-                                }
-                            }
+                            List<Integer> paxNums = extractPaxNums(item, bookingRsp);
+                            List<Long> flightIds = extractFlightIds(item, bookingRsp);
+                            buildAncillaryEntries(item, paxNums, flightIds, bookingRsp, ancillaryList);
                         }
                     }
                 }
@@ -175,8 +95,96 @@ public class ChangeServiceReq extends BaseGo7Req {
         aerocrs.setParms(parms);
         request.setAerocrs(aerocrs);
         request.setApiKey(dto.getApiKey());
-        // Set other config if needed
         return request;
+    }
+
+    private static List<Integer> extractPaxNums(
+            ChangeOfferReqDto.OfferItemDto item,
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
+        List<Integer> paxNums = new ArrayList<>();
+        if (item.getPaxRefs() == null || bookingRsp == null || bookingRsp.getAerocrs() == null
+                || bookingRsp.getAerocrs().getBooking() == null
+                || bookingRsp.getAerocrs().getBooking().getPassengers() == null) {
+            return paxNums;
+        }
+
+        List<com.airlines.go7api.responsego7.common.Passenger> passengers = bookingRsp
+                .getAerocrs().getBooking().getPassengers().getPassenger();
+        for (String paxRef : item.getPaxRefs()) {
+            try {
+                String numStr = paxRef.replaceAll("\\D", "");
+                if (!numStr.isEmpty()) {
+                    int idx = Integer.parseInt(numStr) - 1;
+                    if (idx >= 0 && idx < passengers.size()) {
+                        int pNum = passengers.get(idx).getPaxnum();
+                        if (pNum == 0) {
+                            pNum = idx;
+                        }
+                        paxNums.add(pNum);
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error parsing paxRef: {}", paxRef);
+            }
+        }
+        return paxNums;
+    }
+
+    private static List<Long> extractFlightIds(
+            ChangeOfferReqDto.OfferItemDto item,
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
+        List<Long> flightIds = new ArrayList<>();
+        if (item.getSpecialServices() == null || item.getSpecialServices().getSegId() == null
+                || bookingRsp == null || bookingRsp.getAerocrs() == null
+                || bookingRsp.getAerocrs().getBooking() == null
+                || bookingRsp.getAerocrs().getBooking().getFlights() == null) {
+            return flightIds;
+        }
+
+        List<com.airlines.go7api.responsego7.common.Flight> flights = bookingRsp
+                .getAerocrs().getBooking().getFlights().getFlight();
+        for (String segRef : item.getSpecialServices().getSegId()) {
+            try {
+                String numStr = segRef.replaceAll("\\D", "");
+                if (!numStr.isEmpty()) {
+                    int idx = Integer.parseInt(numStr) - 1;
+                    if (idx >= 0 && idx < flights.size()) {
+                        flightIds.add((long) flights.get(idx).getFlightid());
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error parsing segRef or flightId: {}", segRef);
+            }
+        }
+        return flightIds;
+    }
+
+    private static void buildAncillaryEntries(
+            ChangeOfferReqDto.OfferItemDto item,
+            List<Integer> paxNums,
+            List<Long> flightIds,
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp,
+            List<Ancillary> ancillaryList) {
+        String serviceDefId = item.getOfferItemId();
+        for (Integer paxNum : paxNums) {
+            for (Long flightId : flightIds) {
+                Ancillary ancillary = new Ancillary();
+                ancillary.setPaxnum(paxNum);
+                try {
+                    ancillary.setItemid(Long.parseLong(serviceDefId));
+                } catch (Exception e) {
+                    logger.error("Error parsing serviceDefId: {}", serviceDefId);
+                }
+
+                if (bookingRsp != null && bookingRsp.getAerocrs() != null
+                        && bookingRsp.getAerocrs().getBooking() != null) {
+                    ancillary.setBookingid(bookingRsp.getAerocrs().getBooking().getBookingid());
+                }
+
+                ancillary.setFlightid(flightId);
+                ancillaryList.add(ancillary);
+            }
+        }
     }
 
     @Override

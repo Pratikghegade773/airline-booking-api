@@ -54,7 +54,7 @@ public class AirshopRspDto {
             private String ptc;
             private BigDecimal totalPrice;
             private List<BaggageAllowance> baggageAllowances;
-            private List<PriceClassReference> priceClassReferences;
+            private List<PriceClass> priceClassReferences;
             private List<FareDetail> fareDetail;
 
 
@@ -136,25 +136,6 @@ public class AirshopRspDto {
                         private String currency;
                         private String description;
                     }
-                }
-            }
-
-            @Data
-            @NoArgsConstructor
-            @AllArgsConstructor
-            @JsonInclude(JsonInclude.Include.NON_NULL)
-            public static class PriceClassReference {
-                private String priceClassId;
-                private String className;
-                private String cabinTypeCode;
-                private List<Description> descriptions;
-
-                @Data
-                @NoArgsConstructor
-                @AllArgsConstructor
-                @JsonInclude(JsonInclude.Include.NON_NULL)
-                public static class Description {
-                    private String text;
                 }
             }
 

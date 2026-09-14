@@ -17,8 +17,8 @@ public class ChangePaymentReqDto {
     private String countryCode;
     private String apiUrl;
     private String changeurl;
-    public String sellerOrgId;
-    public String distributorOrgId;
+    private String sellerOrgId;
+    private String distributorOrgId;
     private String agencyId;
     private String agentId;
     private String agencyName;

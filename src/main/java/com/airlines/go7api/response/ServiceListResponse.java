@@ -4,7 +4,6 @@ import com.airlines.go7api.responsego7.common.*;
 
 import com.airlines.go7api.responsedto.common.*;
 
-import com.airlines.go7api.requestdto.ServiceListReqDto;
 import com.airlines.go7api.responsego7.ServiceListRspGo7Dto;
 import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 import com.airlines.go7api.responsedto.ServiceListRspDto;
@@ -19,7 +18,7 @@ import java.util.UUID;
 
 public class ServiceListResponse {
 
-    public ServiceListRspDto generateResponse(ServiceListRspGo7Dto go7Response, ServiceListReqDto requestDto,
+    public ServiceListRspDto generateResponse(ServiceListRspGo7Dto go7Response,
             OrderRetrieveRspGo7Dto bookingRsp) {
         ServiceListRspDto response = new ServiceListRspDto();
 
@@ -47,29 +46,8 @@ public class ServiceListResponse {
 
         extractPassengerAndSegmentRefs(bookingRsp, paxRefs, paxNames, segmentRefs);
 
-        int itemCounter = 1;
-        int serviceCounter = 1;
-
-        if (ancillaries != null) {
-            for (ServiceListRspGo7Dto.Ancillary anc : ancillaries) {
-                if (anc.getItems() != null) {
-                    for (ServiceListRspGo7Dto.Item item : anc.getItems()) {
-                        boolean isBaggage = isBaggageGroup(anc.getGroupname())
-                                || anc.getName().toLowerCase().contains("baggage");
-
-                        String offerItemId = item.getItemid() != null && !item.getItemid().isEmpty() ? item.getItemid()
-                                : offerId + "-" + (++itemCounter);
-                        String serviceId = offerItemId + "-" + serviceCounter;
-
-                        if (isBaggage) {
-                            baggageList.add(mapToBaggage(item, offerItemId, serviceId, paxRefs, paxNames, segmentRefs));
-                        } else {
-                            otherServiceList.add(mapToOtherService(item, offerItemId, serviceId, paxRefs, paxNames, segmentRefs));
-                        }
-                    }
-                }
-            }
-        }
+        MappingContext context = new MappingContext(offerId, baggageList, otherServiceList, paxRefs, paxNames, segmentRefs);
+        processAncillaries(ancillaries, context);
 
         offerItem.setBaggageList(baggageList);
         offerItem.setOtherServiceList(otherServiceList);
@@ -81,6 +59,63 @@ public class ServiceListResponse {
         response.setQuantity(String.valueOf(baggageList.size() + otherServiceList.size()));
 
         return response;
+    }
+
+    private static class MappingContext {
+        final String offerId;
+        final List<ServiceListRspDto.OfferItem.Baggage> baggageList;
+        final List<ServiceListRspDto.OfferItem.OtherService> otherServiceList;
+        final List<String> paxRefs;
+        final List<String> paxNames;
+        final List<String> segmentRefs;
+        int itemCounter = 1;
+        int serviceCounter = 1;
+
+        MappingContext(String offerId,
+                       List<ServiceListRspDto.OfferItem.Baggage> baggageList,
+                       List<ServiceListRspDto.OfferItem.OtherService> otherServiceList,
+                       List<String> paxRefs,
+                       List<String> paxNames,
+                       List<String> segmentRefs) {
+            this.offerId = offerId;
+            this.baggageList = baggageList;
+            this.otherServiceList = otherServiceList;
+            this.paxRefs = paxRefs;
+            this.paxNames = paxNames;
+            this.segmentRefs = segmentRefs;
+        }
+    }
+
+    private void processAncillaries(
+            List<ServiceListRspGo7Dto.Ancillary> ancillaries,
+            MappingContext context) {
+        if (ancillaries != null) {
+            for (ServiceListRspGo7Dto.Ancillary anc : ancillaries) {
+                processAncillary(anc, context);
+            }
+        }
+    }
+
+    private void processAncillary(
+            ServiceListRspGo7Dto.Ancillary anc,
+            MappingContext context) {
+        if (anc.getItems() == null) {
+            return;
+        }
+        for (ServiceListRspGo7Dto.Item item : anc.getItems()) {
+            boolean isBaggage = isBaggageGroup(anc.getGroupname())
+                    || (anc.getName() != null && anc.getName().toLowerCase().contains("baggage"));
+
+            String offerItemId = item.getItemid() != null && !item.getItemid().isEmpty() ? item.getItemid()
+                    : context.offerId + "-" + (++context.itemCounter);
+            String serviceId = offerItemId + "-" + context.serviceCounter;
+
+            if (isBaggage) {
+                context.baggageList.add(mapToBaggage(item, offerItemId, serviceId, context.paxRefs, context.paxNames, context.segmentRefs));
+            } else {
+                context.otherServiceList.add(mapToOtherService(item, offerItemId, serviceId, context.paxRefs, context.paxNames, context.segmentRefs));
+            }
+        }
     }
 
     private void extractPassengerAndSegmentRefs(OrderRetrieveRspGo7Dto bookingRsp, List<String> paxRefs, List<String> paxNames, List<String> segmentRefs) {

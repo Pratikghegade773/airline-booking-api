@@ -1,6 +1,7 @@
 package com.airlines.go7api.requestdto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -27,7 +28,8 @@ public class OfferPriceReqDto {
     private List<Offer> offers;
     private String cardType;
     private String paymentType;
-    private long IINnumber;
+    @JsonProperty("IINnumber")
+    private long iinNumber;
 
     @Data
     @NoArgsConstructor

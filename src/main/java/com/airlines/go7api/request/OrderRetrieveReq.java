@@ -1,23 +1,10 @@
 package com.airlines.go7api.request;
 
 import com.airlines.go7api.requestdto.OrderRetrieveReqDto;
-import com.airlines.go7api.error.ErrorRsp;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class OrderRetrieveReq extends BaseGo7Req {
@@ -116,57 +103,67 @@ public class OrderRetrieveReq extends BaseGo7Req {
         }
     }
 
+    private static final String DEFAULT_RETRIEVE_URL = "https://api.aerocrs.com/v5/getBooking";
+
+    private static String determineRetrieveUrl(OrderRetrieveReqDto orderRetrieveReqDto) {
+        if (orderRetrieveReqDto == null) {
+            return DEFAULT_RETRIEVE_URL;
+        }
+        if (orderRetrieveReqDto.getRetrieveUrl() != null && !orderRetrieveReqDto.getRetrieveUrl().isEmpty()) {
+            return orderRetrieveReqDto.getRetrieveUrl();
+        }
+        if (orderRetrieveReqDto.getApiUrl() != null && !orderRetrieveReqDto.getApiUrl().isEmpty()) {
+            return orderRetrieveReqDto.getApiUrl();
+        }
+        return DEFAULT_RETRIEVE_URL;
+    }
+
+    private static String determineIdToUse(OrderRetrieveReqDto orderRetrieveReqDto, String storedBookingConfirmation) {
+        if (storedBookingConfirmation != null && !storedBookingConfirmation.isEmpty()) {
+            return storedBookingConfirmation;
+        }
+        if (orderRetrieveReqDto == null) {
+            return null;
+        }
+        if (orderRetrieveReqDto.getPnr() != null && !orderRetrieveReqDto.getPnr().isEmpty()) {
+            return orderRetrieveReqDto.getPnr();
+        }
+        if (orderRetrieveReqDto.getOrderId() != null && !orderRetrieveReqDto.getOrderId().isEmpty()) {
+            return orderRetrieveReqDto.getOrderId();
+        }
+        return null;
+    }
+
+    private static void populateParmsId(Parms parms, String idToUse) {
+        if (idToUse == null) {
+            return;
+        }
+        if (idToUse.matches("\\d+")) {
+            try {
+                parms.setBookingId(Long.parseLong(idToUse));
+            } catch (NumberFormatException e) {
+                parms.setBookingConfirmation(idToUse);
+            }
+        } else {
+            parms.setBookingConfirmation(idToUse);
+        }
+    }
+
     public static OrderRetrieveReq mapToOrderRetrieveReq(OrderRetrieveReqDto orderRetrieveReqDto,
             String storedBookingConfirmation) {
         OrderRetrieveReq request = new OrderRetrieveReq();
 
         if (orderRetrieveReqDto != null) {
             request.setApiKey(orderRetrieveReqDto.getApiKey());
-
-            // Set URL with fallback
-            if (orderRetrieveReqDto.getRetrieveUrl() != null && !orderRetrieveReqDto.getRetrieveUrl().isEmpty()) {
-                request.setOrderRetrieveUrl(orderRetrieveReqDto.getRetrieveUrl());
-            } else if (orderRetrieveReqDto.getApiUrl() != null && !orderRetrieveReqDto.getApiUrl().isEmpty()) {
-                request.setOrderRetrieveUrl(orderRetrieveReqDto.getApiUrl());
-            } else {
-                request.setOrderRetrieveUrl("https://api.aerocrs.com/v5/getBooking");
-            }
-        } else {
-            // Default URL if DTO is null
-            request.setOrderRetrieveUrl("https://api.aerocrs.com/v5/getBooking");
         }
+        request.setOrderRetrieveUrl(determineRetrieveUrl(orderRetrieveReqDto));
 
         Aerocrs aerocrs = new Aerocrs();
         Parms parms = new Parms();
 
-        // Map to bookingid OR bookingconfirmation (Priority: Stored BookingConfirmation
-        // > PNR >
-        // OrderID)
-        String idToUse = null;
-        if (storedBookingConfirmation != null && !storedBookingConfirmation.isEmpty()) {
-            idToUse = storedBookingConfirmation;
-        } else if (orderRetrieveReqDto != null) {
-            if (orderRetrieveReqDto.getPnr() != null && !orderRetrieveReqDto.getPnr().isEmpty()) {
-                idToUse = orderRetrieveReqDto.getPnr();
-            } else if (orderRetrieveReqDto.getOrderId() != null && !orderRetrieveReqDto.getOrderId().isEmpty()) {
-                idToUse = orderRetrieveReqDto.getOrderId();
-            }
-        }
+        String idToUse = determineIdToUse(orderRetrieveReqDto, storedBookingConfirmation);
+        populateParmsId(parms, idToUse);
 
-        if (idToUse != null) {
-            // Smart Mapping: If numeric -> BookingID, Else -> BookingConfirmation/PNR
-            if (idToUse.matches("\\d+")) {
-                try {
-                    parms.setBookingId(Long.parseLong(idToUse));
-                } catch (NumberFormatException e) {
-                    parms.setBookingConfirmation(idToUse);
-                }
-            } else {
-                parms.setBookingConfirmation(idToUse);
-            }
-        }
-
-        // Map surname if available
         if (orderRetrieveReqDto != null && orderRetrieveReqDto.getSurname() != null) {
             parms.setPassengerLastName(orderRetrieveReqDto.getSurname());
         }

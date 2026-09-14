@@ -1,26 +1,14 @@
 package com.airlines.go7api.request;
 
-import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.UnpaidCancelReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class UnpaidCancelReq extends BaseGo7Req {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UnpaidCancelReq.class);
 
     @JsonProperty("aerocrs")
     private Aerocrs aerocrs;
@@ -99,7 +87,9 @@ public class UnpaidCancelReq extends BaseGo7Req {
             try {
                 parms.setBookingId(Long.parseLong(unpaidCancelReqDto.getOrderId()));
             } catch (NumberFormatException e) {
-                System.out.println("Invalid Booking ID for Cancel: " + unpaidCancelReqDto.getOrderId());
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Invalid Booking ID for Cancel: {}", unpaidCancelReqDto.getOrderId());
+                }
             }
         }
 

@@ -12,25 +12,25 @@ public class RSADecryptor {
 
     private final PrivateKey privateKey;
 
-    public RSADecryptor(String base64PrivateKey) throws Exception {
+    public RSADecryptor(String base64PrivateKey) throws java.security.NoSuchAlgorithmException, java.security.spec.InvalidKeySpecException {
         this.privateKey = loadRSAPrivateKey(base64PrivateKey);
     }
 
     @SuppressWarnings("java:S5542")
-    public String decrypt(String encryptedData) throws Exception {
+    public String decrypt(String encryptedData) throws java.security.GeneralSecurityException {
         byte[] encryptedBytes = Base64.getDecoder().decode(encryptedData);
 
         try {
             Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding"); // Secure padding scheme
             cipher.init(Cipher.DECRYPT_MODE, privateKey);
             return new String(cipher.doFinal(encryptedBytes));
-        } catch (Exception e) {
+        } catch (java.security.GeneralSecurityException e) {
             logger.warn("OAEP decryption failed, trying PKCS1Padding fallback: {}", e.getMessage());
             try {
                 Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
                 cipher.init(Cipher.DECRYPT_MODE, privateKey);
                 return new String(cipher.doFinal(encryptedBytes));
-            } catch (Exception ex) {
+            } catch (java.security.GeneralSecurityException ex) {
                 logger.warn("PKCS1Padding decryption failed, trying raw RSA fallback: {}", ex.getMessage());
                 Cipher cipher = Cipher.getInstance("RSA");
                 cipher.init(Cipher.DECRYPT_MODE, privateKey);
@@ -39,7 +39,7 @@ public class RSADecryptor {
         }
     }
 
-    private PrivateKey loadRSAPrivateKey(String privateKeyString) throws Exception {
+    private PrivateKey loadRSAPrivateKey(String privateKeyString) throws java.security.NoSuchAlgorithmException, java.security.spec.InvalidKeySpecException {
         byte[] keyBytes = Base64.getDecoder().decode(privateKeyString);
         PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");

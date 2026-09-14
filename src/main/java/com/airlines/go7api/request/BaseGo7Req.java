@@ -17,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 import java.io.IOException;
 
 public abstract class BaseGo7Req {
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseGo7Req.class);
 
     @JsonIgnore
     protected abstract String getApiUrl();
@@ -45,7 +46,7 @@ public abstract class BaseGo7Req {
                         String code = errorNode.path("code").asText();
 
                         ErrorRsp.Error tempError = new ErrorRsp.Error();
-                        tempError.setError(errorMessage);
+                        tempError.setErrorMessage(errorMessage);
                         tempError.setCode(code);
                         errorRsp.getErrorList().add(tempError);
                     }
@@ -55,7 +56,7 @@ public abstract class BaseGo7Req {
                 return objectMapper.readValue(response, Object.class);
             }
         } catch (Exception e) {
-            System.out.println("Error parsing " + getRequestName() + " response: " + e.getMessage());
+            logger.error("Error parsing {} response: {}", getRequestName(), e.getMessage());
             return response;
         }
     }
@@ -73,21 +74,21 @@ public abstract class BaseGo7Req {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<String> entity = new HttpEntity<>(jsonBody, headers);
-        System.out.println("Generated " + getRequestName() + " Request is:\n" + jsonBody);
+        logger.info("Generated {} Request is:\n{}", getRequestName(), jsonBody);
 
         RestTemplate restTemplate = new RestTemplate();
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(baseUrl, HttpMethod.POST, entity, String.class);
-            System.out.println("HTTP Response Status Code: " + response.getStatusCode());
-            System.out.println(getRequestName() + " Response: " + response.getBody());
+            logger.info("HTTP Response Status Code: {}", response.getStatusCode());
+            logger.info("{} Response: {}", getRequestName(), response.getBody());
             return response.getBody();
 
         } catch (HttpClientErrorException e) {
-            System.out.println("HTTP Error Response: " + e.getResponseBodyAsString());
+            logger.error("HTTP Error Response: {}", e.getResponseBodyAsString());
             return e.getResponseBodyAsString();
         } catch (Exception e) {
-            System.out.println("General Error in makeApiCall: " + e.getMessage());
+            logger.error("General Error in makeApiCall: {}", e.getMessage());
             return null;
         }
     }

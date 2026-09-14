@@ -1,23 +1,10 @@
 package com.airlines.go7api.request;
 
-import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.ServiceListReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ServiceListReq extends BaseGo7Req {
@@ -105,52 +92,65 @@ public class ServiceListReq extends BaseGo7Req {
         }
     }
 
+    private static final String DEFAULT_SERVICE_LIST_URL = "https://api.aerocrs.com/v5/getAncillaries";
+
+    private static String determineServiceListUrl(ServiceListReqDto dto) {
+        if (dto.getServiceListUrl() != null && !dto.getServiceListUrl().isEmpty()) {
+            return dto.getServiceListUrl();
+        }
+        return DEFAULT_SERVICE_LIST_URL;
+    }
+
+    private static void populateParmsFromBooking(Parms parms, com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
+        if (bookingRsp == null || bookingRsp.getAerocrs() == null || bookingRsp.getAerocrs().getBooking() == null) {
+            return;
+        }
+        com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs().getBooking();
+
+        // 1. Booking ID
+        if (booking.getBookingid() != null) {
+            parms.setBookingId(booking.getBookingid());
+        }
+
+        // 2. Currency
+        populateCurrency(parms, booking);
+
+        // 3. Flight ID (Take first flight)
+        populateFlightId(parms, booking);
+    }
+
+    private static void populateCurrency(Parms parms, com.airlines.go7api.responsego7.common.Booking booking) {
+        if (booking.getCurrency() != null) {
+            parms.setCurrency(booking.getCurrency());
+        } else if (booking.getDefaultCurrency() != null) {
+            parms.setCurrency(booking.getDefaultCurrency());
+        } else {
+            parms.setCurrency("USD");
+        }
+    }
+
+    private static void populateFlightId(Parms parms, com.airlines.go7api.responsego7.common.Booking booking) {
+        if (booking.getFlights() != null && booking.getFlights().getFlight() != null
+                && !booking.getFlights().getFlight().isEmpty()) {
+            com.airlines.go7api.responsego7.common.Flight firstFlight = booking.getFlights().getFlight().get(0);
+            parms.setFlightId((long) firstFlight.getFlightid());
+        } else if (booking.getItems() != null && booking.getItems().getFlight() != null
+                && !booking.getItems().getFlight().isEmpty()) {
+            com.airlines.go7api.responsego7.common.Flight firstFlight = booking.getItems().getFlight().get(0);
+            parms.setFlightId((long) firstFlight.getFlightid());
+        }
+    }
+
     public static ServiceListReq mapToServiceListRequestDTO(ServiceListReqDto dto,
             com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
         ServiceListReq req = new ServiceListReq();
         req.setApiKey(dto.getApiKey());
-
-        if (dto.getServiceListUrl() != null && !dto.getServiceListUrl().isEmpty()) {
-            req.setServiceListUrl(dto.getServiceListUrl());
-        } else {
-            req.setServiceListUrl("https://api.aerocrs.com/v5/getAncillaries");
-        }
+        req.setServiceListUrl(determineServiceListUrl(dto));
 
         Aerocrs aerocrs = new Aerocrs();
         Parms parms = new Parms();
 
-        // Map from Booking Response
-        if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs()
-                    .getBooking();
-
-            // 1. Booking ID
-            if (booking.getBookingid() != null) {
-                parms.setBookingId(booking.getBookingid());
-            }
-
-            // 2. Currency
-            if (booking.getCurrency() != null) {
-                parms.setCurrency(booking.getCurrency());
-            } else if (booking.getDefaultCurrency() != null) {
-                parms.setCurrency(booking.getDefaultCurrency());
-            } else {
-                parms.setCurrency("USD");
-            }
-
-            // 3. Flight ID (Take first flight)
-            if (booking.getFlights() != null && booking.getFlights().getFlight() != null
-                    && !booking.getFlights().getFlight().isEmpty()) {
-                com.airlines.go7api.responsego7.common.Flight firstFlight = booking.getFlights()
-                        .getFlight().get(0);
-                parms.setFlightId((long) firstFlight.getFlightid());
-            } else if (booking.getItems() != null && booking.getItems().getFlight() != null
-                    && !booking.getItems().getFlight().isEmpty()) {
-                com.airlines.go7api.responsego7.common.Flight firstFlight = booking.getItems()
-                        .getFlight().get(0);
-                parms.setFlightId((long) firstFlight.getFlightid());
-            }
-        }
+        populateParmsFromBooking(parms, bookingRsp);
 
         aerocrs.setParms(parms);
         req.setAerocrs(aerocrs);

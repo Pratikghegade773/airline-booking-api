@@ -11,7 +11,7 @@ public class ErrorRsp {
     @Data
     @AllArgsConstructor
     public static class Error {
-        private String error;
+        private String errorMessage;
         private String code;
         private String type;
         private String cause;
@@ -19,17 +19,17 @@ public class ErrorRsp {
         public Error() {
         }
 
-        public Error(String message, String number, String Forbidden) {
-            this.error = message;
+        public Error(String message, String number) {
+            this.errorMessage = message;
             this.code = number;
         }
 
-        public void setError(String error) {
-            this.error = error;
+        public void setErrorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
         }
 
-        public String getError() {
-            return error;
+        public String getErrorMessage() {
+            return errorMessage;
         }
 
         public void setCode(String code) {

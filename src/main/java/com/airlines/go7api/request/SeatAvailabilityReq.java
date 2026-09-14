@@ -1,23 +1,10 @@
 package com.airlines.go7api.request;
 
-import com.airlines.go7api.error.ErrorRsp;
 import com.airlines.go7api.requestdto.SeatAvailabilityReqDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import java.io.IOException;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SeatAvailabilityReq extends BaseGo7Req {
@@ -138,57 +125,63 @@ public class SeatAvailabilityReq extends BaseGo7Req {
         }
     }
 
-    public static SeatAvailabilityReq mapToSeatAvailabilityRequestDTO(SeatAvailabilityReqDto dto,
-            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
-        SeatAvailabilityReq req = new SeatAvailabilityReq();
-        req.setApiKey(dto.getApiKey());
+    private static final String DEFAULT_SEAT_AVAILABILITY_URL = "https://api.aerocrs.com/v5/getSeatMapFare";
 
+    private static String determineSeatAvailabilityUrl(SeatAvailabilityReqDto dto) {
         if (dto.getSeatAvailabilityUrl() != null && !dto.getSeatAvailabilityUrl().isEmpty()) {
-            req.setSeatAvailabilityUrl(dto.getSeatAvailabilityUrl());
-        } else {
-            req.setSeatAvailabilityUrl("https://api.aerocrs.com/v5/getSeatMapFare");
+            return dto.getSeatAvailabilityUrl();
         }
+        return DEFAULT_SEAT_AVAILABILITY_URL;
+    }
 
-        Aerocrs aerocrs = new Aerocrs();
-        Parms parms = new Parms();
-
-        // 1. Map bookingid from orderId if present in DTO or from bookingRsp
-        if (dto.getOrderId() != null && !dto.getOrderId().isEmpty()) {
+    private static void populateBookingId(Parms parms, String orderId) {
+        if (orderId != null && !orderId.isEmpty()) {
             try {
-                parms.setBookingId(Long.parseLong(dto.getOrderId()));
+                parms.setBookingId(Long.parseLong(orderId));
             } catch (NumberFormatException e) {
                 // Ignore invalid ID
             }
         }
+    }
 
-        // 2. Map default company code
-        String companyCode = "API";
-        // No companyCode in DTO anymore, use strictly default or from booking if
-        // possible
-        parms.setCompanyCode(companyCode);
-
-        // 3. Map Flight Params from Booking Response (Preferred)
-        if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs()
-                    .getBooking();
-
-            // Extract First Flight Details
-            com.airlines.go7api.responsego7.common.Flight firstFlight = null;
-            if (booking.getFlights() != null && booking.getFlights().getFlight() != null
-                    && !booking.getFlights().getFlight().isEmpty()) {
-                firstFlight = booking.getFlights().getFlight().get(0);
-            } else if (booking.getItems() != null && booking.getItems().getFlight() != null
-                    && !booking.getItems().getFlight().isEmpty()) {
-                firstFlight = booking.getItems().getFlight().get(0);
-            }
-
-            if (firstFlight != null) {
-                parms.setFlightNumber(firstFlight.getNumber());
-                parms.setFlightDate(firstFlight.getFlightdate());
-                parms.setFromCode(firstFlight.getFromcode());
-                parms.setToCode(firstFlight.getTocode());
-            }
+    private static void populateFlightParams(Parms parms, com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
+        if (bookingRsp == null || bookingRsp.getAerocrs() == null || bookingRsp.getAerocrs().getBooking() == null) {
+            return;
         }
+        com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs().getBooking();
+        com.airlines.go7api.responsego7.common.Flight firstFlight = extractFirstFlight(booking);
+        if (firstFlight != null) {
+            parms.setFlightNumber(firstFlight.getNumber());
+            parms.setFlightDate(firstFlight.getFlightdate());
+            parms.setFromCode(firstFlight.getFromcode());
+            parms.setToCode(firstFlight.getTocode());
+        }
+    }
+
+    private static com.airlines.go7api.responsego7.common.Flight extractFirstFlight(com.airlines.go7api.responsego7.common.Booking booking) {
+        if (booking.getFlights() != null && booking.getFlights().getFlight() != null
+                && !booking.getFlights().getFlight().isEmpty()) {
+            return booking.getFlights().getFlight().get(0);
+        }
+        if (booking.getItems() != null && booking.getItems().getFlight() != null
+                && !booking.getItems().getFlight().isEmpty()) {
+            return booking.getItems().getFlight().get(0);
+        }
+        return null;
+    }
+
+    public static SeatAvailabilityReq mapToSeatAvailabilityRequestDTO(SeatAvailabilityReqDto dto,
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
+        SeatAvailabilityReq req = new SeatAvailabilityReq();
+        req.setApiKey(dto.getApiKey());
+        req.setSeatAvailabilityUrl(determineSeatAvailabilityUrl(dto));
+
+        Aerocrs aerocrs = new Aerocrs();
+        Parms parms = new Parms();
+
+        populateBookingId(parms, dto.getOrderId());
+        parms.setCompanyCode("API");
+        populateFlightParams(parms, bookingRsp);
 
         aerocrs.setParms(parms);
         req.setAerocrs(aerocrs);

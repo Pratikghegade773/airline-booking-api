@@ -1,0 +1,16 @@
+{
+  "apiKey": "test-key",
+  "offers": [
+    {
+      "offerItems": [
+        {
+          "offerItemId": "123",
+          "paxRefs": ["PAX-1"],
+          "specialServices": {
+            "segId": ["SEG-1"]
+          }
+        }
+      ]
+    }
+  ]
+}

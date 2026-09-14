@@ -1,0 +1,634 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------------< com.airlines:GO7API >-------------------------
+[INFO] Building GO7API 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- jacoco:0.8.11:prepare-agent (default) @ GO7API ---
+[INFO] argLine set to -javaagent:C:\\Users\\prati\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.11\\org.jacoco.agent-0.8.11-runtime.jar=destfile=C:\\GO7API\\GO7API\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ GO7API ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ GO7API ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 98 source files with javac [debug parameters release 21] to target\classes
+[INFO] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/request/OrderReshopReq.java: C:\GO7API\GO7API\src\main\java\com\airlines\go7api\request\OrderReshopReq.java uses unchecked or unsafe operations.
+[INFO] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/request/OrderReshopReq.java: Recompile with -Xlint:unchecked for details.
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/response/OrderRetrieveResponse.java:[778,82] method buildCouponCurrentAirlineInfo(com.airlines.go7api.responsego7.common.Flight) is already defined in class com.airlines.go7api.response.OrderRetrieveResponse.ResponseContext
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[103,51] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[103,87] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[104,45] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[105,38] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[169,47] cannot find symbol
+  symbol:   method getDetails()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[170,31] cannot find symbol
+  symbol:   method getDetails()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[172,42] cannot find symbol
+  symbol:   method getDetails()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[206,30] cannot find symbol
+  symbol:   method getPaymentInformation()
+  location: variable orderCreateReqDto of type com.airlines.go7api.requestdto.OrderCreateReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[251,37] cannot find symbol
+  symbol:   method getPnr()
+  location: variable ndcResponse of type com.airlines.go7api.responsedto.OrderCreateRspDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[252,41] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable ndcResponse of type com.airlines.go7api.responsedto.OrderCreateRspDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[260,33] cannot find symbol
+  symbol:   method setPnr(java.lang.String)
+  location: variable entityToSave of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[261,33] cannot find symbol
+  symbol:   method setBookingConfirmation(java.lang.String)
+  location: variable entityToSave of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[262,33] cannot find symbol
+  symbol:   method setOrderId(java.lang.String)
+  location: variable entityToSave of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[264,60] cannot find symbol
+  symbol:   method getTotalOrderPrice()
+  location: variable ndcResponse of type com.airlines.go7api.responsedto.OrderCreateRspDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[266,38] cannot find symbol
+  symbol:   method getPassengers()
+  location: variable orderCreateReqDto of type com.airlines.go7api.requestdto.OrderCreateReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[266,84] cannot find symbol
+  symbol:   method getPassengers()
+  location: variable orderCreateReqDto of type com.airlines.go7api.requestdto.OrderCreateReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[267,79] cannot find symbol
+  symbol:   method getPassengers()
+  location: variable orderCreateReqDto of type com.airlines.go7api.requestdto.OrderCreateReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[297,19] cannot find symbol
+  symbol:   method getPassengerSeats()
+  location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[298,45] cannot find symbol
+  symbol:   method getPassengerSeats()
+  location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[301,19] cannot find symbol
+  symbol:   method getPassengerServices()
+  location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[302,48] cannot find symbol
+  symbol:   method getPassengerServices()
+  location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[432,65] cannot find symbol
+  symbol:   method getBookingConfirmation()
+  location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[434,55] cannot find symbol
+  symbol:   method getPrimaryPassengerLastName()
+  location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[446,23] cannot find symbol
+  symbol:   method setTotalOrderPrice(java.math.BigDecimal)
+  location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[455,77] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[488,67] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[489,58] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[495,90] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[514,58] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[514,84] cannot find symbol
+  symbol:   method getTotalOrderPrice()
+  location: variable ndcResponse of type com.airlines.go7api.responsedto.ChangePaymentRspDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[530,62] cannot find symbol
+  symbol:   method getPnr()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[530,102] cannot find symbol
+  symbol:   method getPnr()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[531,57] cannot find symbol
+  symbol:   method getPnr()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[536,58] cannot find symbol
+  symbol:   method getBookingConfirmation()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[562,47] cannot find symbol
+  symbol:   method getPassengerSeats()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[563,50] cannot find symbol
+  symbol:   method getPassengerServices()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[564,50] cannot find symbol
+  symbol:   method getTotalOrderPrice()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[585,32] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[585,77] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[586,73] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[588,61] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[591,90] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[591,118] cannot find symbol
+  symbol:   method getPnr()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[599,57] cannot find symbol
+  symbol:   method getPnr()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[600,40] cannot find symbol
+  symbol:   method getPnr()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[601,69] cannot find symbol
+  symbol:   method getPnr()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[603,57] cannot find symbol
+  symbol:   method getPnr()
+  location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[606,76] cannot find symbol
+  symbol:   method getPnr()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[615,72] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[615,108] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[617,30] cannot find symbol
+  symbol:   method getPrimaryPassengerLastName()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[617,85] cannot find symbol
+  symbol:   method getPrimaryPassengerLastName()
+  location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[618,86] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable go7Response of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[619,43] cannot find symbol
+  symbol:   method getPassenger()
+  location: variable pList of type com.airlines.go7api.responsego7.common.Passengers
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[619,76] cannot find symbol
+  symbol:   method getPassenger()
+  location: variable pList of type com.airlines.go7api.responsego7.common.Passengers
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[620,68] cannot find symbol
+  symbol:   method getPassenger()
+  location: variable pList of type com.airlines.go7api.responsego7.common.Passengers
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[637,86] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[641,35] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[641,79] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[643,64] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[645,74] cannot find symbol
+  symbol:   method getBookingConfirmation()
+  location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[650,58] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[651,57] cannot find symbol
+  symbol:   method getApiKey()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[679,113] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[685,57] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[686,56] cannot find symbol
+  symbol:   method getApiKey()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[719,49] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[719,84] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[740,23] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[740,87] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[741,81] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[742,22] cannot find symbol
+  symbol:   method getETickets()
+  location: variable p of type com.airlines.go7api.responsego7.common.Passenger
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[742,49] cannot find symbol
+  symbol:   method getETickets()
+  location: variable p of type com.airlines.go7api.responsego7.common.Passenger
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[742,89] cannot find symbol
+  symbol:   method getETickets()
+  location: variable p of type com.airlines.go7api.responsego7.common.Passenger
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[751,23] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[752,44] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[760,17] cannot find symbol
+  symbol:   method setAirlineCode(java.lang.String)
+  location: variable errorRsp of type com.airlines.go7api.error.ErrorRsp
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[761,17] cannot find symbol
+  symbol:   method setSource(java.lang.String)
+  location: variable errorRsp of type com.airlines.go7api.error.ErrorRsp
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[792,31] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[792,75] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[793,139] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[795,46] cannot find symbol
+  symbol:   method getBookingConfirmation()
+  location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[865,54] cannot find symbol
+  symbol:   method getBookingConfirmation()
+  location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[887,22] cannot find symbol
+  symbol:   method setOrderId(java.lang.String)
+  location: variable paymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[888,22] cannot find symbol
+  symbol:   method setPaymentInformation(com.airlines.go7api.requestdto.ChangePaymentReqDto.PaymentInformation)
+  location: variable paymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[914,49] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[915,34] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[916,48] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[959,34] cannot find symbol
+  symbol:   method setOrderId(java.lang.String)
+  location: variable serviceListReqDto of type com.airlines.go7api.requestdto.ServiceListReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[973,118] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable serviceListReqDto of type com.airlines.go7api.requestdto.ServiceListReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1001,123] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable seatAvailabilityReqDto of type com.airlines.go7api.requestdto.SeatAvailabilityReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1023,80] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable seatAvailabilityReqDto of type com.airlines.go7api.requestdto.SeatAvailabilityReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1040,46] cannot find symbol
+  symbol:   method getOrderId()
+  location: variable changeSeatReqDto of type com.airlines.go7api.requestdto.ChangeSeatReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1046,52] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1046,87] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1047,33] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1099,49] cannot find symbol
+  symbol:   method getPassengerSeats()
+  location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1100,52] cannot find symbol
+  symbol:   method getPassengerServices()
+  location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1114,26] cannot find symbol
+  symbol:   method getAerocrs()
+  location: variable changeSeatRsp of type com.airlines.go7api.responsego7.ChangeSeatRspGo7Dto
+[INFO] 100 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  6.695 s
+[INFO] Finished at: 2026-06-04T18:06:11+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project GO7API: Compilation failure: Compilation failure: 
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/response/OrderRetrieveResponse.java:[778,82] method buildCouponCurrentAirlineInfo(com.airlines.go7api.responsego7.common.Flight) is already defined in class com.airlines.go7api.response.OrderRetrieveResponse.ResponseContext
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[103,51] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[103,87] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[104,45] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[105,38] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[169,47] cannot find symbol
+[ERROR]   symbol:   method getDetails()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[170,31] cannot find symbol
+[ERROR]   symbol:   method getDetails()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[172,42] cannot find symbol
+[ERROR]   symbol:   method getDetails()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderCreateRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[206,30] cannot find symbol
+[ERROR]   symbol:   method getPaymentInformation()
+[ERROR]   location: variable orderCreateReqDto of type com.airlines.go7api.requestdto.OrderCreateReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[251,37] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable ndcResponse of type com.airlines.go7api.responsedto.OrderCreateRspDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[252,41] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable ndcResponse of type com.airlines.go7api.responsedto.OrderCreateRspDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[260,33] cannot find symbol
+[ERROR]   symbol:   method setPnr(java.lang.String)
+[ERROR]   location: variable entityToSave of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[261,33] cannot find symbol
+[ERROR]   symbol:   method setBookingConfirmation(java.lang.String)
+[ERROR]   location: variable entityToSave of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[262,33] cannot find symbol
+[ERROR]   symbol:   method setOrderId(java.lang.String)
+[ERROR]   location: variable entityToSave of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[264,60] cannot find symbol
+[ERROR]   symbol:   method getTotalOrderPrice()
+[ERROR]   location: variable ndcResponse of type com.airlines.go7api.responsedto.OrderCreateRspDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[266,38] cannot find symbol
+[ERROR]   symbol:   method getPassengers()
+[ERROR]   location: variable orderCreateReqDto of type com.airlines.go7api.requestdto.OrderCreateReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[266,84] cannot find symbol
+[ERROR]   symbol:   method getPassengers()
+[ERROR]   location: variable orderCreateReqDto of type com.airlines.go7api.requestdto.OrderCreateReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[267,79] cannot find symbol
+[ERROR]   symbol:   method getPassengers()
+[ERROR]   location: variable orderCreateReqDto of type com.airlines.go7api.requestdto.OrderCreateReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[297,19] cannot find symbol
+[ERROR]   symbol:   method getPassengerSeats()
+[ERROR]   location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[298,45] cannot find symbol
+[ERROR]   symbol:   method getPassengerSeats()
+[ERROR]   location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[301,19] cannot find symbol
+[ERROR]   symbol:   method getPassengerServices()
+[ERROR]   location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[302,48] cannot find symbol
+[ERROR]   symbol:   method getPassengerServices()
+[ERROR]   location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[432,65] cannot find symbol
+[ERROR]   symbol:   method getBookingConfirmation()
+[ERROR]   location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[434,55] cannot find symbol
+[ERROR]   symbol:   method getPrimaryPassengerLastName()
+[ERROR]   location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[446,23] cannot find symbol
+[ERROR]   symbol:   method setTotalOrderPrice(java.math.BigDecimal)
+[ERROR]   location: variable entity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[455,77] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[488,67] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[489,58] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[495,90] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[514,58] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable changePaymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[514,84] cannot find symbol
+[ERROR]   symbol:   method getTotalOrderPrice()
+[ERROR]   location: variable ndcResponse of type com.airlines.go7api.responsedto.ChangePaymentRspDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[530,62] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[530,102] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[531,57] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[536,58] cannot find symbol
+[ERROR]   symbol:   method getBookingConfirmation()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[562,47] cannot find symbol
+[ERROR]   symbol:   method getPassengerSeats()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[563,50] cannot find symbol
+[ERROR]   symbol:   method getPassengerServices()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[564,50] cannot find symbol
+[ERROR]   symbol:   method getTotalOrderPrice()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[585,32] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[585,77] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[586,73] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[588,61] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[591,90] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[591,118] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[599,57] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[600,40] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[601,69] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[603,57] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable orderRetrieveReqDto of type com.airlines.go7api.requestdto.OrderRetrieveReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[606,76] cannot find symbol
+[ERROR]   symbol:   method getPnr()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[615,72] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[615,108] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[617,30] cannot find symbol
+[ERROR]   symbol:   method getPrimaryPassengerLastName()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[617,85] cannot find symbol
+[ERROR]   symbol:   method getPrimaryPassengerLastName()
+[ERROR]   location: variable bookingEntity of type com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[618,86] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable go7Response of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[619,43] cannot find symbol
+[ERROR]   symbol:   method getPassenger()
+[ERROR]   location: variable pList of type com.airlines.go7api.responsego7.common.Passengers
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[619,76] cannot find symbol
+[ERROR]   symbol:   method getPassenger()
+[ERROR]   location: variable pList of type com.airlines.go7api.responsego7.common.Passengers
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[620,68] cannot find symbol
+[ERROR]   symbol:   method getPassenger()
+[ERROR]   location: variable pList of type com.airlines.go7api.responsego7.common.Passengers
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[637,86] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[641,35] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[641,79] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[643,64] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[645,74] cannot find symbol
+[ERROR]   symbol:   method getBookingConfirmation()
+[ERROR]   location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[650,58] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[651,57] cannot find symbol
+[ERROR]   symbol:   method getApiKey()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[679,113] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[685,57] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[686,56] cannot find symbol
+[ERROR]   symbol:   method getApiKey()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[719,49] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[719,84] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[740,23] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[740,87] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[741,81] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[742,22] cannot find symbol
+[ERROR]   symbol:   method getETickets()
+[ERROR]   location: variable p of type com.airlines.go7api.responsego7.common.Passenger
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[742,49] cannot find symbol
+[ERROR]   symbol:   method getETickets()
+[ERROR]   location: variable p of type com.airlines.go7api.responsego7.common.Passenger
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[742,89] cannot find symbol
+[ERROR]   symbol:   method getETickets()
+[ERROR]   location: variable p of type com.airlines.go7api.responsego7.common.Passenger
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[751,23] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[752,44] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[760,17] cannot find symbol
+[ERROR]   symbol:   method setAirlineCode(java.lang.String)
+[ERROR]   location: variable errorRsp of type com.airlines.go7api.error.ErrorRsp
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[761,17] cannot find symbol
+[ERROR]   symbol:   method setSource(java.lang.String)
+[ERROR]   location: variable errorRsp of type com.airlines.go7api.error.ErrorRsp
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[792,31] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[792,75] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[793,139] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable unpaidCancelReqDto of type com.airlines.go7api.requestdto.UnpaidCancelReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[795,46] cannot find symbol
+[ERROR]   symbol:   method getBookingConfirmation()
+[ERROR]   location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[865,54] cannot find symbol
+[ERROR]   symbol:   method getBookingConfirmation()
+[ERROR]   location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[887,22] cannot find symbol
+[ERROR]   symbol:   method setOrderId(java.lang.String)
+[ERROR]   location: variable paymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[888,22] cannot find symbol
+[ERROR]   symbol:   method setPaymentInformation(com.airlines.go7api.requestdto.ChangePaymentReqDto.PaymentInformation)
+[ERROR]   location: variable paymentReqDto of type com.airlines.go7api.requestdto.ChangePaymentReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[914,49] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[915,34] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[916,48] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[959,34] cannot find symbol
+[ERROR]   symbol:   method setOrderId(java.lang.String)
+[ERROR]   location: variable serviceListReqDto of type com.airlines.go7api.requestdto.ServiceListReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[973,118] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable serviceListReqDto of type com.airlines.go7api.requestdto.ServiceListReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1001,123] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable seatAvailabilityReqDto of type com.airlines.go7api.requestdto.SeatAvailabilityReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1023,80] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable seatAvailabilityReqDto of type com.airlines.go7api.requestdto.SeatAvailabilityReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1040,46] cannot find symbol
+[ERROR]   symbol:   method getOrderId()
+[ERROR]   location: variable changeSeatReqDto of type com.airlines.go7api.requestdto.ChangeSeatReqDto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1046,52] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1046,87] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1047,33] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable bookingRsp of type com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1099,49] cannot find symbol
+[ERROR]   symbol:   method getPassengerSeats()
+[ERROR]   location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1100,52] cannot find symbol
+[ERROR]   symbol:   method getPassengerServices()
+[ERROR]   location: class com.airlines.go7api.entity.BookingEntity
+[ERROR] /C:/GO7API/GO7API/src/main/java/com/airlines/go7api/controller/Go7Controller.java:[1114,26] cannot find symbol
+[ERROR]   symbol:   method getAerocrs()
+[ERROR]   location: variable changeSeatRsp of type com.airlines.go7api.responsego7.ChangeSeatRspGo7Dto
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

@@ -5,7 +5,6 @@ import com.airlines.go7api.requestdto.common.*;
 import com.airlines.go7api.requestdto.ChangeSeatReqDto;
 import com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -62,80 +61,96 @@ public class ChangeSeatReq extends BaseGo7Req {
         parms.setCompanycode("API");
 
         // 2. Booking ID & Flight Retrieval
-        com.airlines.go7api.responsego7.common.Flight firstBookingFlight = null;
-
+        com.airlines.go7api.responsego7.common.Flight firstBookingFlight = extractFirstBookingFlight(bookingRsp);
         if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs()
-                    .getBooking();
-
-            parms.setBookingid(booking.getBookingid());
-
-            // Try to get flight from 'flights' first (common in GetBooking), then 'items'
-            // (common in Book)
-            if (booking.getFlights() != null && booking.getFlights().getFlight() != null
-                    && !booking.getFlights().getFlight().isEmpty()) {
-                firstBookingFlight = booking.getFlights().getFlight().get(0);
-            } else if (booking.getItems() != null && booking.getItems().getFlight() != null
-                    && !booking.getItems().getFlight().isEmpty()) {
-                firstBookingFlight = booking.getItems().getFlight().get(0);
-            }
+            parms.setBookingid(bookingRsp.getAerocrs().getBooking().getBookingid());
         }
 
         // 3. Flights Mapping
         // Use a Map to group seats by flight (Key: FlightNumber + Date)
         java.util.Map<String, Flight> flightMap = new java.util.LinkedHashMap<>();
-
-        if (dto.getOffers() != null) {
-            for (ChangeOfferReqDto offer : dto.getOffers()) {
-                if (offer.getOfferItems() != null) {
-                    for (ChangeOfferReqDto.OfferItemDto item : offer.getOfferItems()) {
-
-                        // Use the found flight (defaulting to first flight)
-                        if (firstBookingFlight != null) {
-                            String key = firstBookingFlight.getNumber() + "|" + firstBookingFlight.getFlightdate();
-
-                            Flight reqFlight = flightMap.get(key);
-                            if (reqFlight == null) {
-                                reqFlight = new Flight();
-                                reqFlight.setFlightnumber(firstBookingFlight.getNumber());
-                                reqFlight.setFlightdate(firstBookingFlight.getFlightdate());
-                                reqFlight.setFromcode(firstBookingFlight.getFromcode());
-                                reqFlight.setTocode(firstBookingFlight.getTocode());
-
-                                // Map class. If booking says "Y/Flex Plus", we want "Y".
-                                if (firstBookingFlight.getFlightClass() != null
-                                        && !firstBookingFlight.getFlightClass().isEmpty()) {
-                                    String fullClass = firstBookingFlight.getFlightClass();
-                                    if (fullClass.contains("/")) {
-                                        reqFlight.setFlightClass(fullClass.split("/")[0]);
-                                    } else {
-                                        reqFlight.setFlightClass(fullClass);
-                                    }
-                                } else {
-                                    reqFlight.setFlightClass("Y");
-                                }
-
-                                reqFlight.setSeat(new ArrayList<>());
-                                flightMap.put(key, reqFlight);
-                            }
-
-                            // Add seat
-                            if (item.getRow() != null && item.getColumn() != null) {
-                                reqFlight.getSeat().add(item.getRow() + item.getColumn());
-                            } else {
-                                // Fallback
-                                reqFlight.getSeat().add(String.valueOf(item.getRow()) + item.getColumn());
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        mapOffersToFlightSeats(dto, firstBookingFlight, flightMap);
 
         parms.setFlights(new ArrayList<>(flightMap.values()));
         aerocrs.setParms(parms);
         req.setAerocrs(aerocrs);
         return req;
+    }
+
+    private static com.airlines.go7api.responsego7.common.Flight extractFirstBookingFlight(OrderRetrieveRspGo7Dto bookingRsp) {
+        if (bookingRsp == null || bookingRsp.getAerocrs() == null || bookingRsp.getAerocrs().getBooking() == null) {
+            return null;
+        }
+        com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs().getBooking();
+        if (booking.getFlights() != null && booking.getFlights().getFlight() != null
+                && !booking.getFlights().getFlight().isEmpty()) {
+            return booking.getFlights().getFlight().get(0);
+        }
+        if (booking.getItems() != null && booking.getItems().getFlight() != null
+                && !booking.getItems().getFlight().isEmpty()) {
+            return booking.getItems().getFlight().get(0);
+        }
+        return null;
+    }
+
+    private static void mapOffersToFlightSeats(
+            ChangeSeatReqDto dto,
+            com.airlines.go7api.responsego7.common.Flight firstBookingFlight,
+            java.util.Map<String, Flight> flightMap) {
+        if (dto.getOffers() == null) {
+            return;
+        }
+        for (ChangeOfferReqDto offer : dto.getOffers()) {
+            if (offer.getOfferItems() != null) {
+                for (ChangeOfferReqDto.OfferItemDto item : offer.getOfferItems()) {
+                    processOfferItemSeats(item, firstBookingFlight, flightMap);
+                }
+            }
+        }
+    }
+
+    private static void processOfferItemSeats(
+            ChangeOfferReqDto.OfferItemDto item,
+            com.airlines.go7api.responsego7.common.Flight firstBookingFlight,
+            java.util.Map<String, Flight> flightMap) {
+        if (firstBookingFlight == null) {
+            return;
+        }
+
+        String key = firstBookingFlight.getNumber() + "|" + firstBookingFlight.getFlightdate();
+        Flight reqFlight = flightMap.get(key);
+
+        if (reqFlight == null) {
+            reqFlight = new Flight();
+            reqFlight.setFlightnumber(firstBookingFlight.getNumber());
+            reqFlight.setFlightdate(firstBookingFlight.getFlightdate());
+            reqFlight.setFromcode(firstBookingFlight.getFromcode());
+            reqFlight.setTocode(firstBookingFlight.getTocode());
+            reqFlight.setFlightClass(determineFlightClass(firstBookingFlight));
+            reqFlight.setSeat(new ArrayList<>());
+            flightMap.put(key, reqFlight);
+        }
+
+        addSeatToFlight(reqFlight, item);
+    }
+
+    private static String determineFlightClass(com.airlines.go7api.responsego7.common.Flight firstBookingFlight) {
+        if (firstBookingFlight.getFlightClass() == null || firstBookingFlight.getFlightClass().isEmpty()) {
+            return "Y";
+        }
+        String fullClass = firstBookingFlight.getFlightClass();
+        if (fullClass.contains("/")) {
+            return fullClass.split("/")[0];
+        }
+        return fullClass;
+    }
+
+    private static void addSeatToFlight(Flight reqFlight, ChangeOfferReqDto.OfferItemDto item) {
+        if (item.getRow() != null && item.getColumn() != null) {
+            reqFlight.getSeat().add(item.getRow() + item.getColumn());
+        } else {
+            reqFlight.getSeat().add(String.valueOf(item.getRow()) + item.getColumn());
+        }
     }
 
     @Override

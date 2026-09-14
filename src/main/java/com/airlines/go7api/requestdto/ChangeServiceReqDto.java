@@ -14,7 +14,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ChangeServiceReqDto {
 
-    /// Config Variables
+    // Config Variables
     private String subscriptionKey;
     private String apiUrl;
     private String agencyId;

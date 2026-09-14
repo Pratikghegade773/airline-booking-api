@@ -1,0 +1,49 @@
+{
+  "aerocrs": {
+    "success": true,
+    "reservation": {
+      "bookingid": 12345,
+      "pnr": "GO7SEAT"
+    },
+    "booking": {
+      "bookingid": 12345,
+      "pnr": "GO7PNR",
+      "status": "OK",
+      "currency": "USD",
+      "totalprice": 500.00,
+      "balanceInformation": {
+         "pnrTotal": 500.00,
+         "amountPaid": 100.00,
+         "balanceDue": 400.00
+      },
+      "flights": {
+        "flight": [
+          {
+            "flightid": 999,
+            "flightnumber": "G7101",
+            "flightdate": "2026-06-01",
+            "from": "JFK",
+            "to": "LHR",
+            "std": "2026-06-01 10:00",
+            "sta": "2026-06-01 22:00",
+            "seat": [
+               { "seatNumber": "1A", "fare": 20.00, "passid": 1 }
+            ]
+          }
+        ]
+      },
+      "passengers": {
+        "passenger": [
+          {
+            "paxnum": 1,
+            "passid": 1,
+            "title": "MR",
+            "firstname": "JOHN",
+            "lastname": "DOE",
+            "ptc": "ADT"
+          }
+        ]
+      }
+    }
+  }
+}

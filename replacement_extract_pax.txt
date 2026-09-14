@@ -1,0 +1,40 @@
+    private String determinePtc(OrderRetrieveRspGo7Dto.Passenger pax) {
+        String rawTitle = pax.getPaxtitle() != null ? pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
+        boolean isInfantByTitle = rawTitle.contains("INF");
+
+        if ("CHILD".equalsIgnoreCase(pax.getPaxtype())) return "CNN";
+        if ("INFANT".equalsIgnoreCase(pax.getPaxtype()) || isInfantByTitle) return "INF";
+        return "ADT";
+    }
+
+    private String generatePaxRef(String assignedPtc, List<String> adtRefs, int[] pCounter) {
+        if ("INF".equals(assignedPtc)) {
+            if (!adtRefs.isEmpty()) {
+                return adtRefs.get(adtRefs.size() - 1) + ".1";
+            } else {
+                return "T" + (pCounter[0]++) + ".1";
+            }
+        } else {
+            String pRef = "T" + (pCounter[0]++);
+            if ("ADT".equals(assignedPtc)) {
+                adtRefs.add(pRef);
+            }
+            return pRef;
+        }
+    }
+
+    private void extractPassengers(OrderRetrieveRspGo7Dto bookingRsp, List<String> paxRefs, List<String> paxNames) {
+        if (bookingRsp.getAerocrs().getBooking().getPassengers() != null &&
+                bookingRsp.getAerocrs().getBooking().getPassengers().getPassenger() != null) {
+            int[] pCounter = { 1 };
+            List<String> adtRefs = new ArrayList<>();
+            for (OrderRetrieveRspGo7Dto.Passenger pax : bookingRsp.getAerocrs().getBooking().getPassengers().getPassenger()) {
+                
+                String assignedPtc = determinePtc(pax);
+                String pRef = generatePaxRef(assignedPtc, adtRefs, pCounter);
+
+                paxRefs.add(pRef);
+                paxNames.add((pax.getFirstname() != null ? pax.getFirstname() : "").toUpperCase());
+            }
+        }
+    }

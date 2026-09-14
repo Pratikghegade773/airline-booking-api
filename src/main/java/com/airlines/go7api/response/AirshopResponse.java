@@ -139,7 +139,7 @@ public class AirshopResponse {
             for (int i = 1; i <= adults; i++) {
                 adtRefs.add("T" + i);
             }
-            Offer.OfferItemDto adtItem = createOfferItem(offer.getOfferId(), itemIdx++, "ADT", adtRefs, flightClass, flightIndex, segmentId, "ADT");
+            Offer.OfferItemDto adtItem = createOfferItem(offer.getOfferId(), itemIdx++, "ADT", adtRefs, flightClass, flightIndex, segmentId);
             offerItems.add(adtItem);
             grandTotal = grandTotal.add(adtItem.getTotalPrice());
         }
@@ -150,7 +150,7 @@ public class AirshopResponse {
                 int paxRefIdx = adults + i;
                 cnnRefs.add("T" + paxRefIdx);
             }
-            Offer.OfferItemDto cnnItem = createOfferItem(offer.getOfferId(), itemIdx++, "CNN", cnnRefs, flightClass, flightIndex, segmentId, "CNN");
+            Offer.OfferItemDto cnnItem = createOfferItem(offer.getOfferId(), itemIdx++, "CNN", cnnRefs, flightClass, flightIndex, segmentId);
             offerItems.add(cnnItem);
             grandTotal = grandTotal.add(cnnItem.getTotalPrice());
         }
@@ -161,7 +161,7 @@ public class AirshopResponse {
                 int parentRefIdx = (i <= adults) ? i : ((i - 1) % adults) + 1;
                 infRefs.add("T" + parentRefIdx + ".1");
             }
-            Offer.OfferItemDto infItem = createOfferItem(offer.getOfferId(), itemIdx, "INF", infRefs, flightClass, flightIndex, segmentId, "INF");
+            Offer.OfferItemDto infItem = createOfferItem(offer.getOfferId(), itemIdx, "INF", infRefs, flightClass, flightIndex, segmentId);
             offerItems.add(infItem);
             grandTotal = grandTotal.add(infItem.getTotalPrice());
         }
@@ -245,7 +245,7 @@ public class AirshopResponse {
     }
 
     private Offer.OfferItemDto createOfferItem(String offerId, int itemIndex, String ptc, List<String> paxRefs,
-            AirshopRspGo7Dto.FlightClass flightClass, int flightIndex, String segmentId, String type) {
+            AirshopRspGo7Dto.FlightClass flightClass, int flightIndex, String segmentId) {
         Offer.OfferItemDto item = new Offer.OfferItemDto();
         item.setOfferItemId(offerId + "-" + itemIndex);
         item.setPtc(ptc);
@@ -255,26 +255,29 @@ public class AirshopResponse {
         BigDecimal unitTotal = BigDecimal.ZERO;
         BigDecimal unitTax = BigDecimal.ZERO;
 
-        if ("ADT".equals(type)) {
+        if ("ADT".equals(ptc)) {
             try {
                 unitTotal = new BigDecimal(flightClass.getFare().getAdultFare());
                 unitTax = new BigDecimal(flightClass.getFare().getTax());
             } catch (Exception e) {
+                // Fallback to zero total/tax if fare fields are empty or invalid
             }
-        } else if ("CNN".equals(type)) {
+        } else if ("CNN".equals(ptc)) {
             String cFare = flightClass.getFare().getChildFare();
             try {
                 unitTotal = cFare != null ? new BigDecimal(cFare)
                         : new BigDecimal(flightClass.getFare().getAdultFare());
                 unitTax = new BigDecimal(flightClass.getFare().getTax());
             } catch (Exception e) {
+                // Fallback to zero total/tax if child fare fields are empty or invalid
             }
-        } else if ("INF".equals(type)) {
+        } else if ("INF".equals(ptc)) {
             String iFare = flightClass.getFare().getInfantFare();
             try {
                 unitTotal = iFare != null ? new BigDecimal(iFare) : BigDecimal.ZERO;
                 unitTax = BigDecimal.ZERO;
             } catch (Exception e) {
+                // Fallback to zero total/tax if infant fare fields are empty or invalid
             }
         }
 
@@ -282,7 +285,7 @@ public class AirshopResponse {
         BigDecimal tax = unitTax.multiply(new BigDecimal(count));
 
         item.setTotalPrice(total);
-        item.setBaggageAllowances(getBaggage(flightClass, segmentId, paxRefs, type));
+        item.setBaggageAllowances(getBaggage(flightClass, segmentId, paxRefs, ptc));
         item.setPriceClassReferences(getPriceClass(flightClass, flightIndex));
         item.setFareDetail(getFareDetail(flightClass, total, tax, count));
 
@@ -376,11 +379,8 @@ public class AirshopResponse {
         return list;
     }
 
-    private List<Offer.OfferItemDto.FareDetail> getFareDetail(AirshopRspGo7Dto.FlightClass flightClass,
-            BigDecimal totalFare, BigDecimal tax, int count) {
-        Offer.OfferItemDto.FareDetail fareDetail = new Offer.OfferItemDto.FareDetail();
-        Offer.OfferItemDto.FareDetail.Price price = new Offer.OfferItemDto.FareDetail.Price();
-
+    private void populateBasicFares(Offer.OfferItemDto.FareDetail.Price price,
+            AirshopRspGo7Dto.FlightClass flightClass, BigDecimal totalFare, BigDecimal tax) {
         BigDecimal base = totalFare.subtract(tax);
 
         Offer.OfferItemDto.FareDetail.Price.TotalFare totalFareObj = new Offer.OfferItemDto.FareDetail.Price.TotalFare();
@@ -397,59 +397,73 @@ public class AirshopResponse {
         totalTaxObj.setAmount(tax);
         totalTaxObj.setCurrency(flightClass.getCurrency());
         price.setTotalTax(totalTaxObj);
+    }
 
-        List<Offer.OfferItemDto.FareDetail.Price.Taxes> taxesList = new ArrayList<>();
+    private BigDecimal calculateScaleFactor(Map<String, String> breakdown, BigDecimal tax, int count) {
+        BigDecimal breakdownSum = BigDecimal.ZERO;
+        for (String val : breakdown.values()) {
+            try {
+                breakdownSum = breakdownSum.add(new BigDecimal(val));
+            } catch (Exception e) {
+                // Ignore non-numeric values in tax breakdown summation
+            }
+        }
+
+        BigDecimal scaleFactor = BigDecimal.ONE;
+        if (breakdownSum.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal unitTax = tax.divide(new BigDecimal(count), 10, java.math.RoundingMode.HALF_UP);
+            scaleFactor = unitTax.divide(breakdownSum, 10, java.math.RoundingMode.HALF_UP);
+        }
+        return scaleFactor;
+    }
+
+    private void buildTaxesFromBreakdown(List<Offer.OfferItemDto.FareDetail.Price.Taxes> taxesList,
+            Map<String, String> breakdown, AirshopRspGo7Dto.FlightClass flightClass,
+            BigDecimal tax, BigDecimal scaleFactor, int count) {
+        for (Map.Entry<String, String> taxEntry : breakdown.entrySet()) {
+            if (tax.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            Offer.OfferItemDto.FareDetail.Price.Taxes taxesItem = new Offer.OfferItemDto.FareDetail.Price.Taxes();
+
+            BigDecimal rawUnitTax;
+            try {
+                rawUnitTax = new BigDecimal(taxEntry.getValue());
+            } catch (Exception e) {
+                rawUnitTax = BigDecimal.ZERO;
+            }
+
+            BigDecimal scaledUnitTax = rawUnitTax.multiply(scaleFactor).setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal totalTaxAmount = scaledUnitTax.multiply(new BigDecimal(count));
+
+            taxesItem.setCurrency(flightClass.getCurrency());
+            String key = taxEntry.getKey();
+            if (key.length() <= 3) {
+                taxesItem.setCode(key);
+                taxesItem.setDescription("Tax " + key);
+            } else {
+                taxesItem.setCode("TAX");
+                taxesItem.setDescription(key);
+            }
+
+            taxesItem.setAmount(totalTaxAmount);
+            taxesItem.setTotal(totalTaxAmount);
+
+            taxesList.add(taxesItem);
+        }
+    }
+
+    private void populateTaxDetails(List<Offer.OfferItemDto.FareDetail.Price.Taxes> taxesList,
+            AirshopRspGo7Dto.FlightClass flightClass, BigDecimal tax, int count) {
         if (flightClass.getRawFareObject() != null &&
                 flightClass.getRawFareObject().getRackFare() != null &&
                 flightClass.getRawFareObject().getRackFare().getTaxBreakdown() != null) {
 
             Map<String, String> breakdown = flightClass.getRawFareObject().getRackFare().getTaxBreakdown();
+            BigDecimal scaleFactor = calculateScaleFactor(breakdown, tax, count);
+            buildTaxesFromBreakdown(taxesList, breakdown, flightClass, tax, scaleFactor, count);
 
-            BigDecimal breakdownSum = BigDecimal.ZERO;
-            for (String val : breakdown.values()) {
-                try {
-                    breakdownSum = breakdownSum.add(new BigDecimal(val));
-                } catch (Exception e) {
-                }
-            }
-
-            BigDecimal scaleFactor = BigDecimal.ONE;
-            if (breakdownSum.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal unitTax = tax.divide(new BigDecimal(count), 10, java.math.RoundingMode.HALF_UP);
-                scaleFactor = unitTax.divide(breakdownSum, 10, java.math.RoundingMode.HALF_UP);
-            }
-
-            for (Map.Entry<String, String> taxEntry : breakdown.entrySet()) {
-                if (tax.compareTo(BigDecimal.ZERO) <= 0)
-                    continue;
-
-                Offer.OfferItemDto.FareDetail.Price.Taxes taxesItem = new Offer.OfferItemDto.FareDetail.Price.Taxes();
-
-                BigDecimal rawUnitTax;
-                try {
-                    rawUnitTax = new BigDecimal(taxEntry.getValue());
-                } catch (Exception e) {
-                    rawUnitTax = BigDecimal.ZERO;
-                }
-
-                BigDecimal scaledUnitTax = rawUnitTax.multiply(scaleFactor).setScale(2, java.math.RoundingMode.HALF_UP);
-                BigDecimal totalTaxAmount = scaledUnitTax.multiply(new BigDecimal(count));
-
-                taxesItem.setCurrency(flightClass.getCurrency());
-                String key = taxEntry.getKey();
-                if (key.length() <= 3) {
-                    taxesItem.setCode(key);
-                    taxesItem.setDescription("Tax " + key);
-                } else {
-                    taxesItem.setCode("TAX");
-                    taxesItem.setDescription(key);
-                }
-
-                taxesItem.setAmount(totalTaxAmount);
-                taxesItem.setTotal(totalTaxAmount);
-
-                taxesList.add(taxesItem);
-            }
         } else if (tax.compareTo(BigDecimal.ZERO) > 0) {
             Offer.OfferItemDto.FareDetail.Price.Taxes taxesItem = new Offer.OfferItemDto.FareDetail.Price.Taxes();
             taxesItem.setCode("TAX");
@@ -459,6 +473,17 @@ public class AirshopResponse {
             taxesItem.setDescription("Total Taxes");
             taxesList.add(taxesItem);
         }
+    }
+
+    private List<Offer.OfferItemDto.FareDetail> getFareDetail(AirshopRspGo7Dto.FlightClass flightClass,
+            BigDecimal totalFare, BigDecimal tax, int count) {
+        Offer.OfferItemDto.FareDetail fareDetail = new Offer.OfferItemDto.FareDetail();
+        Offer.OfferItemDto.FareDetail.Price price = new Offer.OfferItemDto.FareDetail.Price();
+
+        populateBasicFares(price, flightClass, totalFare, tax);
+
+        List<Offer.OfferItemDto.FareDetail.Price.Taxes> taxesList = new ArrayList<>();
+        populateTaxDetails(taxesList, flightClass, tax, count);
 
         price.setTaxes(taxesList);
         fareDetail.setPrice(price);

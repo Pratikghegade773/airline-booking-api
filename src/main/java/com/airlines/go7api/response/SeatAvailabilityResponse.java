@@ -12,6 +12,7 @@ import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -19,155 +20,188 @@ import java.util.UUID;
 
 public class SeatAvailabilityResponse {
 
+    private SeatAvailabilityResponse() {
+        throw new IllegalStateException("Utility class");
+    }
+
     public static SeatAvailabilityRspDto mapToSeatAvailabilityRspDto(SeatAvailabilityRspGo7Dto go7Rsp, String orderId,
             com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
         SeatAvailabilityRspDto rsp = new SeatAvailabilityRspDto();
 
-        if (go7Rsp == null || go7Rsp.getAerocrs() == null || !go7Rsp.getAerocrs().isSuccess()
-                || go7Rsp.getAerocrs().getSeatMapFare() == null) {
+        if (isInvalidResponse(go7Rsp)) {
             rsp.setResponseId(UUID.randomUUID().toString());
             return rsp;
         }
 
         SeatAvailabilityRspGo7Dto.SeatMapFare seatMap = go7Rsp.getAerocrs().getSeatMapFare();
-        String currency = seatMap.getCurrency();
+        initializeRootFields(rsp, orderId, bookingRsp);
+        rsp.setOfferItems(buildOfferItems(rsp.getOfferId(), seatMap, bookingRsp));
 
-        // 1. Root Fields
+        return rsp;
+    }
+
+    private static boolean isInvalidResponse(SeatAvailabilityRspGo7Dto go7Rsp) {
+        return go7Rsp == null || go7Rsp.getAerocrs() == null || !go7Rsp.getAerocrs().isSuccess()
+                || go7Rsp.getAerocrs().getSeatMapFare() == null;
+    }
+
+    private static void initializeRootFields(SeatAvailabilityRspDto rsp, String orderId,
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
         rsp.setResponseId(UUID.randomUUID().toString());
         rsp.setOfferId(rsp.getResponseId() + "-1");
         rsp.setOrderId(orderId);
 
-        // Extract from Booking Response or Fallback
-        String validatingCarrier = "G7"; // Default
-        String apiOwner = "G7"; // Default
+        String[] carriers = determineCarrier(bookingRsp);
+        rsp.setApiOwner(carriers[1]);
+        rsp.setValidatingCarrier(carriers[0]);
 
-        if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs()
-                    .getBooking();
-
-            // Extract Carrier from first flight if available
-            if (booking.getItems() != null && booking.getItems().getFlight() != null
-                    && !booking.getItems().getFlight().isEmpty()) {
-                com.airlines.go7api.responsego7.common.Flight flight = booking.getItems().getFlight()
-                        .get(0);
-                if (flight.getAirlineICAOcode() != null) {
-                    validatingCarrier = flight.getAirlineICAOcode();
-                    apiOwner = flight.getAirlineICAOcode();
-                } else if (flight.getAirlinedesignator() != null) {
-                    // Fallback to designator if ICAO not present (though example used WY which
-                    // looks like IATA/Designator, user prompt said WY)
-                    validatingCarrier = flight.getAirlinedesignator();
-                    apiOwner = flight.getAirlinedesignator();
-                }
-            }
-        }
-
-        rsp.setApiOwner(apiOwner);
-        rsp.setValidatingCarrier(validatingCarrier);
-
-        // Offer Expiration (Now + 30 mins)
         rsp.setOfferExpiration(LocalDateTime.now().plusMinutes(30).format(DateTimeFormatter.ISO_DATE_TIME));
+    }
 
-        // 2. Offer Items
+    private static List<SeatAvailabilityRspDto.OfferItem> buildOfferItems(
+            String offerId,
+            SeatAvailabilityRspGo7Dto.SeatMapFare seatMap,
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
         List<SeatAvailabilityRspDto.OfferItem> offerItems = new ArrayList<>();
-
-        // Create one OfferItem
         SeatAvailabilityRspDto.OfferItem offerItem = new SeatAvailabilityRspDto.OfferItem();
-        offerItem.setOfferItemId(rsp.getOfferId() + "-1");
-        offerItem.setCurrency(currency);
+        offerItem.setOfferItemId(offerId + "-1");
+        offerItem.setCurrency(seatMap.getCurrency());
 
-        // Dynamic Segment Refs and Pax Refs
-        List<String> segmentRefs = new ArrayList<>();
+        offerItem.setSegmentRefs(extractSegmentRefs(bookingRsp));
+        
         List<String> paxRefs = new ArrayList<>();
         List<String> givenNames = new ArrayList<>();
-
-        if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
-            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs()
-                    .getBooking();
-
-            // Segments
-            if (booking.getItems() != null && booking.getItems().getFlight() != null) {
-                int segCount = 1;
-                for (com.airlines.go7api.responsego7.common.Flight flight : booking.getItems()
-                        .getFlight()) {
-                    // Generating IDs as S1, S2 etc to match typical pattern, or extracting if
-                    // available.
-                    // Go7 doesn't seem to have "segmentId" specifically in flight structure shown,
-                    // using generated S<index>
-                    segmentRefs.add("S" + segCount++);
-                }
-            } else {
-                segmentRefs.add("S1");
-            }
-
-            // Passengers
-            if (booking.getPassengers() != null && booking.getPassengers().getPassenger() != null) {
-                int paxCount = 1;
-                List<String> adtRefs = new ArrayList<>();
-                for (com.airlines.go7api.responsego7.common.Passenger pax : booking.getPassengers()
-                        .getPassenger()) {
-                    
-                    String rawTitle = pax.getPaxtitle() != null ? pax.getPaxtitle().toUpperCase().replace(".", "") : "MR";
-                    boolean isInfantByTitle = rawTitle.contains("INF");
-
-                    String assignedPtc = "ADT";
-                    if ("CHILD".equalsIgnoreCase(pax.getPaxtype())) assignedPtc = "CNN";
-                    if ("INFANT".equalsIgnoreCase(pax.getPaxtype()) || isInfantByTitle) assignedPtc = "INF";
-
-                    String paxId;
-                    if ("INF".equals(assignedPtc)) {
-                        if (!adtRefs.isEmpty()) {
-                            paxId = adtRefs.get(adtRefs.size() - 1) + ".1";
-                        } else {
-                            paxId = "T" + paxCount++ + ".1";
-                        }
-                    } else {
-                        paxId = "T" + paxCount++;
-                        if ("ADT".equals(assignedPtc)) {
-                            adtRefs.add(paxId);
-                        }
-                    }
-
-                    paxRefs.add(paxId);
-                    if (pax.getFirstname() != null) {
-                        givenNames.add(pax.getFirstname().toUpperCase());
-                    }
-                }
-            } else {
-                paxRefs.add("T1");
-                givenNames.add("UNKNOWN");
-            }
-        } else {
-            // Fallbacks
-            segmentRefs.add("S1");
-            paxRefs.add("T1");
-            givenNames.add("UNKNOWN");
-        }
-
-        offerItem.setSegmentRefs(segmentRefs);
+        extractPaxRefsAndNames(bookingRsp, paxRefs, givenNames);
         offerItem.setPaxref(paxRefs);
         offerItem.setGivenName(givenNames);
 
-        // Map Classes to Compartments
+        offerItem.setCompartmentList(buildCompartments(seatMap, seatMap.getCurrency()));
+        offerItems.add(offerItem);
+        return offerItems;
+    }
+
+    private static List<SeatAvailabilityRspDto.OfferItem.Compartment> buildCompartments(
+            SeatAvailabilityRspGo7Dto.SeatMapFare seatMap, String currency) {
         List<SeatAvailabilityRspDto.OfferItem.Compartment> compartments = new ArrayList<>();
         if (seatMap.getClasses() != null) {
             for (Map.Entry<String, SeatAvailabilityRspGo7Dto.SeatClass> entry : seatMap.getClasses().entrySet()) {
-                String classCode = entry.getKey();
-                SeatAvailabilityRspGo7Dto.SeatClass seatClass = entry.getValue();
-
-                SeatAvailabilityRspDto.OfferItem.Compartment compartment = mapCompartment(classCode, seatClass,
-                        currency);
+                SeatAvailabilityRspDto.OfferItem.Compartment compartment = mapCompartment(entry.getKey(), entry.getValue(), currency);
                 if (compartment != null) {
                     compartments.add(compartment);
                 }
             }
         }
-        offerItem.setCompartmentList(compartments);
-        offerItems.add(offerItem);
+        return compartments;
+    }
 
-        rsp.setOfferItems(offerItems);
+    private static String[] determineCarrier(com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
+        String validatingCarrier = "G7";
+        String apiOwner = "G7";
 
-        return rsp;
+        if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
+            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs().getBooking();
+
+            if (booking.getItems() != null && booking.getItems().getFlight() != null
+                    && !booking.getItems().getFlight().isEmpty()) {
+                com.airlines.go7api.responsego7.common.Flight flight = booking.getItems().getFlight().get(0);
+                if (flight.getAirlineICAOcode() != null) {
+                    validatingCarrier = flight.getAirlineICAOcode();
+                    apiOwner = flight.getAirlineICAOcode();
+                } else if (flight.getAirlinedesignator() != null) {
+                    validatingCarrier = flight.getAirlinedesignator();
+                    apiOwner = flight.getAirlinedesignator();
+                }
+            }
+        }
+        return new String[]{validatingCarrier, apiOwner};
+    }
+
+    private static List<String> extractSegmentRefs(com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
+        List<String> segmentRefs = new ArrayList<>();
+        if (bookingRsp != null && bookingRsp.getAerocrs() != null && bookingRsp.getAerocrs().getBooking() != null) {
+            com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs().getBooking();
+
+            if (booking.getItems() != null && booking.getItems().getFlight() != null) {
+                int segCount = 1;
+                for (com.airlines.go7api.responsego7.common.Flight flight : booking.getItems().getFlight()) {
+                    segmentRefs.add("S" + segCount++);
+                }
+                return segmentRefs;
+            }
+        }
+        segmentRefs.add("S1");
+        return segmentRefs;
+    }
+
+    private static void extractPaxRefsAndNames(
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp,
+            List<String> paxRefs,
+            List<String> givenNames) {
+        List<com.airlines.go7api.responsego7.common.Passenger> passengers = resolvePassengers(bookingRsp);
+        if (passengers.isEmpty()) {
+            paxRefs.add("T1");
+            givenNames.add("UNKNOWN");
+            return;
+        }
+
+        int paxCount = 1;
+        List<String> adtRefs = new ArrayList<>();
+        for (com.airlines.go7api.responsego7.common.Passenger pax : passengers) {
+            String assignedPtc = resolvePtc(pax);
+            String paxId = assignPaxId(assignedPtc, adtRefs, paxCount);
+            if (!"INF".equals(assignedPtc)) {
+                paxCount++;
+                if ("ADT".equals(assignedPtc)) {
+                    adtRefs.add(paxId);
+                }
+            } else if (!adtRefs.isEmpty()) {
+                // infant linked to parent — counter not consumed
+            } else {
+                paxCount++;
+            }
+            paxRefs.add(paxId);
+            if (pax.getFirstname() != null) {
+                givenNames.add(pax.getFirstname().toUpperCase());
+            }
+        }
+    }
+
+    /** Traverses the booking response and returns the passenger list, or an empty list if unavailable. */
+    private static List<com.airlines.go7api.responsego7.common.Passenger> resolvePassengers(
+            com.airlines.go7api.responsego7.OrderRetrieveRspGo7Dto bookingRsp) {
+        if (bookingRsp == null || bookingRsp.getAerocrs() == null
+                || bookingRsp.getAerocrs().getBooking() == null) {
+            return Collections.emptyList();
+        }
+        com.airlines.go7api.responsego7.common.Booking booking = bookingRsp.getAerocrs().getBooking();
+        if (booking.getPassengers() == null || booking.getPassengers().getPassenger() == null) {
+            return Collections.emptyList();
+        }
+        return booking.getPassengers().getPassenger();
+    }
+
+    /** Resolves the effective PTC for a passenger from its paxtype and title. */
+    private static String resolvePtc(com.airlines.go7api.responsego7.common.Passenger pax) {
+        String rawTitle = pax.getPaxtitle() != null
+                ? pax.getPaxtitle().toUpperCase().replace(".", "")
+                : "MR";
+        boolean isInfantByTitle = rawTitle.contains("INF");
+
+        if ("INFANT".equalsIgnoreCase(pax.getPaxtype()) || isInfantByTitle) {
+            return "INF";
+        }
+        if ("CHILD".equalsIgnoreCase(pax.getPaxtype())) {
+            return "CNN";
+        }
+        return "ADT";
+    }
+
+    /** Assigns a pax ID, linking infants to the last adult reference when available. */
+    private static String assignPaxId(String ptc, List<String> adtRefs, int paxCount) {
+        if ("INF".equals(ptc)) {
+            return adtRefs.isEmpty() ? "T" + paxCount + ".1" : adtRefs.get(adtRefs.size() - 1) + ".1";
+        }
+        return "T" + paxCount;
     }
 
     private static SeatAvailabilityRspDto.OfferItem.Compartment mapCompartment(String classCode,
@@ -195,18 +229,7 @@ public class SeatAvailabilityResponse {
                 minRow = Math.min(minRow, row.getRowNumber());
                 maxRow = Math.max(maxRow, row.getRowNumber());
             }
-
-            if (row.getSeats() != null) {
-                for (Map.Entry<String, String> seatEntry : row.getSeats().entrySet()) {
-                    String seatKey = seatEntry.getKey(); // e.g., "10A"
-                    String status = seatEntry.getValue(); // e.g., "F" (Free)
-
-                    SeatAvailabilityRspDto.OfferItem.Compartment.Seat seat = mapSeat(row, seatKey, status, currency);
-                    if (seat != null) {
-                        seats.add(seat);
-                    }
-                }
-            }
+            processRowSeats(row, seats, currency);
         }
 
         if (minRow != Integer.MAX_VALUE)
@@ -217,6 +240,21 @@ public class SeatAvailabilityResponse {
 
         compartment.setSeat(seats);
         return compartment;
+    }
+
+    private static void processRowSeats(SeatAvailabilityRspGo7Dto.PaidSeatRow row,
+            List<SeatAvailabilityRspDto.OfferItem.Compartment.Seat> seats, String currency) {
+        if (row.getSeats() != null) {
+            for (Map.Entry<String, String> seatEntry : row.getSeats().entrySet()) {
+                String seatKey = seatEntry.getKey(); // e.g., "10A"
+                String status = seatEntry.getValue(); // e.g., "F" (Free)
+
+                SeatAvailabilityRspDto.OfferItem.Compartment.Seat seat = mapSeat(row, seatKey, status, currency);
+                if (seat != null) {
+                    seats.add(seat);
+                }
+            }
+        }
     }
 
     private static SeatAvailabilityRspDto.OfferItem.Compartment.Seat mapSeat(SeatAvailabilityRspGo7Dto.PaidSeatRow row,
